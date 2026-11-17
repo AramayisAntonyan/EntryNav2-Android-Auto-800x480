@@ -99,7 +99,7 @@ const uint16_t kBindingResponse = 0x8003;
 
 // Navigation and media status channels: every id from here up belongs to the service.
 const uint16_t kServiceFirst = 0x8000;
-const uint16_t kGuidanceState = 0x8003;  // navigation: guidance active or not
+const uint16_t kGuidanceState = 0x8003;     // navigation: guidance active or not
 const uint16_t kPlaybackState = 0x8001;     // media status: playing, paused...
 const uint16_t kPlaybackMetadata = 0x8003;  // media status: title, artist, album, cover (aasdk's numbering)
 }  // namespace msg

@@ -62,7 +62,7 @@ private:
 class Image {
 public:
     explicit Image(BasicString<char> path);  // _ZN3bmw5ImageC1ENS_11BasicStringIcEE
-    bool isLoaded();                          // _ZN3bmw5Image8isLoadedEv
+    bool isLoaded();                         // _ZN3bmw5Image8isLoadedEv
 
 private:
     BasicString<char> m_path;  // +0

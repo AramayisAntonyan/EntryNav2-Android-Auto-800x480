@@ -34,11 +34,18 @@ bool departHere(const kombi::Maneuver& m) {
 }
 
 bool sameLanes(const std::vector<kombi::PhoneLane>& a, const std::vector<kombi::PhoneLane>& b) {
-    if (a.size() != b.size()) return false;
+    if (a.size() != b.size()) {
+        return false;
+    }
     for (size_t i = 0; i < a.size(); ++i) {
-        if (a[i].size() != b[i].size()) return false;
-        for (size_t k = 0; k < a[i].size(); ++k)
-            if (a[i][k].shape != b[i][k].shape || a[i][k].highlighted != b[i][k].highlighted) return false;
+        if (a[i].size() != b[i].size()) {
+            return false;
+        }
+        for (size_t k = 0; k < a[i].size(); ++k) {
+            if (a[i][k].shape != b[i][k].shape || a[i][k].highlighted != b[i][k].highlighted) {
+                return false;
+            }
+        }
     }
     return true;
 }
@@ -103,7 +110,9 @@ bool parseApproach(const char* text, HudApproach& out) {
     char word[16] = "";
     double warn = -1, main = -1;
     const int n = text ? sscanf(text, "%15s %lf %lf", word, &warn, &main) : 0;
-    if (n < 1) return false;
+    if (n < 1) {
+        return false;
+    }
     HudApproach a = out;
     if (!strcmp(word, "off")) {
         a.mode = HudApproach::kOff;
@@ -112,14 +121,20 @@ bool parseApproach(const char* text, HudApproach& out) {
     } else if (!strcmp(word, "time")) {
         a.mode = HudApproach::kTime;
         if (n >= 2) {
-            if (warn <= 0 || warn > 600) return false;
+            if (warn <= 0 || warn > 600) {
+                return false;
+            }
             a.warnS = warn;
         }
         if (n >= 3) {
-            if (main < 0 || main > 600) return false;
+            if (main < 0 || main > 600) {
+                return false;
+            }
             a.mainS = main;
         }
-        if (a.mainS >= a.warnS) a.mainS = 0;  // a main prompt not below its warning: none
+        if (a.mainS >= a.warnS) {
+            a.mainS = 0;  // a main prompt not below its warning: none
+        }
     } else {
         return false;
     }
@@ -189,14 +204,20 @@ bool PipeSink::submit(const Batch& b) {
 
 const char* hudUnitText(int displayUnit) {
     switch (displayUnit) {
-        case kombi::kUnitMetres: return "m";
+        case kombi::kUnitMetres:
+            return "m";
         case kombi::kUnitKilometres:
-        case kombi::kUnitKilometresTenths: return "km";
+        case kombi::kUnitKilometresTenths:
+            return "km";
         case kombi::kUnitMiles:
-        case kombi::kUnitMilesTenths: return "mi";
-        case kombi::kUnitFeet: return "ft";
-        case kombi::kUnitYards: return "yd";
-        default: return "";
+        case kombi::kUnitMilesTenths:
+            return "mi";
+        case kombi::kUnitFeet:
+            return "ft";
+        case kombi::kUnitYards:
+            return "yd";
+        default:
+            return "";
     }
 }
 

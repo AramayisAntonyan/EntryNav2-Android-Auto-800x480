@@ -1,7 +1,8 @@
 // Copyright (c) 2026 Jiraiya43
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// Tests platform/dme_gauges.hpp and platform/hsfz.cpp: DID decoding, the frame of catalogue values to the Gauges app, the gateway's
-// identification answer, and one exchange with a fake gateway (alive check, acknowledgement, "pending", answer).
+// Tests platform/dme_gauges.hpp and platform/hsfz.cpp: DID decoding, the frame of catalogue values to the Gauges app,
+// the gateway's identification answer, and one exchange with a fake gateway (alive check, acknowledgement, "pending",
+// answer).
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
@@ -58,7 +59,7 @@ static void frames() {
     CHECK(dme::parseFrame(packet, static_cast<size_t>(n), 59, &g));
     CHECK(g.seq == 7 && g.count == 2 && g.entry[0] == 52 && g.value[0] == 0.85 && g.ageMs[1] == 300);
     CHECK(!dme::parseFrame(packet, static_cast<size_t>(n), 55, &g));  // an entry past the catalogue
-    CHECK(dme::parseFrame("G2 1\n", 5, 59, &g) && g.count == 0);  // nothing fresh: an empty frame
+    CHECK(dme::parseFrame("G2 1\n", 5, 59, &g) && g.count == 0);      // nothing fresh: an empty frame
     CHECK(!dme::parseFrame("G2 1 3:x:5", 10, 59, &g));
     CHECK(!dme::parseFrame("G2 1 3:1.0:-5", 13, 59, &g));
     CHECK(!dme::parseFrame("NBG3 1 0 0 0", 12, 59, &g));

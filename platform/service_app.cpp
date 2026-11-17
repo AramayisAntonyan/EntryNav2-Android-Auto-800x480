@@ -378,7 +378,8 @@ void ServiceApp::command(const ControlCommand& c, void* user) {
         // Chosen in the iDrive app's options panel, which then brings Android Auto back ("show"): sent once it is.
         a->pendingOption = c.hasArg && c.arg == 2 ? 2 : 1;
         a->pendingOptionMs = 0;
-        ELOG("ServiceApp", "options panel: %s, once Android Auto is back", a->pendingOption == 2 ? "tap" : "map buttons");
+        ELOG("ServiceApp", "options panel: %s, once Android Auto is back",
+             a->pendingOption == 2 ? "tap" : "map buttons");
     } else if (c.verb == "popup") {
         const PeekTiming::Popup popup = a->peek.popup(monoMs(), c.arg != 0);
         if (popup == PeekTiming::kPopupShown) {

@@ -26,9 +26,21 @@ PLUGIN_FILES = (
 )
 # The Gauges app under My Vehicle (hmiapp/gauge_app.cpp): a second iDrive app next to Android Auto.
 GAUGES = "opt/hmi/data/ro/Plugins/CarGauges"
-GAUGES_FILES = ("libCarGauges.so", "gauge-collector", "car-test", "CarGauges.manifest", "CarGauges.xml", "CarGauges_ALL_Images.zip")
+GAUGES_FILES = (
+    "libCarGauges.so",
+    "gauge-collector",
+    "car-test",
+    "CarGauges.manifest",
+    "CarGauges.xml",
+    "CarGauges_ALL_Images.zip",
+)
 PROGRAMS = ("entry-aad", "aa-supervisor")
-EXECUTABLES = {f"opt/aa/{name}" for name in PROGRAMS} | {f"{PLUGIN}/libEntryAad.so", f"{GAUGES}/libCarGauges.so", f"{GAUGES}/gauge-collector", f"{GAUGES}/car-test"}
+EXECUTABLES = {f"opt/aa/{name}" for name in PROGRAMS} | {
+    f"{PLUGIN}/libEntryAad.so",
+    f"{GAUGES}/libCarGauges.so",
+    f"{GAUGES}/gauge-collector",
+    f"{GAUGES}/car-test",
+}
 
 
 def validated_programs() -> dict:
@@ -56,7 +68,12 @@ def release_files() -> dict:
     )
     files = {f"{PLUGIN}/{name}": (ROOT / "hmiapp" / name).read_bytes() for name in PLUGIN_FILES}
     files.update({f"{GAUGES}/{name}": (ROOT / "hmiapp" / name).read_bytes() for name in GAUGES_FILES})
-    for lib in (f"{PLUGIN}/libEntryAad.so", f"{GAUGES}/libCarGauges.so", f"{GAUGES}/gauge-collector", f"{GAUGES}/car-test"):
+    for lib in (
+        f"{PLUGIN}/libEntryAad.so",
+        f"{GAUGES}/libCarGauges.so",
+        f"{GAUGES}/gauge-collector",
+        f"{GAUGES}/car-test",
+    ):
         if not files[lib].startswith(b"\x7fELF"):
             raise SystemExit(f"FAIL: {lib} is not an ARM build")
     files.update(validated_programs())

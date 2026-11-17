@@ -1,8 +1,9 @@
 // Copyright (c) 2026 Jiraiya43
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// ARM/QEMU: load libEntryAad.so (or libCarGauges.so, its app name as the second argument) the way ManagedPluginApp::init does (dlopen + dlsym "pluginAppInfo", create/destroy
-// at +0x10/+0x14) with the HU's own libAppFramework/libCoreFramework, and check the vtable slots the app patches
-// against the real bmw::PluginApp functions. create() is NOT called (it needs HmiMain3D's dispatcher).
+// ARM/QEMU: load libEntryAad.so (or libCarGauges.so, its app name as the second argument) the way
+// ManagedPluginApp::init does (dlopen + dlsym "pluginAppInfo", create/destroy at +0x10/+0x14) with the HU's own
+// libAppFramework/libCoreFramework, and check the vtable slots the app patches against the real bmw::PluginApp
+// functions. create() is NOT called (it needs HmiMain3D's dispatcher).
 #include <dlfcn.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -40,8 +41,7 @@ int main(int argc, char** argv) {
     memcpy(&rhmi, info + 0xc, 4);
     memcpy(&create, info + 0x10, 4);
     memcpy(&destroy, info + 0x14, 4);
-    CHECK(sizeof(void*) == 4 && major == 1 && minor == 0 && rhmi == 1 && create && destroy &&
-          !strcmp(name, expected));
+    CHECK(sizeof(void*) == 4 && major == 1 && minor == 0 && rhmi == 1 && create && destroy && !strcmp(name, expected));
     // Slots replaced by createApp(): onError 21, onInit 22, onFinalize 23 (from the vtable address point).
     void** vt = static_cast<void**>(dlsym(fw, "_ZTVN3bmw9PluginAppE"));
     CHECK(vt);

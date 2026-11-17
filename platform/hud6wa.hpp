@@ -69,8 +69,8 @@ struct HudProfile {
 // The junction view, from NBT-AAD #162: the factory's near view puts its roads in 6 and the route over them in 7
 // ("DecreasingArrow"), so 7/8 is the route overlay; colours from their car's colour sweep (7 black, 3 light grey,
 // 4 white); the canvas is clipped about 120..140 down (photos).
-const HudProfile k6wa = {"6wa", 1, 2, 3, 4, 5, 6, 4, {70, 20, 170, 120}, 32, 8, "-./", 7, 8, 7, 3, 4, 129,
-                         9,     10, {4, 22, 68, 48}};
+const HudProfile k6wa = {"6wa", 1, 2, 3, 4, 5,   6, 4,  {70, 20, 170, 120}, 32, 8, "-./",
+                         7,     8, 7, 3, 4, 129, 9, 10, {4, 22, 68, 48}};
 
 // The handles a profile lets the driver use: nothing else can be sent.
 HandleSet handlesOf(const HudProfile& p);
@@ -244,21 +244,21 @@ private:
     double nearMetres_;
     Layout layout_;
     bool hasLayout_;
-    bool near_;            // due: from nearMetres until the next maneuver
-    bool nearShown_;       // the picture on show is the junction view
-    double nearAt_;        // metres to the maneuver when it became due: the stages divide it
-    int stage_;            // the route stage due (0: none)
-    int stageShown_;       // the route stage drawn (0: none)
+    bool near_;       // due: from nearMetres until the next maneuver
+    bool nearShown_;  // the picture on show is the junction view
+    double nearAt_;   // metres to the maneuver when it became due: the stages divide it
+    int stage_;       // the route stage due (0: none)
+    int stageShown_;  // the route stage drawn (0: none)
     uint16_t routeVisible_;
-    bool routeDirty_;      // something of ours may be in the route overlay
+    bool routeDirty_;  // something of ours may be in the route overlay
     // the approach
     HudApproach approach_;
-    bool haveNext_;        // kTime: the next maneuver as last seen, shown or not, and how far it got
+    bool haveNext_;  // kTime: the next maneuver as last seen, shown or not, and how far it got
     kombi::Maneuver next_;
     double nextSince_;
-    int prompt_;           // Prompt
-    bool timed_;           // shown by the time rule (not its distance fallback): it stays until the next one
-    bool remind_;          // the main prompt is due on the maneuver shown
+    int prompt_;   // Prompt
+    bool timed_;   // shown by the time rule (not its distance fallback): it stays until the next one
+    bool remind_;  // the main prompt is due on the maneuver shown
     bool noSeconds_;
     // A next step that looks like the one shown (two right turns onto roads of the same name): its step body changed
     // since the draw and the distance jumped up from the nearest it got. renew_ holds until it is drawn or cleared.
@@ -266,13 +266,13 @@ private:
     bool hasMinM_;
     double minM_;
     bool renew_;
-    bool depart_;          // the last step was a DEPART at 0 m (logged once per run of them)
-    bool noDistance_;      // noDistanceAt_ valid: a maneuver without a distance yet
+    bool depart_;      // the last step was a DEPART at 0 m (logged once per run of them)
+    bool noDistance_;  // noDistanceAt_ valid: a maneuver without a distance yet
     double noDistanceAt_;
     // the lanes
     bool lanes_;
     uint16_t laneVisible_;
-    bool lanesDirty_;      // something of ours may be in the lane buffers
+    bool lanesDirty_;  // something of ours may be in the lane buffers
     std::vector<kombi::PhoneLane> lanesShown_;
 };
 

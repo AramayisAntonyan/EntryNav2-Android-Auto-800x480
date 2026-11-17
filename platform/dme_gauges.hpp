@@ -18,9 +18,10 @@
 //   IN THE SOFTWARE.
 //
 // Changes here (Jiraiya43 fork for the F22 / EntryNav2): C++ header for Linux; the frame carries any list of
-// catalogue entries (platform/gauge_catalogue.hpp) instead of BoostDeck's fixed eight. The DIDs and formulas are BoostDeck's, measured on a Gen 1
-// B58 (340i 2016): this car's B46/B48 DME may answer differently, which `gauge-collector --probe` shows before any
-// value is trusted. Readings that fail a check stay blank. Tests: tests/test_gauge_collector.cpp.
+// catalogue entries (platform/gauge_catalogue.hpp) instead of BoostDeck's fixed eight. The DIDs and formulas are
+// BoostDeck's, measured on a Gen 1 B58 (340i 2016): this car's B46/B48 DME may answer differently, which
+// `gauge-collector --probe` shows before any value is trusted. Readings that fail a check stay blank. Tests:
+// tests/test_gauge_collector.cpp.
 #ifndef ENTRY_AAD_PLATFORM_DME_GAUGES_HPP
 #define ENTRY_AAD_PLATFORM_DME_GAUGES_HPP
 

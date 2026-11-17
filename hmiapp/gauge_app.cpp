@@ -74,8 +74,8 @@ unsigned g_colour = 0;
 unsigned g_shiftPoint = 2;
 
 // Every catalogue entry's latest value: CDS from the iDrive, DME from the collector's frames.
-bool g_on[kEntryCount];         // ticked
-bool g_hidden[kEntryCount];     // an OBD value the DME does not support
+bool g_on[kEntryCount];      // ticked
+bool g_hidden[kEntryCount];  // an OBD value the DME does not support
 bool g_valid[kEntryCount];
 double g_value[kEntryCount];
 uint64_t g_seenAt[kEntryCount];  // DME values: when the frame carrying it arrived (they go stale)
@@ -85,14 +85,15 @@ unsigned g_cardEntry[kCards];  // the entry each card shows, kEntryCount: none
 int g_udp = -1;
 pid_t g_collector = -1;
 pid_t g_codesPid = -1;
-pid_t g_discoverPid = -1;   // gateway discovery started by the DME switch
-char g_dmeWhy[48] = "";     // why the engine values are not read, "" when they are (cards show it)
+pid_t g_discoverPid = -1;  // gateway discovery started by the DME switch
+char g_dmeWhy[48] = "";    // why the engine values are not read, "" when they are (cards show it)
 char g_collectorWant[512];
 
 char g_shownText[kModels][48];
 unsigned g_shownImage[kModels];
 
-// ---- models ----------------------------------------------------------------------------------------------------------
+// ---- models
+// ----------------------------------------------------------------------------------------------------------
 void setText(unsigned model, const char* text) {
     if (!g_app || model >= kModels || !strcmp(g_shownText[model], text)) {
         return;
@@ -135,7 +136,8 @@ unsigned barImage(unsigned card, unsigned level) {
     return kImgBar0 + colour * kBarColourStride + (level < kBarLevels ? level : kBarLevels - 1);
 }
 
-// ---- small files ------------------------------------------------------------------------------------------------------
+// ---- small files
+// ------------------------------------------------------------------------------------------------------
 bool readLine(const char* path, char* out, size_t cap) {
     FILE* f = fopen(path, "r");
     if (!f) {
@@ -210,7 +212,8 @@ bool livePage() {
     return dashPage() || g_page == kLiveState;
 }
 
-// ---- the collector ------------------------------------------------------------------------------------------------------
+// ---- the collector
+// ------------------------------------------------------------------------------------------------------
 pid_t spawnProgram(const char* program, const char* const* args, const char* outPath, bool truncate) {
     const int in = open("/dev/null", O_RDONLY | O_CLOEXEC);
     const int out = open(outPath, O_WRONLY | O_CREAT | O_CLOEXEC | (truncate ? O_TRUNC : O_APPEND), 0644);
@@ -358,7 +361,8 @@ void showCodes() {
     fclose(f);
 }
 
-// ---- pages ------------------------------------------------------------------------------------------------------------
+// ---- pages
+// ------------------------------------------------------------------------------------------------------------
 bool fresh(unsigned e) {
     if (!g_valid[e]) {
         return false;
@@ -472,7 +476,8 @@ void showShift() {
     setImage(kShiftBar, (live && rpm >= target ? kImgShiftWarn0 : kImgShift0) + level);
     char text[48];
     if (live) {
-        snprintf(text, sizeof(text), "%s%ld rpm", rpm >= target ? "SHIFT  " : "", static_cast<long>(rpm / 50 + 0.5) * 50);
+        snprintf(text, sizeof(text), "%s%ld rpm", rpm >= target ? "SHIFT  " : "",
+                 static_cast<long>(rpm / 50 + 0.5) * 50);
     } else {
         snprintf(text, sizeof(text), "-- rpm");
     }
@@ -544,8 +549,9 @@ void refresh() {
     }
 }
 
-// ---- Car tests ----------------------------------------------------------------------------------------------------------
-// One test at a time, started by the owner's press; its output on the page's lines (photographed) and appended to
+// ---- Car tests
+// ---------------------------------------------------------------------------------------------------------- One test
+// at a time, started by the owner's press; its output on the page's lines (photographed) and appended to
 // /var/local/data/AA/car-tests.log. Cluster tests: car-test (tools/car_test.cpp); gateway tests: gauge-collector.
 const char kCarTest[] = "/opt/hmi/data/ro/Plugins/CarGauges/car-test";
 const char kTestOut[] = "/tmp/car-test.txt";
@@ -581,7 +587,7 @@ const CarTest kCarTests[] = {
 const unsigned kCarTestCount = sizeof(kCarTests) / sizeof(kCarTests[0]);
 
 pid_t g_testPid = -1;
-int g_testRunning = -1;  // the test whose output is shown
+int g_testRunning = -1;        // the test whose output is shown
 const char* g_testState = "";  // its state on the results page: running, finished, ...
 
 void showTestStatus() {
@@ -720,13 +726,14 @@ void runTestProgram(const CarTest& t) {
     alog("gauges: car test pid %d", static_cast<int>(g_testPid));
 }
 
-// ---- the poll, while a page needs the collector -----------------------------------------------------------------------
+// ---- the poll, while a page needs the collector
+// -----------------------------------------------------------------------
 AppRunnable g_pollRunnable;
 bool g_pollPosted = false;
 
 bool needsPoll() {
-    return (livePage() && g_collector > 0) ||
-           (g_page == kCodesState && g_codesPid > 0) || g_testPid > 0 || g_discoverPid > 0;
+    return (livePage() && g_collector > 0) || (g_page == kCodesState && g_codesPid > 0) || g_testPid > 0 ||
+           g_discoverPid > 0;
 }
 
 void pollRun(void*) {
@@ -769,7 +776,8 @@ void pollRun(void*) {
         reap(&g_discoverPid);
         if (g_discoverPid <= 0) {
             char host[16] = "";
-            alog("gauges: gateway discovery ended: %s", readLine(kGatewayFile, host, sizeof(host)) && host[0] ? host : "not found");
+            alog("gauges: gateway discovery ended: %s",
+                 readLine(kGatewayFile, host, sizeof(host)) && host[0] ? host : "not found");
             g_dmeWhy[0] = 0;
             showMenu();  // the list's line, whichever page shows (iDrive keeps the model)
         }
@@ -800,7 +808,8 @@ void startPoll() {
     }
 }
 
-// ---- iDrive's notifications ------------------------------------------------------------------------------------------
+// ---- iDrive's notifications
+// ------------------------------------------------------------------------------------------
 void pageVisible(unsigned state, bool visible) {
     alog("gauges: state %u %s", state, visible ? "shown" : "hidden");
     if (!visible) {
@@ -935,8 +944,9 @@ struct ChoiceActions<0> {
     static void add(bmw::PluginApp*) {}
 };
 
-// ---- CDS ----------------------------------------------------------------------------------------------------------------
-// The distinct CDS properties of the catalogue, one stub each (a CdsStub carries no context).
+// ---- CDS
+// ---------------------------------------------------------------------------------------------------------------- The
+// distinct CDS properties of the catalogue, one stub each (a CdsStub carries no context).
 const unsigned kMaxProperties = 32;
 const char* g_properties[kMaxProperties];
 unsigned g_propertyCount = 0;

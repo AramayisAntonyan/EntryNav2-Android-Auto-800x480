@@ -783,7 +783,7 @@ void stepsAsideByItself() {
         CHECK_OUT(c, "");
         CHECK(c.logged("hold: OPTION: the Android Auto options panel is open"));
         c.polls(3);
-        CHECK_OUT(c, "");  // nothing fired over the panel
+        CHECK_OUT(c, "");    // nothing fired over the panel
         c.blankFocus(true);  // BACK: the panel closed without a choice
         c.poll();
         CHECK_OUT(c, "show, event 52");  // Android Auto back

@@ -83,8 +83,7 @@ bool HoldMachine::gearChanged(int gear, long now) {
     if (leaving && reverseHeld_ && !aaFocused_) {
         gearPending_ = true;
         gearPendingSince_ = now;
-        say("hold: out of reverse: Android Auto comes back once iDrive closes the camera (%d s at most)",
-            kCameraWaitS);
+        say("hold: out of reverse: Android Auto comes back once iDrive closes the camera (%d s at most)", kCameraWaitS);
         return false;
     }
     return true;

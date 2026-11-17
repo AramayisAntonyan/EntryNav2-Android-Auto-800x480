@@ -25,6 +25,7 @@ struct Entry {
     bool on;               // shown by default
 };
 
+// clang-format off
 const Entry kEntries[] = {
     {kCds, "Water", "C", 40, 130, 0, "engine.temperature", "engine", 255, 0x0, 0, 0, 0.0, 0.0, true},
     {kCds, "Oil", "C", 40, 150, 0, "engine.temperature", "oil", 255, 0x0, 0, 0, 0.0, 0.0, true},
@@ -88,6 +89,7 @@ const Entry kEntries[] = {
     {kDid, "Oil pressure", "bar", 0, 8, 1, nullptr, nullptr, 0, 0x586F, 0, 0, 0.0, 0.0, false},
     {kDid, "Coolant (DME)", "C", -30, 130, 0, nullptr, nullptr, 0, 0x4300, 0, 0, 0.0, 0.0, false},
 };
+// clang-format on
 const unsigned kEntryCount = sizeof(kEntries) / sizeof(kEntries[0]);
 
 // An OBD answer's data bytes to the value; false when too short.

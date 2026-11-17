@@ -87,12 +87,12 @@ protected:
 
 class HoldMachine {
 public:
-    static const int kMaxHoldTries = 8;      // events 52 until the blank state shows again
-    static const int kMenuRouteTries = 3;    // events 51 to reach it through our menu
-    static const int kAppKeyS = 2;           // an app key file this recent means NAV / MEDIA / COM was just pressed
-    static const int kCallEndS = 10;         // a call that ended this recently takes iDrive back to the blank state
-    static const long kMenuRefireMs = 300;   // our menu's focus fires event 52 at most this often
-    static const int kCameraWaitS = 15;      // out of reverse: the service is told when the camera closed, at most
+    static const int kMaxHoldTries = 8;     // events 52 until the blank state shows again
+    static const int kMenuRouteTries = 3;   // events 51 to reach it through our menu
+    static const int kAppKeyS = 2;          // an app key file this recent means NAV / MEDIA / COM was just pressed
+    static const int kCallEndS = 10;        // a call that ended this recently takes iDrive back to the blank state
+    static const long kMenuRefireMs = 300;  // our menu's focus fires event 52 at most this often
+    static const int kCameraWaitS = 15;     // out of reverse: the service is told when the camera closed, at most
 
     explicit HoldMachine(HoldIo& io);
 
@@ -172,9 +172,9 @@ private:
 
     // The car
     bool inCall_;
-    long callEnd_;  // when the last call ended, 0: handled
-    bool optionPanel_;   // OPTION opened the Android Auto page's options panel: Android Auto aside until it closes
-    bool panelClosed_;   // ...and it closed without a choice (BACK): Android Auto back at the next poll
+    long callEnd_;      // when the last call ended, 0: handled
+    bool optionPanel_;  // OPTION opened the Android Auto page's options panel: Android Auto aside until it closes
+    bool panelClosed_;  // ...and it closed without a choice (BACK): Android Auto back at the next poll
     int gear_;
     bool reverseHeld_;       // Android Auto was held when the reverse gear came
     bool gearPending_;       // out of reverse, the service not told yet (the camera may still be up)

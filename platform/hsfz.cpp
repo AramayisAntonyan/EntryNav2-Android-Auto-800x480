@@ -9,9 +9,9 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <poll.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <stdio.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -92,16 +92,15 @@ int connectGateway(const char* host, unsigned port, volatile sig_atomic_t* runni
     }
     int error = 0;
     socklen_t len = sizeof(error);
-    if (!ready(fd, POLLOUT, nowMs() + 1000, running) || getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len) ||
-        error) {
+    if (!ready(fd, POLLOUT, nowMs() + 1000, running) || getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len) || error) {
         close(fd);
         return -1;
     }
     return fd;
 }
 
-int exchange(int fd, unsigned ecu, const unsigned char* uds, unsigned udsSize, unsigned char* reply,
-             unsigned replySize, unsigned timeoutMs, unsigned* nrc, volatile sig_atomic_t* running) {
+int exchange(int fd, unsigned ecu, const unsigned char* uds, unsigned udsSize, unsigned char* reply, unsigned replySize,
+             unsigned timeoutMs, unsigned* nrc, volatile sig_atomic_t* running) {
     unsigned char request[16] = {0, 0, 0, 0, 0, 1, static_cast<unsigned char>(kTester), 0};
     if (fd < 0 || !uds || udsSize < 1 || udsSize > sizeof(request) - 8 || !readOnlyService(uds[0])) {
         return -1;

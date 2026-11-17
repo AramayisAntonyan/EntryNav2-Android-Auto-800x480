@@ -172,7 +172,8 @@ void Arrows::start(BmwProbe probe) {
         const bool junction = config_.junctionOffFile.empty() || access(config_.junctionOffFile.c_str(), F_OK) != 0;
         ELOG(kTag,
              "kombi-6wa: the arrows go to an F-series 6WA cluster (MOST HUDTerminal), not the KOMBI above; %s; "
-             "junction view %s; directions %s; approach %s (warn %g s, main prompt %g s, off-ramps and forks %g / %g m); "
+             "junction view %s; directions %s; approach %s (warn %g s, main prompt %g s, off-ramps and forks %g / %g "
+             "m); "
              "lanes %s",
              hudSink_.live() ? "SENT to the cluster (kombi-6wa-live, car-test --serve)" : "log only, nothing is sent",
              junction ? "within 300 m" : "off (kombi-6wa-junction-off)",

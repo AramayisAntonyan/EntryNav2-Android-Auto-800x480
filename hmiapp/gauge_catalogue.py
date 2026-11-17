@@ -102,9 +102,13 @@ def entries():
     """Every entry as a dict, in the order the Choose gauges list shows them."""
     out = []
     for t, u, lo, hi, dec, prop, key, invalid, on in CDS:
-        out.append(dict(source="cds", title=t, unit=u, lo=lo, hi=hi, dec=dec, prop=prop, key=key, invalid=invalid, on=on))
+        out.append(
+            dict(source="cds", title=t, unit=u, lo=lo, hi=hi, dec=dec, prop=prop, key=key, invalid=invalid, on=on)
+        )
     for t, u, lo, hi, dec, pid, n, f, a, b in OBD:
-        out.append(dict(source="obd", title=t, unit=u, lo=lo, hi=hi, dec=dec, pid=pid, n=n, f=FORMULAS[f], a=a, b=b, on=False))
+        out.append(
+            dict(source="obd", title=t, unit=u, lo=lo, hi=hi, dec=dec, pid=pid, n=n, f=FORMULAS[f], a=a, b=b, on=False)
+        )
     for t, u, lo, hi, dec, did in DID:
         out.append(dict(source="did", title=t, unit=u, lo=lo, hi=hi, dec=dec, did=did, on=False))
     return out
@@ -132,10 +136,13 @@ def cpp(es):
         "// OBD formulas over the answer's data bytes A (and B): 0 A*a, 1 A+b, 2 A*a+b, 3 (256A+B)*a, 4 (256A+B)*a+b.\n"
         "struct Entry {\n    Source source;\n    const char* title;\n    const char* unit;\n    double lo, hi;\n"
         "    int decimals;\n    const char* property;  // CDS\n    const char* key;       // CDS: the number's key\n"
-        "    double invalid;        // CDS: >= this is \"no value\" (0: none)\n"
+        '    double invalid;        // CDS: >= this is "no value" (0: none)\n'
         "    unsigned code;         // OBD PID or DID\n    unsigned bytes;        // OBD: data bytes\n"
-        "    unsigned formula;      // OBD\n    double a, b;           // OBD\n    bool on;               // shown by default\n};\n\n"
+        "    unsigned formula;      // OBD\n    double a, b;           // OBD\n"
+        "    bool on;               // shown by default\n};\n\n"
+        "// clang-format off\n"
         "const Entry kEntries[] = {\n" + "\n".join(rows) + "\n};\n"
+        "// clang-format on\n"
         "const unsigned kEntryCount = sizeof(kEntries) / sizeof(kEntries[0]);\n\n"
         "// An OBD answer's data bytes to the value; false when too short.\n"
         "inline bool obdValue(const Entry& e, const unsigned char* d, unsigned n, double* out) {\n"

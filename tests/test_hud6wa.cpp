@@ -38,8 +38,8 @@ Bytes bytes(const char* hex) {
 void payloads() {
     CHECK(setText(3, "250") == bytes("0003 00 0032 0035 0030 0000"));
     CHECK(setText(2, "") == bytes("0002 00 0000"));
-    CHECK(setText(2, "M\xc3\xbc").empty());                     // not plain ASCII: refused, not mangled
-    CHECK(setText(2, std::string(33, 'a').c_str()).empty());     // longer than 32
+    CHECK(setText(2, "M\xc3\xbc").empty());                   // not plain ASCII: refused, not mangled
+    CHECK(setText(2, std::string(33, 'a').c_str()).empty());  // longer than 32
     CHECK(setVisibility(1, true) == bytes("0001 01"));
     CHECK(switchVisibility(6, 5) == bytes("0006 0005"));
     CHECK(removeAllItems(5) == bytes("0005"));
@@ -61,8 +61,8 @@ void payloads() {
 
     HandleSet allowed = handlesOf(k6wa);
     CHECK(callOk(Call(kSetVisibility, setVisibility(1, true)), allowed));
-    CHECK(callOk(Call(kRemoveAllItems, removeAllItems(9)), allowed));           // the lanes
-    CHECK(!callOk(Call(kSetVisibility, setVisibility(11, true)), allowed));     // a layer we never touch
+    CHECK(callOk(Call(kRemoveAllItems, removeAllItems(9)), allowed));        // the lanes
+    CHECK(!callOk(Call(kSetVisibility, setVisibility(11, true)), allowed));  // a layer we never touch
     CHECK(!callOk(Call(kSetVisibility, setVisibility(22, false)), allowed));
     CHECK(!callOk(Call(kSwitchVisibility, switchVisibility(6, 11)), allowed));  // the second handle too
     CHECK(!callOk(Call(kRemoveAllItems, removeAllItems(0)), allowed));
@@ -71,7 +71,9 @@ void payloads() {
 
 void texts() {
     // Umlauts the German way, the comma and anything else a space, punctuation from the profile kept.
-    CHECK(toClusterText("M\xc3\xbcnchner Stra\xc3\x9f" "e, 5", "-./", 32, false) == "Muenchner Strasse 5");
+    CHECK(toClusterText("M\xc3\xbcnchner Stra\xc3\x9f"
+                        "e, 5",
+                        "-./", 32, false) == "Muenchner Strasse 5");
     CHECK(toClusterText("A9 / E45 \xe2\x86\x92 N\xc3\xbcrnberg", "-./", 32, false) == "A9 / E45 Nuernberg");
     CHECK(toClusterText("0,3", ".", 8, true) == "0.3");
     CHECK(toClusterText(std::string(40, 'x'), "", 32, false).size() == 32);
@@ -121,7 +123,7 @@ void everyShapeFits() {
     CHECK(shapeFor(39, false, 0).kind == kShapeFlag);
     const ShapeSpec r = shapeFor(31, true, 90);
     CHECK(r.kind == kShapeRoundabout && !r.clockwise && r.exit == 90);
-    CHECK(shapeFor(31, true, 0).exit == 180);  // no usable angle: straight across
+    CHECK(shapeFor(31, true, 0).exit == 180);       // no usable angle: straight across
     CHECK(shapeFor(22, false, 0).stub != kNoStub);  // off ramp right: the highway goes on
     CHECK(describeSpec(shapeFor(8, false, 0)) == "arrow +90");
 }
@@ -139,13 +141,18 @@ public:
 
 size_t count(const Batch& b, uint16_t fkt) {
     size_t n = 0;
-    for (size_t i = 0; i < b.calls.size(); ++i) n += b.calls[i].fkt == fkt;
+    for (size_t i = 0; i < b.calls.size(); ++i) {
+        n += b.calls[i].fkt == fkt;
+    }
     return n;
 }
 
 const Call* find(const Batch& b, uint16_t fkt, uint16_t handle) {
-    for (size_t i = 0; i < b.calls.size(); ++i)
-        if (b.calls[i].fkt == fkt && b.calls[i].handle() == handle) return &b.calls[i];
+    for (size_t i = 0; i < b.calls.size(); ++i) {
+        if (b.calls[i].fkt == fkt && b.calls[i].handle() == handle) {
+            return &b.calls[i];
+        }
+    }
     return NULL;
 }
 
@@ -187,7 +194,9 @@ void driver() {
     CHECK(count(first, kSetVisibility) == 4);  // street, distance, unit, then the frame
     CHECK(first.calls.back().fkt == kSetVisibility && first.calls.back().handle() == 1);
     CHECK(textOf(first, 2) == "Main St" && textOf(first, 3) == "300" && textOf(first, 4) == "m");
-    for (size_t i = 0; i < first.calls.size(); ++i) CHECK(callOk(first.calls[i], allowed));
+    for (size_t i = 0; i < first.calls.size(); ++i) {
+        CHECK(callOk(first.calls[i], allowed));
+    }
 
     // The same turn, same distance: nothing. A new distance: only after distanceEveryS, and only the text.
     hud.step(&m, 1.1);
@@ -272,8 +281,11 @@ void junctionView() {
     const Batch& route = rec.batches[2];
     CHECK(route.calls[0].fkt == kRemoveAllItems && route.calls[0].handle() == 7);
     CHECK(count(route, kAddPolygon) == 2 && find(route, kSwitchVisibility, 8) != NULL);
-    for (size_t b = 0; b < rec.batches.size(); ++b)
-        for (size_t i = 0; i < rec.batches[b].calls.size(); ++i) CHECK(callOk(rec.batches[b].calls[i], allowed));
+    for (size_t b = 0; b < rec.batches.size(); ++b) {
+        for (size_t i = 0; i < rec.batches[b].calls.size(); ++i) {
+            CHECK(callOk(rec.batches[b].calls[i], allowed));
+        }
+    }
 
     m.distanceText = "200";
     m.metres = 200;
@@ -406,7 +418,9 @@ void timeApproach() {
     j = timed(7, "Elm St", 600, 19);
     h3.step(&j, 1.0);
     CHECK(h3.nearShown() && r3.batches[1].label == "junction");
-    for (size_t i = 0; i < r3.batches.size(); ++i) CHECK(r3.batches[i].label != "remind");
+    for (size_t i = 0; i < r3.batches.size(); ++i) {
+        CHECK(r3.batches[i].label != "remind");
+    }
 
     // The settings file.
     HudApproach a;
@@ -455,7 +469,9 @@ void departAndRenewedStep() {
     again.metres = 950;
     again.distanceText = "950";
     hud.step(&again, 24.0);
-    for (size_t i = mark2; i < rec.batches.size(); ++i) CHECK(rec.batches[i].label != "maneuver");
+    for (size_t i = mark2; i < rec.batches.size(); ++i) {
+        CHECK(rec.batches[i].label != "maneuver");
+    }
 
     // A first maneuver without a distance waits firstDistanceS, then shows without one.
     Recorder r2;
@@ -490,14 +506,17 @@ void lanes() {
     const Batch& l = rec.batches[1];
     CHECK(l.calls[0].handle() == 9 && count(l, kAddPolygon) == 4 && find(l, kSwitchVisibility, 10) != NULL);
     CHECK(count(l, kSetFillColor) == 2);  // the others, then the lanes to take
-    for (size_t i = 0; i < l.calls.size(); ++i) CHECK(callOk(l.calls[i], allowed));
+    for (size_t i = 0; i < l.calls.size(); ++i) {
+        CHECK(callOk(l.calls[i], allowed));
+    }
     hud.step(&m, 1.0);
     CHECK(rec.batches.size() == 2);  // the same lanes: nothing
     m.lanes.clear();
     hud.step(&m, 2.0);
     CHECK(rec.batches.back().label == "lanes off");
     hud.clear("test");
-    CHECK(find(rec.batches.back(), kRemoveAllItems, 9) != NULL && find(rec.batches.back(), kSwitchVisibility, 9) != NULL);
+    CHECK(find(rec.batches.back(), kRemoveAllItems, 9) != NULL &&
+          find(rec.batches.back(), kSwitchVisibility, 9) != NULL);
     // Every lane shape fits its box.
     for (int shape = 0; shape <= 9; ++shape) {
         Picture pic;

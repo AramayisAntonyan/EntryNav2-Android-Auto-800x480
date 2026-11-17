@@ -53,7 +53,12 @@ CASES = [
     ("hmi-load", "tests/test-hmiapp-load-arm", [str(ROOT / "hmiapp/libEntryAad.so")], None),
     ("hmi-load-gauges", "tests/test-hmiapp-load-arm", [str(ROOT / "hmiapp/libCarGauges.so"), "Gauges"], None),
     ("car-test-selftest", "hmiapp/car-test", ["--selftest"], "calls, OK"),
-    ("gauge-collector-demo", "hmiapp/gauge-collector", ["--demo", "--want", "23,52,58", "--cycles", "3"], "demo: 3 frames sent"),
+    (
+        "gauge-collector-demo",
+        "hmiapp/gauge-collector",
+        ["--demo", "--want", "23,52,58", "--cycles", "3"],
+        "demo: 3 frames sent",
+    ),
     ("hold-machine", "tests/test-hold-machine-arm", [], None),
     ("spawn-glibc", "tests/test-spawn-attr-arm", ["--hu-glibc"], None),
     # The developer tools: the recorder's parser on 32 bits, and evo-check's loading with every symbol bound.

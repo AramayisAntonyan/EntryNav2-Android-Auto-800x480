@@ -7,9 +7,9 @@
 //
 // Ported from ID6 apps' collector (github.com/inotbarnacle/ID6_apps_prerelease, source/native/src/collector.c), MIT,
 // Copyright (c) 2026 ID6 Apps contributors (notice in platform/dme_gauges.hpp). Changes: Linux; any list of the
-// catalogue's OBD and BMW values (platform/gauge_catalogue.hpp) instead of a fixed eight; the DME asked which OBD values
-// it supports; a probe that prints the raw answers; the gateway found by the identification broadcast, as their desktop
-// installer does; no MHD map switching and no code clearing (writes to the DME).
+// catalogue's OBD and BMW values (platform/gauge_catalogue.hpp) instead of a fixed eight; the DME asked which OBD
+// values it supports; a probe that prints the raw answers; the gateway found by the identification broadcast, as their
+// desktop installer does; no MHD map switching and no code clearing (writes to the DME).
 //
 //   gauge-collector --discover [--write FILE]          broadcast the vehicle identification, print/save the gateway
 //   gauge-collector --supported --host IP [--write F]  the OBD PIDs this DME answers (01 00/20/40/60), hex, one line
@@ -21,8 +21,8 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <ifaddrs.h>
-#include <net/if.h>
 #include <math.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <signal.h>
@@ -124,8 +124,7 @@ int discover(const char* writeFile) {
     char gateway[16] = "";
     int networks = 0, answers = 0;
     for (struct ifaddrs* i = list; i; i = i->ifa_next) {
-        if (!i->ifa_addr || i->ifa_addr->sa_family != AF_INET || !(i->ifa_flags & IFF_BROADCAST) ||
-            !i->ifa_broadaddr) {
+        if (!i->ifa_addr || i->ifa_addr->sa_family != AF_INET || !(i->ifa_flags & IFF_BROADCAST) || !i->ifa_broadaddr) {
             continue;
         }
         char local[16], bcast[16];

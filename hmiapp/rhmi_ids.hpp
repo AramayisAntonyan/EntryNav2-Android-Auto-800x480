@@ -32,10 +32,10 @@ const unsigned kActStart = 21;
 const unsigned kActStop = 22;
 const unsigned kActAutostart = 24;
 const unsigned kActUsbCable = 26;
-const unsigned kActAnyDistance = 45;  // the menu's "Directions at any distance" checkbox (model 41); not 31: a model
+const unsigned kActAnyDistance = 45;    // the menu's "Directions at any distance" checkbox (model 41); not 31: a model
 const unsigned kAnyDistanceModel = 41;  // not 40: the NativeStateID model of event 50
-const unsigned kActMapButtons = 27;  // the Android Auto page's options panel (OPTION): "Show map buttons"
-const unsigned kActMapTap = 28;      // "Tap the map"; 29 "Android Auto menu" is an hmiAction to state 10
+const unsigned kActMapButtons = 27;     // the Android Auto page's options panel (OPTION): "Show map buttons"
+const unsigned kActMapTap = 28;         // "Tap the map"; 29 "Android Auto menu" is an hmiAction to state 10
 
 // ---- the entry button ----------------------------------------------------------------------------------------------
 const unsigned kEntryTextModel = 3;

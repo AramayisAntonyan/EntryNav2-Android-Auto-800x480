@@ -26,9 +26,7 @@ struct OptionKey {
     uint32_t keycode;  // kKey only
     OptionKey() : mode(kNudge), keycode(0) {}
     bool toAndroidAuto() const { return mode != kMenu; }
-    const char* name() const {
-        return mode == kNudge ? "nudge" : mode == kTap ? "tap" : mode == kKey ? "key" : "menu";
-    }
+    const char* name() const { return mode == kNudge ? "nudge" : mode == kTap ? "tap" : mode == kKey ? "key" : "menu"; }
 };
 
 // The key codes the input channel declares (core/include/dhu_sdp.h, input service 7): the phone ignores the others.

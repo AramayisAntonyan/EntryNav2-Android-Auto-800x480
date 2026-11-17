@@ -135,7 +135,9 @@ def main():
             f'      <raDataModel id="{400 + c}" modelType="Richtext"/>',
         ]
     models.append('      <imageIdModel id="90" imageId="57000"/>')
-    models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (91, 92, 93, 103, 104, 105, 106, 107, 108)]
+    models += [
+        f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (91, 92, 93, 103, 104, 105, 106, 107, 108)
+    ]
     models += [f'      <raDataModel id="{95 + i}" modelType="Richtext"/>' for i in range(8)]
     models += [f'      <raBoolModel id="{600 + i}"/>' for i in range(len(entries))]
     models += [f'      <raDataModel id="{109 + i}" modelType="Richtext"/>' for i in range(1 + TEST_LINES)]

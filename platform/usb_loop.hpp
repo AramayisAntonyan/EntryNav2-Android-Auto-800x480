@@ -40,11 +40,11 @@ struct UsbLoopSetup {
 // A phone in its normal mode is asked to become an accessory (askAccessoryMode); it comes back on the same port and
 // its interface 0 is claimed at once, before the car's own USB service looks at it. An interface another program
 // holds is never taken from it, unless the setup allows it (takeover: only from a usbfs program, never from a kernel
-// driver; the EntryNav2's media player claims every accessory). An accessory this loop cannot use (left by an earlier session, made by the car for
-// itself, or held by another program) is no use to the phone either: the phone alone is reset, which is what
-// unplugging it does, and it is
-// asked again. A phone that says nothing may be showing a question to its owner: it is tried again as it is, without
-// a reset. After 3 resets with no session that held, the phone is left alone until it is plugged in again.
+// driver; the EntryNav2's media player claims every accessory). An accessory this loop cannot use (left by an earlier
+// session, made by the car for itself, or held by another program) is no use to the phone either: the phone alone is
+// reset, which is what unplugging it does, and it is asked again. A phone that says nothing may be showing a question
+// to its owner: it is tried again as it is, without a reset. After 3 resets with no session that held, the phone is
+// left alone until it is plugged in again.
 void runUsbLoop(const UsbLoopSetup& setup, UsbHost& host);
 
 }  // namespace evo

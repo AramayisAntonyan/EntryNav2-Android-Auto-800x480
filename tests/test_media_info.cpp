@@ -13,12 +13,12 @@ namespace {
 
 int failures = 0;
 
-#define CHECK(cond)                                                    \
-    do {                                                               \
-        if (!(cond)) {                                                 \
+#define CHECK(cond)                                                         \
+    do {                                                                    \
+        if (!(cond)) {                                                      \
             std::fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #cond); \
-            ++failures;                                                \
-        }                                                              \
+            ++failures;                                                     \
+        }                                                                   \
     } while (0)
 
 using Bytes = std::vector<uint8_t>;

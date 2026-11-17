@@ -9,6 +9,7 @@
 #   3. the car darkened to sit with the iDrive's own car pictures; cropped and fitted into the top 549x330.
 import sys
 from collections import deque
+
 from PIL import Image
 
 src, dst = sys.argv[1], sys.argv[2]
@@ -31,9 +32,11 @@ im = src_im.convert("RGB")
 w, h = im.size
 px = im.load()
 
+
 def white(p):
     r, g, b = p
     return min(r, g, b) >= 246 and max(r, g, b) - min(r, g, b) <= 6
+
 
 back = bytearray(w * h)
 q = deque((x, y) for x in range(w) for y in (0, h - 1))
@@ -48,9 +51,11 @@ while q:
     back[i] = 1
     q.extend(((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
 
+
 def car_pixel(p):
     r, g, b = p
     return max(r, g, b) - min(r, g, b) > 28 or (r + g + b) / 3 < 60
+
 
 lowest = [-1] * w
 for x in range(w):

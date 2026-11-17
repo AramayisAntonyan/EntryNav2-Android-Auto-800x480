@@ -33,8 +33,8 @@ int connectGateway(const char* host, unsigned port, volatile sig_atomic_t* runni
 // One request to `ecu` and its answer: the reply bytes after the HSFZ address bytes, starting with the positive
 // response service (e.g. 62 <DID> ...). Returns their count, -2 for a negative response (*nrc set), -1 for a
 // transport failure or timeout. "Response pending" (7F xx 78) is waited for; the gateway's alive check answered.
-int exchange(int fd, unsigned ecu, const unsigned char* uds, unsigned udsSize, unsigned char* reply,
-             unsigned replySize, unsigned timeoutMs, unsigned* nrc, volatile sig_atomic_t* running);
+int exchange(int fd, unsigned ecu, const unsigned char* uds, unsigned udsSize, unsigned char* reply, unsigned replySize,
+             unsigned timeoutMs, unsigned* nrc, volatile sig_atomic_t* running);
 
 // The gateway's answer to the identification broadcast: true when it carries DIAGADR10 (the gateway), with the
 // address the answer came from. Head units answer DIAGADR62/63 and are not the gateway.

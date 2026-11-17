@@ -55,7 +55,7 @@ constexpr char kUsbTakeover[] = "/var/local/data/AA/usb-takeover";
 constexpr char kAppLog[] = "/var/local/data/AA/app.log";
 constexpr char kAppLogOld[] = "/var/local/data/AA/app.old.log";
 constexpr char kAppDisable[] = "/var/local/data/AA/app.disable";  // present: the app stays off (set by hand)
-constexpr char kAppGuard[] = "/var/local/data/AA/app-guard";   // crash guard: 3 crashes of iDrive and the app stays off
+constexpr char kAppGuard[] = "/var/local/data/AA/app-guard";  // crash guard: 3 crashes of iDrive and the app stays off
 // The crash guard's note of the running load (time, the unit's crash records then); gone after 2 stable minutes.
 constexpr char kAppGuardLoad[] = "/var/local/data/AA/app-guard-load";
 // Where the unit's ResetManager keeps the core dumps of crashed processes (one folder per dump: 00, 01, 02).
@@ -68,8 +68,8 @@ constexpr char kServiceStop[] = "/tmp/entry-aa-service/STOP";  // created by the
 constexpr char kServiceLog[] = "/tmp/entry-aa-service.log";
 // The phone's current track, written by the service when it changes: "title\nartist\nalbum\ncover path or empty\n".
 constexpr char kTrackFile[] = "/tmp/entry-aa-service/track";
-constexpr char kCoverJpg[] = "/tmp/entry-aa-service/cover.jpg";  // the track's cover as the phone sent it: one of the
-constexpr char kCoverPng[] = "/tmp/entry-aa-service/cover.png";  // two at most, none when the track has no cover
+constexpr char kCoverJpg[] = "/tmp/entry-aa-service/cover.jpg";   // the track's cover as the phone sent it: one of the
+constexpr char kCoverPng[] = "/tmp/entry-aa-service/cover.png";   // two at most, none when the track has no cover
 constexpr char kStateFile[] = "/tmp/entry-aad-state";             // "state pid overlay", written by the service
 constexpr char kAppKeyFile[] = "/tmp/entry-aad-appkey";           // NAV/MEDIA/COM/BACK kept Android Auto up
 constexpr char kDayNightFile[] = "/tmp/entry-aad-daynight";       // day or night, written by the app

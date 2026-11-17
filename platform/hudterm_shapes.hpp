@@ -74,13 +74,23 @@ inline int isin(int deg) {
         4034, 4046, 4056, 4065, 4074, 4080, 4086, 4090, 4094, 4095, 4096,
     };
     int d = deg % 360;
-    if (d < 0) d += 360;
-    if (d <= 90) return kSin[d];
-    if (d <= 180) return kSin[180 - d];
-    if (d <= 270) return -kSin[d - 180];
+    if (d < 0) {
+        d += 360;
+    }
+    if (d <= 90) {
+        return kSin[d];
+    }
+    if (d <= 180) {
+        return kSin[180 - d];
+    }
+    if (d <= 270) {
+        return -kSin[d - 180];
+    }
     return -kSin[360 - d];
 }
-inline int icos(int deg) { return isin(deg + 90); }
+inline int icos(int deg) {
+    return isin(deg + 90);
+}
 
 // r * f / 4096, rounded half away from zero.
 inline int mulTrig(int r, int f) {
@@ -95,30 +105,73 @@ inline ShapeSpec shapeFor(int aaType, bool hasExitAngle, int64_t exitAngle) {
     ShapeSpec s;
     const int d = kombi::clusterDirection(aaType);
     switch (d) {
-        case kombi::kHalfLeft: s.angle = -45; break;
-        case kombi::kHalfRight: s.angle = 45; break;
-        case kombi::kTightLeft: s.angle = -135; break;
-        case kombi::kTightRight: s.angle = 135; break;
-        case kombi::kLeft: s.angle = -90; break;
-        case kombi::kRight: s.angle = 90; break;
-        case kombi::kUTurnLeft: s.kind = kShapeUTurn; s.angle = -1; break;
-        case kombi::kUTurnRight: s.kind = kShapeUTurn; s.angle = 1; break;
-        case kombi::kDestination: s.kind = kShapeFlag; break;
+        case kombi::kHalfLeft:
+            s.angle = -45;
+            break;
+        case kombi::kHalfRight:
+            s.angle = 45;
+            break;
+        case kombi::kTightLeft:
+            s.angle = -135;
+            break;
+        case kombi::kTightRight:
+            s.angle = 135;
+            break;
+        case kombi::kLeft:
+            s.angle = -90;
+            break;
+        case kombi::kRight:
+            s.angle = 90;
+            break;
+        case kombi::kUTurnLeft:
+            s.kind = kShapeUTurn;
+            s.angle = -1;
+            break;
+        case kombi::kUTurnRight:
+            s.kind = kShapeUTurn;
+            s.angle = 1;
+            break;
+        case kombi::kDestination:
+            s.kind = kShapeFlag;
+            break;
         case kombi::kRoundaboutClockwise:
         case kombi::kRoundaboutCounterClockwise:
             s.kind = kShapeRoundabout;
             s.clockwise = d == kombi::kRoundaboutClockwise;
-            if (hasExitAngle && exitAngle >= 1 && exitAngle <= 360) s.exit = static_cast<int>(exitAngle);
+            if (hasExitAngle && exitAngle >= 1 && exitAngle <= 360) {
+                s.exit = static_cast<int>(exitAngle);
+            }
             break;
-        case kombi::kHighwayInLeft: s.angle = -45; break;
-        case kombi::kHighwayInRight: s.angle = 45; break;
-        case kombi::kHighwayOutLeft: s.angle = -45; s.stub = 20; break;  // the highway goes on, bent away
-        case kombi::kHighwayOutRight: s.angle = 45; s.stub = -20; break;
-        case kombi::kLaneChangeLeft: s.angle = -30; break;
-        case kombi::kLaneChangeRight: s.angle = 30; break;
-        case kombi::kForkLeft: s.angle = -40; s.stub = 40; break;  // the other branch as a stub
-        case kombi::kForkRight: s.angle = 40; s.stub = -40; break;
-        default: break;  // straight on
+        case kombi::kHighwayInLeft:
+            s.angle = -45;
+            break;
+        case kombi::kHighwayInRight:
+            s.angle = 45;
+            break;
+        case kombi::kHighwayOutLeft:
+            s.angle = -45;
+            s.stub = 20;
+            break;  // the highway goes on, bent away
+        case kombi::kHighwayOutRight:
+            s.angle = 45;
+            s.stub = -20;
+            break;
+        case kombi::kLaneChangeLeft:
+            s.angle = -30;
+            break;
+        case kombi::kLaneChangeRight:
+            s.angle = 30;
+            break;
+        case kombi::kForkLeft:
+            s.angle = -40;
+            s.stub = 40;
+            break;  // the other branch as a stub
+        case kombi::kForkRight:
+            s.angle = 40;
+            s.stub = -40;
+            break;
+        default:
+            break;  // straight on
     }
     return s;
 }
@@ -127,16 +180,21 @@ inline ShapeSpec shapeFor(int aaType, bool hasExitAngle, int64_t exitAngle) {
 inline std::string describeSpec(const ShapeSpec& s) {
     char b[48];
     switch (s.kind) {
-        case kShapeUTurn: snprintf(b, sizeof(b), "u-turn %s", s.angle < 0 ? "left" : "right"); break;
+        case kShapeUTurn:
+            snprintf(b, sizeof(b), "u-turn %s", s.angle < 0 ? "left" : "right");
+            break;
         case kShapeRoundabout:
             snprintf(b, sizeof(b), "roundabout %s exit %d", s.clockwise ? "cw" : "ccw", s.exit);
             break;
-        case kShapeFlag: snprintf(b, sizeof(b), "flag"); break;
+        case kShapeFlag:
+            snprintf(b, sizeof(b), "flag");
+            break;
         default:
-            if (s.stub == kNoStub)
+            if (s.stub == kNoStub) {
                 snprintf(b, sizeof(b), "arrow %+d", s.angle);
-            else
+            } else {
                 snprintf(b, sizeof(b), "arrow %+d stub %+d", s.angle, s.stub);
+            }
             break;
     }
     return b;
@@ -197,15 +255,21 @@ inline Poly arrow(int x, int y, int deg, int len, int headW = kHeadW, int headL 
 // A regular n-gon of radius r round (x, y): the round joint where a stem meets a bent arrow.
 inline Poly disc(int x, int y, int r, int n) {
     std::vector<Point> p;
-    for (int i = 0; i < n; ++i) p.push_back(along(x, y, i * 360 / n, r, 0));
+    for (int i = 0; i < n; ++i) {
+        p.push_back(along(x, y, i * 360 / n, r, 0));
+    }
     return poly(p);
 }
 
 // The band between radii r0 < r1 round (x, y) from heading a0 to a1 (degrees, a0 < a1), in `steps` steps.
 inline Poly band(int x, int y, int r0, int r1, int a0, int a1, int steps) {
     std::vector<Point> p;
-    for (int i = 0; i <= steps; ++i) p.push_back(along(x, y, a0 + (a1 - a0) * i / steps, r1, 0));
-    for (int i = steps; i >= 0; --i) p.push_back(along(x, y, a0 + (a1 - a0) * i / steps, r0, 0));
+    for (int i = 0; i <= steps; ++i) {
+        p.push_back(along(x, y, a0 + (a1 - a0) * i / steps, r1, 0));
+    }
+    for (int i = steps; i >= 0; --i) {
+        p.push_back(along(x, y, a0 + (a1 - a0) * i / steps, r0, 0));
+    }
     return poly(p);
 }
 
@@ -217,8 +281,12 @@ inline void drawArrow(const ShapeSpec& s, Shape& out) {
     const int shift = m < 23 ? 0 : m < 68 ? 100 : 180;
     const int jx = 500 - side * shift, jy = m > 112 ? 420 : 520, len = m > 150 ? 520 : m > 112 ? 640 : 420;
     out.push_back(bar(jx, kBottom, 0, kBottom - jy, kShaft));
-    if (s.stub != kNoStub) out.push_back(bar(jx, jy, s.stub, kStubL, kStubW));
-    if (m) out.push_back(disc(jx, jy, kShaft / 2, 12));
+    if (s.stub != kNoStub) {
+        out.push_back(bar(jx, jy, s.stub, kStubL, kStubW));
+    }
+    if (m) {
+        out.push_back(disc(jx, jy, kShaft / 2, 12));
+    }
     out.push_back(arrow(jx, jy, a, len));
 }
 
@@ -239,7 +307,9 @@ inline void drawRoundabout(const ShapeSpec& s, Shape& out) {
     // first, so its exit heading is 180 - exit; clockwise is 180 + exit.
     int h = s.clockwise ? 180 + s.exit : 180 - s.exit;
     h %= 360;
-    if (h < 0) h += 360;
+    if (h < 0) {
+        h += 360;
+    }
     const Point from = along(cx, cy, h, rm, 0);
     out.push_back(arrow(from.x, from.y, h, 245, 340, 180));
 }
@@ -261,10 +331,18 @@ inline void drawFlag(Shape& out) {
 inline void drawShape(const ShapeSpec& s, Shape& out) {
     out.clear();
     switch (s.kind) {
-        case kShapeUTurn: shapes::drawUTurn(s, out); break;
-        case kShapeRoundabout: shapes::drawRoundabout(s, out); break;
-        case kShapeFlag: shapes::drawFlag(out); break;
-        default: shapes::drawArrow(s, out); break;
+        case kShapeUTurn:
+            shapes::drawUTurn(s, out);
+            break;
+        case kShapeRoundabout:
+            shapes::drawRoundabout(s, out);
+            break;
+        case kShapeFlag:
+            shapes::drawFlag(out);
+            break;
+        default:
+            shapes::drawArrow(s, out);
+            break;
     }
 }
 
@@ -273,7 +351,7 @@ inline void drawShape(const ShapeSpec& s, Shape& out) {
 inline void fitShape(const Shape& in, const Rect& box, Shape& out) {
     out = in;
     const int w = box.x1 - box.x0, h = box.y1 - box.y0;
-    for (size_t i = 0; i < out.size(); ++i)
+    for (size_t i = 0; i < out.size(); ++i) {
         for (size_t k = 0; k < out[i].pts.size(); ++k) {
             int x = out[i].pts[k].x, y = out[i].pts[k].y;
             x = x < 0 ? 0 : x > kDesign ? kDesign : x;
@@ -281,6 +359,7 @@ inline void fitShape(const Shape& in, const Rect& box, Shape& out) {
             out[i].pts[k].x = static_cast<int16_t>(box.x0 + (x * w + kDesign / 2) / kDesign);
             out[i].pts[k].y = static_cast<int16_t>(box.y0 + (y * h + kDesign / 2) / kDesign);
         }
+    }
 }
 
 }  // namespace hudterm

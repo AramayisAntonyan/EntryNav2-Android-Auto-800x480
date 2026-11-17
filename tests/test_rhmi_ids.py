@@ -9,8 +9,8 @@ complain, it just binds one of them. Checks hmiapp/EntryAad.xml and the Gauges d
 import subprocess
 import sys
 import tempfile
-import zipfile
 import xml.etree.ElementTree as ET
+import zipfile
 from collections import Counter
 from pathlib import Path
 

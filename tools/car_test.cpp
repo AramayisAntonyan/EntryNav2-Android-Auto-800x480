@@ -63,24 +63,72 @@ struct KombiFunction {
     const char* name;
 };
 const KombiFunction kKombiFunctions[] = {
-    {0x001, "?"}, {0x002, "?"}, {0x200, "NewCCMessage"}, {0x203, "RequestCCMsg"}, {0x204, "CCRolle"},
-    {0x205, "CCRolleID"}, {0x300, "CBSDataServiceList"}, {0x302, "RequestCBSServiceHint"},
-    {0x303, "CBSServiceHint"}, {0x305, "ConsumptionValueECOa"}, {0x306, "ConsumptionValueECOb"},
-    {0x307, "ConsumptionValueECOc"}, {0x308, "ConsumptionValueRegularA"}, {0x309, "ConsumptionValueRegularB"},
-    {0x30A, "ConsumptionValueRegularC"}, {0x3AB, "ConsumptionAverageElectricVehicle"},
-    {0x500, "ActiveCCMessage"}, {0x501, "ExtendedCCMessage"}, {0x502, "MenuCCMessage"},
-    {0x503, "StandardCCMessage"}, {0x504, "KombiExternalDisplay"}, {0x505, "OperationBordcomputer"},
-    {0x506, "Timer"}, {0x507, "BordcomputerArrival"}, {0x508, "TimeDate"}, {0x509, "BordcomputerAverage"},
-    {0x510, "BordcomputerTravelStart"}, {0x511, "BordcomputerTravelData"}, {0x512, "RangeTankStatus"},
-    {0x514, "Stopwatch"}, {0x515, "ShowTimeDate"}, {0x516, "UnitSpeedSpeedometer"},
-    {0x517, "CalculatedNaviKI"}, {0x518, "ECORange"}, {0x543, "BordcomputerStatus2"}, {0x550, "?"},
-    {0x601, "?"}, {0x602, "AutomaticServiceCallTriggerExt"}, {0x700, "?"}, {0x701, "?"}, {0x702, "?"},
-    {0x722, "?"}, {0x723, "?"}, {0xC10, "?"}, {0xC11, "VehicleDynamicHistoryTableConfig"}, {0xC37, "?"},
-    {0xC39, "DisplayElectricalPowerDistribution"}, {0xC3A, "?"}, {0xC3D, "RouteDestinationElectricHybrid"},
-    {0xC3E, "?"}, {0xC42, "?"}, {0xC95, "?"}, {0xC96, "?"}, {0xC97, "?"}, {0xC98, "?"}, {0xC99, "?"},
-    {0xC9A, "?"}, {0xCA0, "?"}, {0xCA1, "?"}, {0xCA2, "EfficiencyValueElectricVehicle3"},
-    {0xCA3, "EfficiencyValueHybrid1"}, {0xCA4, "EfficiencyValueHybrid2"}, {0xCA5, "EfficiencyValueHybrid3"},
-    {0xCA6, "HUDSelection2"}, {0xCA7, "KombiSelection2"}, {0xCA8, "?"},
+    {0x001, "?"},
+    {0x002, "?"},
+    {0x200, "NewCCMessage"},
+    {0x203, "RequestCCMsg"},
+    {0x204, "CCRolle"},
+    {0x205, "CCRolleID"},
+    {0x300, "CBSDataServiceList"},
+    {0x302, "RequestCBSServiceHint"},
+    {0x303, "CBSServiceHint"},
+    {0x305, "ConsumptionValueECOa"},
+    {0x306, "ConsumptionValueECOb"},
+    {0x307, "ConsumptionValueECOc"},
+    {0x308, "ConsumptionValueRegularA"},
+    {0x309, "ConsumptionValueRegularB"},
+    {0x30A, "ConsumptionValueRegularC"},
+    {0x3AB, "ConsumptionAverageElectricVehicle"},
+    {0x500, "ActiveCCMessage"},
+    {0x501, "ExtendedCCMessage"},
+    {0x502, "MenuCCMessage"},
+    {0x503, "StandardCCMessage"},
+    {0x504, "KombiExternalDisplay"},
+    {0x505, "OperationBordcomputer"},
+    {0x506, "Timer"},
+    {0x507, "BordcomputerArrival"},
+    {0x508, "TimeDate"},
+    {0x509, "BordcomputerAverage"},
+    {0x510, "BordcomputerTravelStart"},
+    {0x511, "BordcomputerTravelData"},
+    {0x512, "RangeTankStatus"},
+    {0x514, "Stopwatch"},
+    {0x515, "ShowTimeDate"},
+    {0x516, "UnitSpeedSpeedometer"},
+    {0x517, "CalculatedNaviKI"},
+    {0x518, "ECORange"},
+    {0x543, "BordcomputerStatus2"},
+    {0x550, "?"},
+    {0x601, "?"},
+    {0x602, "AutomaticServiceCallTriggerExt"},
+    {0x700, "?"},
+    {0x701, "?"},
+    {0x702, "?"},
+    {0x722, "?"},
+    {0x723, "?"},
+    {0xC10, "?"},
+    {0xC11, "VehicleDynamicHistoryTableConfig"},
+    {0xC37, "?"},
+    {0xC39, "DisplayElectricalPowerDistribution"},
+    {0xC3A, "?"},
+    {0xC3D, "RouteDestinationElectricHybrid"},
+    {0xC3E, "?"},
+    {0xC42, "?"},
+    {0xC95, "?"},
+    {0xC96, "?"},
+    {0xC97, "?"},
+    {0xC98, "?"},
+    {0xC99, "?"},
+    {0xC9A, "?"},
+    {0xCA0, "?"},
+    {0xCA1, "?"},
+    {0xCA2, "EfficiencyValueElectricVehicle3"},
+    {0xCA3, "EfficiencyValueHybrid1"},
+    {0xCA4, "EfficiencyValueHybrid2"},
+    {0xCA5, "EfficiencyValueHybrid3"},
+    {0xCA6, "HUDSelection2"},
+    {0xCA7, "KombiSelection2"},
+    {0xCA8, "?"},
 };
 const unsigned kKombiFunctionCount = sizeof(kKombiFunctions) / sizeof(kKombiFunctions[0]);
 
@@ -103,8 +151,15 @@ const uint16_t kTunnelFkt = 0x050, kTunnelRoutine = 0x0F0B;
 
 // [63][F0] 31 01 0F 0B <ecu> <len:2> <request>
 std::vector<uint8_t> tunnelFrame(uint8_t ecu, const std::vector<uint8_t>& request) {
-    std::vector<uint8_t> f = {kDiagSource, kTunnelInst, 0x31, 0x01, kTunnelRoutine >> 8, kTunnelRoutine & 0xFF, ecu,
-                              static_cast<uint8_t>(request.size() >> 8), static_cast<uint8_t>(request.size())};
+    std::vector<uint8_t> f = {kDiagSource,
+                              kTunnelInst,
+                              0x31,
+                              0x01,
+                              kTunnelRoutine >> 8,
+                              kTunnelRoutine & 0xFF,
+                              ecu,
+                              static_cast<uint8_t>(request.size() >> 8),
+                              static_cast<uint8_t>(request.size())};
     f.insert(f.end(), request.begin(), request.end());
     return f;
 }
@@ -412,8 +467,8 @@ int kombiRead() {
     printf("summary: %u value(s), %u ErrorAck(s), %u silent of %u functions\n", values, errors,
            asked > got ? asked - got : 0, asked);
     const uint16_t key[] = {0x000, 0xCA7, 0xCA8, 0xCA6, 0x517, 0x504};
-    const char* const keyName[] = {"functions", "KombiSelection2", "CA8 (availability?)", "HUDSelection2",
-                                   "CalculatedNaviKI", "KombiExternalDisplay"};
+    const char* const keyName[] = {"functions",     "KombiSelection2",  "CA8 (availability?)",
+                                   "HUDSelection2", "CalculatedNaviKI", "KombiExternalDisplay"};
     for (unsigned k = 0; k < sizeof(key) / sizeof(key[0]); ++k) {
         std::map<uint16_t, Answer>::const_iterator it = g_kombiAnswers.find(key[k]);
         printf("%03X %s:", key[k], keyName[k]);
@@ -632,9 +687,8 @@ int selftest() {
     const bool tunnelOk = frame == want && g_tunnelInner == std::vector<uint8_t>({0x62, 0x43, 0x00, 0x0B, 0x9A}) &&
                           readOnlyRequest({0x22, 0x43, 0x00}) && readOnlyRequest({0x01, 0x0C}) &&
                           !readOnlyRequest({0x2E, 0x43, 0x00}) && !readOnlyRequest({0x31, 0x01, 0x00}) &&
-                          !readOnlyRequest({0x22, 0x43}) && !readOnlyRequest({0x10, 0x03}) &&
-                          parseHex("224300", hex) && hex.size() == 3 && !parseHex("22430", hex) &&
-                          !parseHex("22x300", hex);
+                          !readOnlyRequest({0x22, 0x43}) && !readOnlyRequest({0x10, 0x03}) && parseHex("224300", hex) &&
+                          hex.size() == 3 && !parseHex("22430", hex) && !parseHex("22x300", hex);
     printf("selftest: MOST tunnel frame and reply %s\n", tunnelOk ? "OK" : "FAILED");
     return ok && tunnelOk ? 0 : 1;
 }

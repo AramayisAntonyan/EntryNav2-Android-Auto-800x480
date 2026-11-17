@@ -50,23 +50,37 @@ enum { kMaxPoints = 99, kMaxTextChars = 32, kMaxHandle = 255 };
 
 inline const char* fktName(uint16_t f) {
     switch (f) {
-        case kSetVisibility: return "SetVisibility";
-        case kIsVisible: return "IsVisible";
-        case kSwitchVisibility: return "SwitchVisibility";
-        case kTextareaSetText: return "TextareaSetText";
-        case kSetLineColor: return "ImageSetLineColor";
-        case kSetLineWidth: return "ImageSetLineWidth";
-        case kSetFillColor: return "ImageSetFillColor";
-        case kSetFillMode: return "ImageSetFillMode";
-        case kAddPolygon: return "ImageAddPolygon";
-        case kAddCircle: return "ImageAddCircle";
-        case kRemoveAllItems: return "ImageRemoveAllItems";
-        case kGetSize: return "ImageGetSize";
+        case kSetVisibility:
+            return "SetVisibility";
+        case kIsVisible:
+            return "IsVisible";
+        case kSwitchVisibility:
+            return "SwitchVisibility";
+        case kTextareaSetText:
+            return "TextareaSetText";
+        case kSetLineColor:
+            return "ImageSetLineColor";
+        case kSetLineWidth:
+            return "ImageSetLineWidth";
+        case kSetFillColor:
+            return "ImageSetFillColor";
+        case kSetFillMode:
+            return "ImageSetFillMode";
+        case kAddPolygon:
+            return "ImageAddPolygon";
+        case kAddCircle:
+            return "ImageAddCircle";
+        case kRemoveAllItems:
+            return "ImageRemoveAllItems";
+        case kGetSize:
+            return "ImageGetSize";
     }
     return "?";
 }
 
-inline uint16_t rdBe16(const uint8_t* p) { return static_cast<uint16_t>((p[0] << 8) | p[1]); }
+inline uint16_t rdBe16(const uint8_t* p) {
+    return static_cast<uint16_t>((p[0] << 8) | p[1]);
+}
 inline void putBe16(std::vector<uint8_t>& v, uint16_t x) {
     v.push_back(static_cast<uint8_t>(x >> 8));
     v.push_back(static_cast<uint8_t>(x));
@@ -77,7 +91,9 @@ class HandleSet {
 public:
     HandleSet() { memset(on_, 0, sizeof(on_)); }
     void allow(int h) {
-        if (h > 0 && h <= kMaxHandle) on_[h] = true;
+        if (h > 0 && h <= kMaxHandle) {
+            on_[h] = true;
+        }
     }
     bool has(int h) const { return h > 0 && h <= kMaxHandle && on_[h]; }
 
@@ -97,7 +113,9 @@ inline std::vector<uint8_t> handleAnd(uint16_t h, uint8_t b) {
     p.push_back(b);
     return p;
 }
-inline std::vector<uint8_t> setVisibility(uint16_t h, bool on) { return handleAnd(h, on ? 1 : 0); }
+inline std::vector<uint8_t> setVisibility(uint16_t h, bool on) {
+    return handleAnd(h, on ? 1 : 0);
+}
 inline std::vector<uint8_t> switchVisibility(uint16_t hide, uint16_t show) {
     std::vector<uint8_t> p;
     putBe16(p, hide);
@@ -109,13 +127,19 @@ inline std::vector<uint8_t> removeAllItems(uint16_t h) {
     putBe16(p, h);
     return p;
 }
-inline std::vector<uint8_t> getSize(uint16_t h) { return removeAllItems(h); }
-inline std::vector<uint8_t> setFillColor(uint16_t h, uint8_t colour) { return handleAnd(h, colour); }
+inline std::vector<uint8_t> getSize(uint16_t h) {
+    return removeAllItems(h);
+}
+inline std::vector<uint8_t> setFillColor(uint16_t h, uint8_t colour) {
+    return handleAnd(h, colour);
+}
 
 // Empty when there are no points or more than kMaxPoints.
 inline std::vector<uint8_t> addPolygon(uint16_t h, uint16_t index, PolyType type, const std::vector<Point>& pts) {
     std::vector<uint8_t> p;
-    if (pts.empty() || pts.size() > kMaxPoints) return p;
+    if (pts.empty() || pts.size() > kMaxPoints) {
+        return p;
+    }
     putBe16(p, h);
     putBe16(p, index);
     p.push_back(static_cast<uint8_t>(type));
@@ -132,9 +156,14 @@ inline std::vector<uint8_t> addPolygon(uint16_t h, uint16_t index, PolyType type
 inline std::vector<uint8_t> setText(uint16_t h, const char* s) {
     std::vector<uint8_t> p;
     const size_t n = strlen(s);
-    if (n > kMaxTextChars) return p;
-    for (size_t i = 0; i < n; ++i)
-        if (s[i] < 0x20 || s[i] >= 0x7f) return p;
+    if (n > kMaxTextChars) {
+        return p;
+    }
+    for (size_t i = 0; i < n; ++i) {
+        if (s[i] < 0x20 || s[i] >= 0x7f) {
+            return p;
+        }
+    }
     putBe16(p, h);
     p.push_back(0x00);
     for (size_t i = 0; i < n; ++i) {
@@ -165,10 +194,16 @@ inline std::string toClusterText(const std::string& utf8, const char* punct, siz
     while (i < utf8.size()) {
         const unsigned char c = static_cast<unsigned char>(utf8[i]);
         size_t k = c < 0x80 ? 1 : (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 1;
-        if (i + k > utf8.size()) k = 1;
+        if (i + k > utf8.size()) {
+            k = 1;
+        }
         uint32_t cp = k == 1 ? c : k == 2 ? (c & 0x1Fu) : k == 3 ? (c & 0x0Fu) : (c & 0x07u);
-        for (size_t j = 1; j < k; ++j) cp = (cp << 6) | (static_cast<unsigned char>(utf8[i + j]) & 0x3Fu);
-        if (k == 1 && c >= 0x80) cp = 0xFFFD;  // a stray continuation or bad lead byte
+        for (size_t j = 1; j < k; ++j) {
+            cp = (cp << 6) | (static_cast<unsigned char>(utf8[i + j]) & 0x3Fu);
+        }
+        if (k == 1 && c >= 0x80) {
+            cp = 0xFFFD;  // a stray continuation or bad lead byte
+        }
         i += k;
         if ((cp >= 'A' && cp <= 'Z') || (cp >= 'a' && cp <= 'z') || (cp >= '0' && cp <= '9') || cp == ' ') {
             raw.push_back(static_cast<char>(cp));
@@ -178,29 +213,43 @@ inline std::string toClusterText(const std::string& utf8, const char* punct, siz
             raw.push_back(static_cast<char>(cp));
         } else if (cp >= 0xC0 && cp <= 0x17F) {
             const char* p = kLatin;
-            for (uint32_t n = cp - 0xC0; n; --n) p = strchr(p, '|') + 1;
-            while (*p && *p != '|') raw.push_back(*p++);
+            for (uint32_t n = cp - 0xC0; n; --n) {
+                p = strchr(p, '|') + 1;
+            }
+            while (*p && *p != '|') {
+                raw.push_back(*p++);
+            }
         } else {
             raw.push_back(' ');
         }
     }
     std::string out;
     for (size_t j = 0; j < raw.size(); ++j) {
-        if (raw[j] == ' ' && (out.empty() || out[out.size() - 1] == ' ')) continue;
+        if (raw[j] == ' ' && (out.empty() || out[out.size() - 1] == ' ')) {
+            continue;
+        }
         out.push_back(raw[j]);
     }
-    if (out.size() > maxChars) out.resize(maxChars);
-    while (!out.empty() && out[out.size() - 1] == ' ') out.resize(out.size() - 1);
+    if (out.size() > maxChars) {
+        out.resize(maxChars);
+    }
+    while (!out.empty() && out[out.size() - 1] == ' ') {
+        out.resize(out.size() - 1);
+    }
     return out;
 }
 
 // The ASCII text of a TextareaSetText payload (others as '?'); "" if it is not one.
 inline std::string decodeText(const uint8_t* p, size_t n) {
     std::string s;
-    if (n < 3 || p[2] != 0x00 || (n - 3) % 2) return s;
+    if (n < 3 || p[2] != 0x00 || (n - 3) % 2) {
+        return s;
+    }
     for (size_t i = 3; i + 1 < n; i += 2) {
         const uint16_t ch = static_cast<uint16_t>((p[i] << 8) | p[i + 1]);
-        if (ch == 0) break;
+        if (ch == 0) {
+            break;
+        }
         s.push_back(ch >= 0x20 && ch < 0x7f ? static_cast<char>(ch) : '?');
     }
     return s;
@@ -210,14 +259,18 @@ inline std::string decodeText(const uint8_t* p, size_t n) {
 inline bool payloadShapeOk(uint16_t fkt, const std::vector<uint8_t>& p) {
     const size_t n = p.size();
     switch (fkt) {
-        case kSetVisibility: return n == 3 && p[2] <= 1;
+        case kSetVisibility:
+            return n == 3 && p[2] <= 1;
         case kRemoveAllItems:
-        case kGetSize: return n == 2;
-        case kSwitchVisibility: return n == 4;
+        case kGetSize:
+            return n == 2;
+        case kSwitchVisibility:
+            return n == 4;
         case kSetFillColor:
         case kSetLineColor:
         case kSetLineWidth:
-        case kSetFillMode: return n == 3;
+        case kSetFillMode:
+            return n == 3;
         case kTextareaSetText:
             return n >= 5 && (n - 3) % 2 == 0 && n <= 3 + 2 * (kMaxTextChars + 1) && p[2] == 0x00 && p[n - 1] == 0 &&
                    p[n - 2] == 0;
@@ -240,8 +293,12 @@ struct Call {
 
 // Whether a call keeps every limit: the shape, its handle, and for SwitchVisibility the second handle too.
 inline bool callOk(const Call& c, const HandleSet& allowed) {
-    if (!payloadShapeOk(c.fkt, c.payload) || !allowed.has(c.handle())) return false;
-    if (c.fkt == kSwitchVisibility && !allowed.has(rdBe16(&c.payload[2]))) return false;
+    if (!payloadShapeOk(c.fkt, c.payload) || !allowed.has(c.handle())) {
+        return false;
+    }
+    if (c.fkt == kSwitchVisibility && !allowed.has(rdBe16(&c.payload[2]))) {
+        return false;
+    }
     return true;
 }
 
@@ -251,7 +308,9 @@ inline std::string describeCall(const Call& c) {
     const std::vector<uint8_t>& p = c.payload;
     const size_t n = p.size();
     const int k = snprintf(b, sizeof(b), "%03X %s h%u", c.fkt, fktName(c.fkt), c.handle());
-    if (k < 0 || k >= static_cast<int>(sizeof(b))) return b;
+    if (k < 0 || k >= static_cast<int>(sizeof(b))) {
+        return b;
+    }
     char* e = b + k;
     const size_t room = sizeof(b) - static_cast<size_t>(k);
     if (c.fkt == kSetVisibility && n == 3) {
@@ -267,10 +326,18 @@ inline std::string describeCall(const Call& c) {
         int x0 = 32767, y0 = 32767, x1 = -32768, y1 = -32768;
         for (size_t i = 6; i + 3 < n; i += 4) {
             const int x = static_cast<int16_t>(rdBe16(&p[i])), y = static_cast<int16_t>(rdBe16(&p[i + 2]));
-            if (x < x0) x0 = x;
-            if (x > x1) x1 = x;
-            if (y < y0) y0 = y;
-            if (y > y1) y1 = y;
+            if (x < x0) {
+                x0 = x;
+            }
+            if (x > x1) {
+                x1 = x;
+            }
+            if (y < y0) {
+                y0 = y;
+            }
+            if (y > y1) {
+                y1 = y;
+            }
         }
         snprintf(e, room, " #%u %s %u pts x %d..%d y %d..%d", rdBe16(&p[2]), p[4] == kPolygon ? "polygon" : "polyline",
                  p[5], x0, x1, y0, y1);

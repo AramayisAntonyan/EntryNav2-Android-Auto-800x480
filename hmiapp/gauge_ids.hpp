@@ -13,8 +13,8 @@ namespace gauges {
 // (Car tests was 170, a Shift light label's id). States are in the 900s, which nothing else uses.
 // ---- states ---------------------------------------------------------------------------------------------------------
 const unsigned kPreviewState = 900;  // the entry's preview card: a car picture
-const unsigned kMenuState = 901;    // the app's first page: a scrolling list of its pages (no OPTION menus)
-const unsigned kDashState0 = 910;   // 910 .. 910 + kPages - 1: the dashboard pages
+const unsigned kMenuState = 901;     // the app's first page: a scrolling list of its pages (no OPTION menus)
+const unsigned kDashState0 = 910;    // 910 .. 910 + kPages - 1: the dashboard pages
 const unsigned kPages = 3;
 const unsigned kShiftState = 920;
 const unsigned kCodesState = 930;
@@ -30,7 +30,7 @@ const unsigned kCardsPerPage = 8;  // 4 x 2 on the 800x480 screen
 const unsigned kCards = kCardsPerPage * kPages;
 const unsigned kCardTitle0 = 300;  // Richtext models, card c: + c
 const unsigned kCardValue0 = 330;
-const unsigned kCardBar0 = 360;  // imageIdModels
+const unsigned kCardBar0 = 360;    // imageIdModels
 const unsigned kCardTile0 = 1100;  // components: the tile image, then the title, value and bar
 const unsigned kCardTitleComp0 = 1130;
 const unsigned kCardValueComp0 = 1160;
@@ -41,17 +41,17 @@ const unsigned kChoiceModel0 = 600;   // raBoolModel: + entry
 const unsigned kChoiceAction0 = 700;  // raAction: + entry
 const unsigned kChoiceComp0 = 1300;   // checkbox component: + entry
 const unsigned kChooseNote = 105;     // Richtext above the list
-const unsigned kTestStatus = 109;  // Test results: the test's name and state
-const unsigned kTestLine0 = 110;   // 110..119: the output's last lines
+const unsigned kTestStatus = 109;     // Test results: the test's name and state
+const unsigned kTestLine0 = 110;      // 110..119: the output's last lines
 const unsigned kTestLines = 10;
 const unsigned kEvTestResults = 60;  // focusEvent -> kTestResultState
-const unsigned kActTest0 = 50;  // 50..: one raAction per test (make_gauges_xml.py CAR_TESTS, same order)
-const unsigned kTripLine0 = 106;      // 106..108: the preview card's trip lines (consumption, range, speed)
+const unsigned kActTest0 = 50;       // 50..: one raAction per test (make_gauges_xml.py CAR_TESTS, same order)
+const unsigned kTripLine0 = 106;     // 106..108: the preview card's trip lines (consumption, range, speed)
 
 // ---- the Gauges list and Live values ----------------------------------------------------------------------------
 const unsigned kMenuDash2Comp = 1601;  // the list's Dashboard 2 and 3 buttons, hidden while they have no card
 const unsigned kMenuDash3Comp = 1602;
-const unsigned kLiveRow0 = 400;      // Richtext models: + card
+const unsigned kLiveRow0 = 400;       // Richtext models: + card
 const unsigned kLiveRowComp0 = 1700;  // button rows: + card
 const unsigned kActLiveRow = 36;      // a row's press: nothing
 const unsigned kActDme = 37;          // the list's "Engine values (DME)" checkbox
@@ -85,7 +85,7 @@ const unsigned kShiftLevels = 33;       // 250 rpm a step, 0..8000
 // ---- colours ------------------------------------------------------------------------------------------------------
 const unsigned kColours = 8;      // drawn bar colours (make_db.py GAUGE_COLOURS, same order)
 const unsigned kMulticolour = 8;  // each card its own colour
-const char* const kColourNames[] = {"BMW Orange", "Blue", "Green", "White", "Purple",
+const char* const kColourNames[] = {"BMW Orange", "Blue", "Green", "White",      "Purple",
                                     "Pink",       "Cyan", "Red",   "Multicolour"};
 const unsigned kShiftPoints[] = {5000, 5500, 6000, 6500};
 

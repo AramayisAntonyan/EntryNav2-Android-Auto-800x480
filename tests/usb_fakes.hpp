@@ -127,11 +127,11 @@ struct Phone {
     Bus* bus;
     std::string port;
     unsigned busNumber, address, vendor, product;
-    bool android;    // answers the accessory protocol request
-    bool held;       // another program holds interface 0
+    bool android;       // answers the accessory protocol request
+    bool held;          // another program holds interface 0
     bool heldByKernel;  // with held: the holder is a kernel driver, which a takeover never detaches
-    bool unplugged;  // the device left: transfers never come back
-    bool stuckOut;   // takes no data
+    bool unplugged;     // the device left: transfers never come back
+    bool stuckOut;      // takes no data
     unsigned opens, protocolAsked, started, resets, claims, releases, takeovers;
     std::vector<std::string> strings;
     std::deque<std::vector<uint8_t>> toCar;     // what the phone sends, one transfer each

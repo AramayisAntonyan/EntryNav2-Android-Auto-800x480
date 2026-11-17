@@ -18,9 +18,9 @@
 
 namespace evo {
 
-const unsigned kVolumePeekMs = 2500;     // volume without the pill: picture dimmed
-const float kVolumeDim = 0.25f;          // its opacity
-const unsigned kPopupShowMs = 120000;    // iDrive popup over the blank state: until it closes, at most this
+const unsigned kVolumePeekMs = 2500;   // volume without the pill: picture dimmed
+const float kVolumeDim = 0.25f;        // its opacity
+const unsigned kPopupShowMs = 120000;  // iDrive popup over the blank state: until it closes, at most this
 
 class PeekTiming {
 public:

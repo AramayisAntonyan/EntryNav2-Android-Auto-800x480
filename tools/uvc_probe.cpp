@@ -95,8 +95,8 @@ void describe(int fd) {
         printf("  QUERYCAP failed: %s\n", strerror(errno));
         return;
     }
-    printf("  card '%s', bus '%s', driver %s, caps 0x%08x%s%s\n", cap.card, cap.bus_info, cap.driver,
-           cap.capabilities, (cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) ? " capture" : "",
+    printf("  card '%s', bus '%s', driver %s, caps 0x%08x%s%s\n", cap.card, cap.bus_info, cap.driver, cap.capabilities,
+           (cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) ? " capture" : "",
            (cap.capabilities & V4L2_CAP_STREAMING) ? " streaming" : "");
     for (unsigned i = 0;; ++i) {
         struct v4l2_fmtdesc fd_;
@@ -154,8 +154,7 @@ void describe(int fd) {
             break;
         }
         printf("  input %u: '%s', status 0x%x%s, standards 0x%llx\n", i, in.name, in.status,
-               (in.status & V4L2_IN_ST_NO_SIGNAL) ? " (no signal)" : "",
-               static_cast<unsigned long long>(in.std));
+               (in.status & V4L2_IN_ST_NO_SIGNAL) ? " (no signal)" : "", static_cast<unsigned long long>(in.std));
     }
 }
 
@@ -259,7 +258,7 @@ int grab(const char* dev) {
                 fourcc(fmt.fmt.pix.pixelformat, cc);
                 const char* ext = fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG  ? "mjpg"
                                   : fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV ? "yuyv"
-                                                                                  : "raw";
+                                                                                 : "raw";
                 char out[PATH_MAX];
                 mkdir(kOutDir, 0755);
                 snprintf(out, sizeof(out), "%s/uvc-frame.%s", kOutDir, ext);
