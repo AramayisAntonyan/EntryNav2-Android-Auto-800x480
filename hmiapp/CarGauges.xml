@@ -1,0 +1,1477 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pluginApps>
+  <pluginApp applicationType="VehicleInformation" applicationWeight="1" text="Gauges">
+    <entryButton id="1" action="11" imageModel="4" previewModel="5">
+      <properties>
+        <property id="23" value="2"/>
+      </properties>
+    </entryButton>
+    <actions>
+      <hmiAction id="11" target="901"/>
+      <hmiAction id="10" target="910"/>
+      <hmiAction id="21" target="911"/>
+      <hmiAction id="22" target="912"/>
+      <hmiAction id="25" target="980"/>
+      <hmiAction id="24" target="960"/>
+      <hmiAction id="14" target="940"/>
+      <hmiAction id="12" target="920"/>
+      <hmiAction id="16" target="950"/>
+      <hmiAction id="13" target="930"/>
+      <hmiAction id="26" target="970"/>
+      <raAction id="30"/>
+      <raAction id="31"/>
+      <raAction id="32"/>
+      <raAction id="33"/>
+      <raAction id="35"/>
+      <raAction id="36"/>
+      <raAction id="37"/>
+      <raAction id="40"/>
+      <raAction id="41"/>
+      <raAction id="42"/>
+      <raAction id="43"/>
+      <raAction id="44"/>
+      <raAction id="45"/>
+      <raAction id="46"/>
+      <raAction id="47"/>
+      <raAction id="48"/>
+      <raAction id="700"/>
+      <raAction id="701"/>
+      <raAction id="702"/>
+      <raAction id="703"/>
+      <raAction id="704"/>
+      <raAction id="705"/>
+      <raAction id="706"/>
+      <raAction id="707"/>
+      <raAction id="708"/>
+      <raAction id="709"/>
+      <raAction id="710"/>
+      <raAction id="711"/>
+      <raAction id="712"/>
+      <raAction id="713"/>
+      <raAction id="714"/>
+      <raAction id="715"/>
+      <raAction id="716"/>
+      <raAction id="717"/>
+      <raAction id="718"/>
+      <raAction id="719"/>
+      <raAction id="720"/>
+      <raAction id="721"/>
+      <raAction id="722"/>
+      <raAction id="723"/>
+      <raAction id="724"/>
+      <raAction id="725"/>
+      <raAction id="726"/>
+      <raAction id="727"/>
+      <raAction id="728"/>
+      <raAction id="729"/>
+      <raAction id="730"/>
+      <raAction id="731"/>
+      <raAction id="732"/>
+      <raAction id="733"/>
+      <raAction id="734"/>
+      <raAction id="735"/>
+      <raAction id="736"/>
+      <raAction id="737"/>
+      <raAction id="738"/>
+      <raAction id="739"/>
+      <raAction id="740"/>
+      <raAction id="741"/>
+      <raAction id="742"/>
+      <raAction id="743"/>
+      <raAction id="744"/>
+      <raAction id="745"/>
+      <raAction id="746"/>
+      <raAction id="747"/>
+      <raAction id="748"/>
+      <raAction id="749"/>
+      <raAction id="750"/>
+      <raAction id="751"/>
+      <raAction id="752"/>
+      <raAction id="753"/>
+      <raAction id="754"/>
+      <raAction id="755"/>
+      <raAction id="756"/>
+      <raAction id="757"/>
+      <raAction id="758"/>
+      <raAction id="759"/>
+      <raAction id="760"/>
+      <raAction id="50"/>
+      <raAction id="51"/>
+      <raAction id="52"/>
+      <raAction id="53"/>
+      <raAction id="54"/>
+      <raAction id="55"/>
+      <raAction id="56"/>
+      <raAction id="57"/>
+      <raAction id="58"/>
+      <raAction id="59"/>
+      <raAction id="60"/>
+      <raAction id="61"/>
+      <raAction id="62"/>
+      <raAction id="63"/>
+      <raAction id="64"/>
+      <raAction id="65"/>
+      <raAction id="66"/>
+    </actions>
+    <models>
+      <imageIdModel id="4" imageId="58001"/>
+      <raPreviewModel id="5" modelType="StatePreview" previewState="900"/>
+      <imageIdModel id="6" imageId="58002"/>
+      <imageIdModel id="7" imageId="58003"/>
+      <raDataModel id="300" modelType="Richtext"/>
+      <raDataModel id="330" modelType="Richtext"/>
+      <imageIdModel id="360" imageId="56000"/>
+      <raDataModel id="400" modelType="Richtext"/>
+      <raDataModel id="301" modelType="Richtext"/>
+      <raDataModel id="331" modelType="Richtext"/>
+      <imageIdModel id="361" imageId="56000"/>
+      <raDataModel id="401" modelType="Richtext"/>
+      <raDataModel id="302" modelType="Richtext"/>
+      <raDataModel id="332" modelType="Richtext"/>
+      <imageIdModel id="362" imageId="56000"/>
+      <raDataModel id="402" modelType="Richtext"/>
+      <raDataModel id="303" modelType="Richtext"/>
+      <raDataModel id="333" modelType="Richtext"/>
+      <imageIdModel id="363" imageId="56000"/>
+      <raDataModel id="403" modelType="Richtext"/>
+      <raDataModel id="304" modelType="Richtext"/>
+      <raDataModel id="334" modelType="Richtext"/>
+      <imageIdModel id="364" imageId="56000"/>
+      <raDataModel id="404" modelType="Richtext"/>
+      <raDataModel id="305" modelType="Richtext"/>
+      <raDataModel id="335" modelType="Richtext"/>
+      <imageIdModel id="365" imageId="56000"/>
+      <raDataModel id="405" modelType="Richtext"/>
+      <raDataModel id="306" modelType="Richtext"/>
+      <raDataModel id="336" modelType="Richtext"/>
+      <imageIdModel id="366" imageId="56000"/>
+      <raDataModel id="406" modelType="Richtext"/>
+      <raDataModel id="307" modelType="Richtext"/>
+      <raDataModel id="337" modelType="Richtext"/>
+      <imageIdModel id="367" imageId="56000"/>
+      <raDataModel id="407" modelType="Richtext"/>
+      <raDataModel id="308" modelType="Richtext"/>
+      <raDataModel id="338" modelType="Richtext"/>
+      <imageIdModel id="368" imageId="56000"/>
+      <raDataModel id="408" modelType="Richtext"/>
+      <raDataModel id="309" modelType="Richtext"/>
+      <raDataModel id="339" modelType="Richtext"/>
+      <imageIdModel id="369" imageId="56000"/>
+      <raDataModel id="409" modelType="Richtext"/>
+      <raDataModel id="310" modelType="Richtext"/>
+      <raDataModel id="340" modelType="Richtext"/>
+      <imageIdModel id="370" imageId="56000"/>
+      <raDataModel id="410" modelType="Richtext"/>
+      <raDataModel id="311" modelType="Richtext"/>
+      <raDataModel id="341" modelType="Richtext"/>
+      <imageIdModel id="371" imageId="56000"/>
+      <raDataModel id="411" modelType="Richtext"/>
+      <raDataModel id="312" modelType="Richtext"/>
+      <raDataModel id="342" modelType="Richtext"/>
+      <imageIdModel id="372" imageId="56000"/>
+      <raDataModel id="412" modelType="Richtext"/>
+      <raDataModel id="313" modelType="Richtext"/>
+      <raDataModel id="343" modelType="Richtext"/>
+      <imageIdModel id="373" imageId="56000"/>
+      <raDataModel id="413" modelType="Richtext"/>
+      <raDataModel id="314" modelType="Richtext"/>
+      <raDataModel id="344" modelType="Richtext"/>
+      <imageIdModel id="374" imageId="56000"/>
+      <raDataModel id="414" modelType="Richtext"/>
+      <raDataModel id="315" modelType="Richtext"/>
+      <raDataModel id="345" modelType="Richtext"/>
+      <imageIdModel id="375" imageId="56000"/>
+      <raDataModel id="415" modelType="Richtext"/>
+      <raDataModel id="316" modelType="Richtext"/>
+      <raDataModel id="346" modelType="Richtext"/>
+      <imageIdModel id="376" imageId="56000"/>
+      <raDataModel id="416" modelType="Richtext"/>
+      <raDataModel id="317" modelType="Richtext"/>
+      <raDataModel id="347" modelType="Richtext"/>
+      <imageIdModel id="377" imageId="56000"/>
+      <raDataModel id="417" modelType="Richtext"/>
+      <raDataModel id="318" modelType="Richtext"/>
+      <raDataModel id="348" modelType="Richtext"/>
+      <imageIdModel id="378" imageId="56000"/>
+      <raDataModel id="418" modelType="Richtext"/>
+      <raDataModel id="319" modelType="Richtext"/>
+      <raDataModel id="349" modelType="Richtext"/>
+      <imageIdModel id="379" imageId="56000"/>
+      <raDataModel id="419" modelType="Richtext"/>
+      <raDataModel id="320" modelType="Richtext"/>
+      <raDataModel id="350" modelType="Richtext"/>
+      <imageIdModel id="380" imageId="56000"/>
+      <raDataModel id="420" modelType="Richtext"/>
+      <raDataModel id="321" modelType="Richtext"/>
+      <raDataModel id="351" modelType="Richtext"/>
+      <imageIdModel id="381" imageId="56000"/>
+      <raDataModel id="421" modelType="Richtext"/>
+      <raDataModel id="322" modelType="Richtext"/>
+      <raDataModel id="352" modelType="Richtext"/>
+      <imageIdModel id="382" imageId="56000"/>
+      <raDataModel id="422" modelType="Richtext"/>
+      <raDataModel id="323" modelType="Richtext"/>
+      <raDataModel id="353" modelType="Richtext"/>
+      <imageIdModel id="383" imageId="56000"/>
+      <raDataModel id="423" modelType="Richtext"/>
+      <imageIdModel id="90" imageId="57000"/>
+      <raDataModel id="91" modelType="Richtext"/>
+      <raDataModel id="92" modelType="Richtext"/>
+      <raDataModel id="93" modelType="Richtext"/>
+      <raDataModel id="103" modelType="Richtext"/>
+      <raDataModel id="104" modelType="Richtext"/>
+      <raDataModel id="105" modelType="Richtext"/>
+      <raDataModel id="106" modelType="Richtext"/>
+      <raDataModel id="107" modelType="Richtext"/>
+      <raDataModel id="108" modelType="Richtext"/>
+      <raDataModel id="95" modelType="Richtext"/>
+      <raDataModel id="96" modelType="Richtext"/>
+      <raDataModel id="97" modelType="Richtext"/>
+      <raDataModel id="98" modelType="Richtext"/>
+      <raDataModel id="99" modelType="Richtext"/>
+      <raDataModel id="100" modelType="Richtext"/>
+      <raDataModel id="101" modelType="Richtext"/>
+      <raDataModel id="102" modelType="Richtext"/>
+      <raBoolModel id="600"/>
+      <raBoolModel id="601"/>
+      <raBoolModel id="602"/>
+      <raBoolModel id="603"/>
+      <raBoolModel id="604"/>
+      <raBoolModel id="605"/>
+      <raBoolModel id="606"/>
+      <raBoolModel id="607"/>
+      <raBoolModel id="608"/>
+      <raBoolModel id="609"/>
+      <raBoolModel id="610"/>
+      <raBoolModel id="611"/>
+      <raBoolModel id="612"/>
+      <raBoolModel id="613"/>
+      <raBoolModel id="614"/>
+      <raBoolModel id="615"/>
+      <raBoolModel id="616"/>
+      <raBoolModel id="617"/>
+      <raBoolModel id="618"/>
+      <raBoolModel id="619"/>
+      <raBoolModel id="620"/>
+      <raBoolModel id="621"/>
+      <raBoolModel id="622"/>
+      <raBoolModel id="623"/>
+      <raBoolModel id="624"/>
+      <raBoolModel id="625"/>
+      <raBoolModel id="626"/>
+      <raBoolModel id="627"/>
+      <raBoolModel id="628"/>
+      <raBoolModel id="629"/>
+      <raBoolModel id="630"/>
+      <raBoolModel id="631"/>
+      <raBoolModel id="632"/>
+      <raBoolModel id="633"/>
+      <raBoolModel id="634"/>
+      <raBoolModel id="635"/>
+      <raBoolModel id="636"/>
+      <raBoolModel id="637"/>
+      <raBoolModel id="638"/>
+      <raBoolModel id="639"/>
+      <raBoolModel id="640"/>
+      <raBoolModel id="641"/>
+      <raBoolModel id="642"/>
+      <raBoolModel id="643"/>
+      <raBoolModel id="644"/>
+      <raBoolModel id="645"/>
+      <raBoolModel id="646"/>
+      <raBoolModel id="647"/>
+      <raBoolModel id="648"/>
+      <raBoolModel id="649"/>
+      <raBoolModel id="650"/>
+      <raBoolModel id="651"/>
+      <raBoolModel id="652"/>
+      <raBoolModel id="653"/>
+      <raBoolModel id="654"/>
+      <raBoolModel id="655"/>
+      <raBoolModel id="656"/>
+      <raBoolModel id="657"/>
+      <raBoolModel id="658"/>
+      <raBoolModel id="659"/>
+      <raBoolModel id="660"/>
+      <raDataModel id="109" modelType="Richtext"/>
+      <raDataModel id="110" modelType="Richtext"/>
+      <raDataModel id="111" modelType="Richtext"/>
+      <raDataModel id="112" modelType="Richtext"/>
+      <raDataModel id="113" modelType="Richtext"/>
+      <raDataModel id="114" modelType="Richtext"/>
+      <raDataModel id="115" modelType="Richtext"/>
+      <raDataModel id="116" modelType="Richtext"/>
+      <raDataModel id="117" modelType="Richtext"/>
+      <raDataModel id="118" modelType="Richtext"/>
+      <raDataModel id="119" modelType="Richtext"/>
+      <raBoolModel id="125"/>
+      <raDataModel id="126" modelType="Richtext"/>
+    </models>
+    <events>
+      <focusEvent id="60" target="971"/>
+    </events>
+    <hmiStates>
+      <hmiState id="900" text="Gauges">
+        <components>
+          <image id="89" model="6">
+            <properties>
+              <property id="20" value="0"/>
+              <property id="21" value="0"/>
+              <property id="9" value="549"/>
+              <property id="10" value="484"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="236" model="106">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="345"/>
+              <property id="9" value="509"/>
+              <property id="10" value="45"/>
+            </properties>
+          </label>
+          <label id="237" model="107">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="390"/>
+              <property id="9" value="509"/>
+              <property id="10" value="45"/>
+            </properties>
+          </label>
+          <label id="238" model="108">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="435"/>
+              <property id="9" value="509"/>
+              <property id="10" value="45"/>
+            </properties>
+          </label>
+        </components>
+      </hmiState>
+      <hmiState id="901" text="Gauges">
+        <components>
+          <button id="1600" action="10" text="Dashboard"/>
+          <button id="1601" action="21" text="Dashboard 2"/>
+          <button id="1602" action="22" text="Dashboard 3"/>
+          <button id="1603" action="25" text="Live values"/>
+          <button id="1604" action="24" text="Choose gauges"/>
+          <button id="1605" action="14" text="Gauge colour"/>
+          <button id="1606" action="12" text="Shift light"/>
+          <button id="1607" action="16" text="Shift point"/>
+          <button id="1608" action="13" text="Engine fault codes"/>
+          <button id="1609" action="26" text="Car tests"/>
+          <checkbox id="1610" action="37" model="125" text="Engine values (DME)"/>
+          <label id="1611" model="126"/>
+        </components>
+      </hmiState>
+      <hmiState id="910" parentId="901" text="Dashboard">
+        <components>
+          <image id="1100" model="7">
+            <properties>
+              <property id="20" value="8"/>
+              <property id="21" value="8"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1130" model="300">
+            <properties>
+              <property id="20" value="18"/>
+              <property id="21" value="16"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1160" model="330">
+            <properties>
+              <property id="20" value="18"/>
+              <property id="21" value="64"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1190" model="360">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="148"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1101" model="7">
+            <properties>
+              <property id="20" value="205"/>
+              <property id="21" value="8"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1131" model="301">
+            <properties>
+              <property id="20" value="215"/>
+              <property id="21" value="16"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1161" model="331">
+            <properties>
+              <property id="20" value="215"/>
+              <property id="21" value="64"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1191" model="361">
+            <properties>
+              <property id="20" value="217"/>
+              <property id="21" value="148"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1102" model="7">
+            <properties>
+              <property id="20" value="402"/>
+              <property id="21" value="8"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1132" model="302">
+            <properties>
+              <property id="20" value="412"/>
+              <property id="21" value="16"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1162" model="332">
+            <properties>
+              <property id="20" value="412"/>
+              <property id="21" value="64"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1192" model="362">
+            <properties>
+              <property id="20" value="414"/>
+              <property id="21" value="148"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1103" model="7">
+            <properties>
+              <property id="20" value="599"/>
+              <property id="21" value="8"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1133" model="303">
+            <properties>
+              <property id="20" value="609"/>
+              <property id="21" value="16"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1163" model="333">
+            <properties>
+              <property id="20" value="609"/>
+              <property id="21" value="64"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1193" model="363">
+            <properties>
+              <property id="20" value="611"/>
+              <property id="21" value="148"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1104" model="7">
+            <properties>
+              <property id="20" value="8"/>
+              <property id="21" value="196"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1134" model="304">
+            <properties>
+              <property id="20" value="18"/>
+              <property id="21" value="204"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1164" model="334">
+            <properties>
+              <property id="20" value="18"/>
+              <property id="21" value="252"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1194" model="364">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="336"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1105" model="7">
+            <properties>
+              <property id="20" value="205"/>
+              <property id="21" value="196"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1135" model="305">
+            <properties>
+              <property id="20" value="215"/>
+              <property id="21" value="204"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1165" model="335">
+            <properties>
+              <property id="20" value="215"/>
+              <property id="21" value="252"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1195" model="365">
+            <properties>
+              <property id="20" value="217"/>
+              <property id="21" value="336"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1106" model="7">
+            <properties>
+              <property id="20" value="402"/>
+              <property id="21" value="196"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1136" model="306">
+            <properties>
+              <property id="20" value="412"/>
+              <property id="21" value="204"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1166" model="336">
+            <properties>
+              <property id="20" value="412"/>
+              <property id="21" value="252"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1196" model="366">
+            <properties>
+              <property id="20" value="414"/>
+              <property id="21" value="336"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1107" model="7">
+            <properties>
+              <property id="20" value="599"/>
+              <property id="21" value="196"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1137" model="307">
+            <properties>
+              <property id="20" value="609"/>
+              <property id="21" value="204"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1167" model="337">
+            <properties>
+              <property id="20" value="609"/>
+              <property id="21" value="252"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1197" model="367">
+            <properties>
+              <property id="20" value="611"/>
+              <property id="21" value="336"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+        </components>
+      </hmiState>
+      <hmiState id="911" parentId="901" text="Dashboard 2">
+        <components>
+          <image id="1108" model="7">
+            <properties>
+              <property id="20" value="8"/>
+              <property id="21" value="8"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1138" model="308">
+            <properties>
+              <property id="20" value="18"/>
+              <property id="21" value="16"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1168" model="338">
+            <properties>
+              <property id="20" value="18"/>
+              <property id="21" value="64"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1198" model="368">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="148"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1109" model="7">
+            <properties>
+              <property id="20" value="205"/>
+              <property id="21" value="8"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1139" model="309">
+            <properties>
+              <property id="20" value="215"/>
+              <property id="21" value="16"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1169" model="339">
+            <properties>
+              <property id="20" value="215"/>
+              <property id="21" value="64"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1199" model="369">
+            <properties>
+              <property id="20" value="217"/>
+              <property id="21" value="148"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1110" model="7">
+            <properties>
+              <property id="20" value="402"/>
+              <property id="21" value="8"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1140" model="310">
+            <properties>
+              <property id="20" value="412"/>
+              <property id="21" value="16"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1170" model="340">
+            <properties>
+              <property id="20" value="412"/>
+              <property id="21" value="64"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1200" model="370">
+            <properties>
+              <property id="20" value="414"/>
+              <property id="21" value="148"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1111" model="7">
+            <properties>
+              <property id="20" value="599"/>
+              <property id="21" value="8"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1141" model="311">
+            <properties>
+              <property id="20" value="609"/>
+              <property id="21" value="16"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1171" model="341">
+            <properties>
+              <property id="20" value="609"/>
+              <property id="21" value="64"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1201" model="371">
+            <properties>
+              <property id="20" value="611"/>
+              <property id="21" value="148"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1112" model="7">
+            <properties>
+              <property id="20" value="8"/>
+              <property id="21" value="196"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1142" model="312">
+            <properties>
+              <property id="20" value="18"/>
+              <property id="21" value="204"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1172" model="342">
+            <properties>
+              <property id="20" value="18"/>
+              <property id="21" value="252"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1202" model="372">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="336"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1113" model="7">
+            <properties>
+              <property id="20" value="205"/>
+              <property id="21" value="196"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1143" model="313">
+            <properties>
+              <property id="20" value="215"/>
+              <property id="21" value="204"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1173" model="343">
+            <properties>
+              <property id="20" value="215"/>
+              <property id="21" value="252"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1203" model="373">
+            <properties>
+              <property id="20" value="217"/>
+              <property id="21" value="336"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1114" model="7">
+            <properties>
+              <property id="20" value="402"/>
+              <property id="21" value="196"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1144" model="314">
+            <properties>
+              <property id="20" value="412"/>
+              <property id="21" value="204"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1174" model="344">
+            <properties>
+              <property id="20" value="412"/>
+              <property id="21" value="252"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1204" model="374">
+            <properties>
+              <property id="20" value="414"/>
+              <property id="21" value="336"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1115" model="7">
+            <properties>
+              <property id="20" value="599"/>
+              <property id="21" value="196"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1145" model="315">
+            <properties>
+              <property id="20" value="609"/>
+              <property id="21" value="204"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1175" model="345">
+            <properties>
+              <property id="20" value="609"/>
+              <property id="21" value="252"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1205" model="375">
+            <properties>
+              <property id="20" value="611"/>
+              <property id="21" value="336"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+        </components>
+      </hmiState>
+      <hmiState id="912" parentId="901" text="Dashboard 3">
+        <components>
+          <image id="1116" model="7">
+            <properties>
+              <property id="20" value="8"/>
+              <property id="21" value="8"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1146" model="316">
+            <properties>
+              <property id="20" value="18"/>
+              <property id="21" value="16"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1176" model="346">
+            <properties>
+              <property id="20" value="18"/>
+              <property id="21" value="64"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1206" model="376">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="148"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1117" model="7">
+            <properties>
+              <property id="20" value="205"/>
+              <property id="21" value="8"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1147" model="317">
+            <properties>
+              <property id="20" value="215"/>
+              <property id="21" value="16"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1177" model="347">
+            <properties>
+              <property id="20" value="215"/>
+              <property id="21" value="64"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1207" model="377">
+            <properties>
+              <property id="20" value="217"/>
+              <property id="21" value="148"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1118" model="7">
+            <properties>
+              <property id="20" value="402"/>
+              <property id="21" value="8"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1148" model="318">
+            <properties>
+              <property id="20" value="412"/>
+              <property id="21" value="16"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1178" model="348">
+            <properties>
+              <property id="20" value="412"/>
+              <property id="21" value="64"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1208" model="378">
+            <properties>
+              <property id="20" value="414"/>
+              <property id="21" value="148"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1119" model="7">
+            <properties>
+              <property id="20" value="599"/>
+              <property id="21" value="8"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1149" model="319">
+            <properties>
+              <property id="20" value="609"/>
+              <property id="21" value="16"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1179" model="349">
+            <properties>
+              <property id="20" value="609"/>
+              <property id="21" value="64"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1209" model="379">
+            <properties>
+              <property id="20" value="611"/>
+              <property id="21" value="148"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1120" model="7">
+            <properties>
+              <property id="20" value="8"/>
+              <property id="21" value="196"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1150" model="320">
+            <properties>
+              <property id="20" value="18"/>
+              <property id="21" value="204"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1180" model="350">
+            <properties>
+              <property id="20" value="18"/>
+              <property id="21" value="252"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1210" model="380">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="336"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1121" model="7">
+            <properties>
+              <property id="20" value="205"/>
+              <property id="21" value="196"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1151" model="321">
+            <properties>
+              <property id="20" value="215"/>
+              <property id="21" value="204"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1181" model="351">
+            <properties>
+              <property id="20" value="215"/>
+              <property id="21" value="252"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1211" model="381">
+            <properties>
+              <property id="20" value="217"/>
+              <property id="21" value="336"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1122" model="7">
+            <properties>
+              <property id="20" value="402"/>
+              <property id="21" value="196"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1152" model="322">
+            <properties>
+              <property id="20" value="412"/>
+              <property id="21" value="204"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1182" model="352">
+            <properties>
+              <property id="20" value="412"/>
+              <property id="21" value="252"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1212" model="382">
+            <properties>
+              <property id="20" value="414"/>
+              <property id="21" value="336"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <image id="1123" model="7">
+            <properties>
+              <property id="20" value="599"/>
+              <property id="21" value="196"/>
+              <property id="9" value="189"/>
+              <property id="10" value="180"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="1153" model="323">
+            <properties>
+              <property id="20" value="609"/>
+              <property id="21" value="204"/>
+              <property id="9" value="169"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1183" model="353">
+            <properties>
+              <property id="20" value="609"/>
+              <property id="21" value="252"/>
+              <property id="9" value="169"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <image id="1213" model="383">
+            <properties>
+              <property id="20" value="611"/>
+              <property id="21" value="336"/>
+              <property id="9" value="165"/>
+              <property id="10" value="10"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+        </components>
+      </hmiState>
+      <hmiState id="980" parentId="901" text="Live values">
+        <components>
+          <button id="1700" action="36" model="400"/>
+          <button id="1701" action="36" model="401"/>
+          <button id="1702" action="36" model="402"/>
+          <button id="1703" action="36" model="403"/>
+          <button id="1704" action="36" model="404"/>
+          <button id="1705" action="36" model="405"/>
+          <button id="1706" action="36" model="406"/>
+          <button id="1707" action="36" model="407"/>
+          <button id="1708" action="36" model="408"/>
+          <button id="1709" action="36" model="409"/>
+          <button id="1710" action="36" model="410"/>
+          <button id="1711" action="36" model="411"/>
+          <button id="1712" action="36" model="412"/>
+          <button id="1713" action="36" model="413"/>
+          <button id="1714" action="36" model="414"/>
+          <button id="1715" action="36" model="415"/>
+          <button id="1716" action="36" model="416"/>
+          <button id="1717" action="36" model="417"/>
+          <button id="1718" action="36" model="418"/>
+          <button id="1719" action="36" model="419"/>
+          <button id="1720" action="36" model="420"/>
+          <button id="1721" action="36" model="421"/>
+          <button id="1722" action="36" model="422"/>
+          <button id="1723" action="36" model="423"/>
+        </components>
+      </hmiState>
+      <hmiState id="920" parentId="901" text="Shift light">
+        <components>
+          <image id="220" model="90">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="40"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+          <label id="170" model="91">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="100"/>
+              <property id="9" value="760"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <label id="171" model="92">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="170"/>
+              <property id="9" value="760"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <label id="172" model="93">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="240"/>
+              <property id="9" value="760"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+        </components>
+      </hmiState>
+      <hmiState id="930" parentId="901" text="Engine fault codes">
+        <components>
+          <button id="1441" action="35" text="Read again"/>
+          <label id="180" model="95"/>
+          <label id="181" model="96"/>
+          <label id="182" model="97"/>
+          <label id="183" model="98"/>
+          <label id="184" model="99"/>
+          <label id="185" model="100"/>
+          <label id="186" model="101"/>
+          <label id="187" model="102"/>
+        </components>
+      </hmiState>
+      <hmiState id="940" parentId="901" text="Gauge colour">
+        <components>
+          <label id="190" model="103"/>
+          <button id="191" action="40" text="BMW Orange"/>
+          <button id="192" action="41" text="Blue"/>
+          <button id="193" action="42" text="Green"/>
+          <button id="194" action="43" text="White"/>
+          <button id="195" action="44" text="Purple"/>
+          <button id="196" action="45" text="Pink"/>
+          <button id="197" action="46" text="Cyan"/>
+          <button id="198" action="47" text="Red"/>
+          <button id="199" action="48" text="Multicolour"/>
+        </components>
+      </hmiState>
+      <hmiState id="950" parentId="901" text="Shift point">
+        <components>
+          <label id="234" model="104"/>
+          <button id="230" action="30" text="Shift at 5000 rpm"/>
+          <button id="231" action="31" text="Shift at 5500 rpm"/>
+          <button id="232" action="32" text="Shift at 6000 rpm"/>
+          <button id="233" action="33" text="Shift at 6500 rpm"/>
+        </components>
+      </hmiState>
+      <hmiState id="960" parentId="901" text="Choose gauges">
+        <components>
+          <label id="235" model="105"/>
+          <checkbox id="1300" action="700" model="600" text="Water"/>
+          <checkbox id="1301" action="701" model="601" text="Oil"/>
+          <checkbox id="1302" action="702" model="602" text="RPM"/>
+          <checkbox id="1303" action="703" model="603" text="Torque"/>
+          <checkbox id="1304" action="704" model="604" text="Speed"/>
+          <checkbox id="1305" action="705" model="605" text="Speed shown"/>
+          <checkbox id="1306" action="706" model="606" text="Accelerator"/>
+          <checkbox id="1307" action="707" model="607" text="Clutch"/>
+          <checkbox id="1308" action="708" model="608" text="Lateral accel."/>
+          <checkbox id="1309" action="709" model="609" text="Longitudinal accel."/>
+          <checkbox id="1310" action="710" model="610" text="Steering angle"/>
+          <checkbox id="1311" action="711" model="611" text="Fuel level"/>
+          <checkbox id="1312" action="712" model="612" text="Range"/>
+          <checkbox id="1313" action="713" model="613" text="Battery"/>
+          <checkbox id="1314" action="714" model="614" text="Battery temp."/>
+          <checkbox id="1315" action="715" model="615" text="Outside temp."/>
+          <checkbox id="1316" action="716" model="616" text="Inside temp."/>
+          <checkbox id="1317" action="717" model="617" text="A/C exchanger"/>
+          <checkbox id="1318" action="718" model="618" text="A/C evaporator"/>
+          <checkbox id="1319" action="719" model="619" text="A/C compressor"/>
+          <checkbox id="1320" action="720" model="620" text="Altitude (GPS)"/>
+          <checkbox id="1321" action="721" model="621" text="Heading (GPS)"/>
+          <checkbox id="1322" action="722" model="622" text="Odometer"/>
+          <checkbox id="1323" action="723" model="623" text="Avg consumption"/>
+          <checkbox id="1324" action="724" model="624" text="Avg speed"/>
+          <checkbox id="1325" action="725" model="625" text="Engine load (OBD)"/>
+          <checkbox id="1326" action="726" model="626" text="Coolant (OBD)"/>
+          <checkbox id="1327" action="727" model="627" text="Short fuel trim (OBD)"/>
+          <checkbox id="1328" action="728" model="628" text="Long fuel trim (OBD)"/>
+          <checkbox id="1329" action="729" model="629" text="Intake pressure (OBD)"/>
+          <checkbox id="1330" action="730" model="630" text="RPM (OBD)"/>
+          <checkbox id="1331" action="731" model="631" text="Speed (OBD)"/>
+          <checkbox id="1332" action="732" model="632" text="Timing advance (OBD)"/>
+          <checkbox id="1333" action="733" model="633" text="Intake air (OBD)"/>
+          <checkbox id="1334" action="734" model="634" text="Air flow (MAF)"/>
+          <checkbox id="1335" action="735" model="635" text="Throttle (OBD)"/>
+          <checkbox id="1336" action="736" model="636" text="Run time (OBD)"/>
+          <checkbox id="1337" action="737" model="637" text="Rail pressure (OBD)"/>
+          <checkbox id="1338" action="738" model="638" text="Fuel level (OBD)"/>
+          <checkbox id="1339" action="739" model="639" text="Distance since clear (OBD)"/>
+          <checkbox id="1340" action="740" model="640" text="Barometric (OBD)"/>
+          <checkbox id="1341" action="741" model="641" text="Catalyst temp. (OBD)"/>
+          <checkbox id="1342" action="742" model="642" text="Module voltage (OBD)"/>
+          <checkbox id="1343" action="743" model="643" text="Absolute load (OBD)"/>
+          <checkbox id="1344" action="744" model="644" text="Commanded lambda (OBD)"/>
+          <checkbox id="1345" action="745" model="645" text="Relative throttle (OBD)"/>
+          <checkbox id="1346" action="746" model="646" text="Ambient (OBD)"/>
+          <checkbox id="1347" action="747" model="647" text="Pedal D (OBD)"/>
+          <checkbox id="1348" action="748" model="648" text="Commanded throttle (OBD)"/>
+          <checkbox id="1349" action="749" model="649" text="Oil temp. (OBD)"/>
+          <checkbox id="1350" action="750" model="650" text="Fuel rate (OBD)"/>
+          <checkbox id="1351" action="751" model="651" text="Torque demand (OBD)"/>
+          <checkbox id="1352" action="752" model="652" text="Torque actual (OBD)"/>
+          <checkbox id="1353" action="753" model="653" text="Reference torque (OBD)"/>
+          <checkbox id="1354" action="754" model="654" text="Boost (DME)"/>
+          <checkbox id="1355" action="755" model="655" text="AFR (DME)"/>
+          <checkbox id="1356" action="756" model="656" text="Timing (DME)"/>
+          <checkbox id="1357" action="757" model="657" text="Intake air (DME)"/>
+          <checkbox id="1358" action="758" model="658" text="Rail pressure (DME)"/>
+          <checkbox id="1359" action="759" model="659" text="Oil pressure (DME)"/>
+          <checkbox id="1360" action="760" model="660" text="Coolant (DME)"/>
+        </components>
+      </hmiState>
+      <hmiState id="970" parentId="901" text="Car tests">
+        <components>
+          <button id="1510" action="50" text="Cluster: settings read (read only)"/>
+          <button id="1511" action="51" text="Cluster: function list (auto)"/>
+          <button id="1512" action="52" text="Cluster: function list (0101)"/>
+          <button id="1513" action="53" text="Cluster: size of area 5 (auto)"/>
+          <button id="1514" action="54" text="Cluster: size of area 5 (0101)"/>
+          <button id="1515" action="55" text="Cluster: draw test arrow (auto)"/>
+          <button id="1516" action="56" text="Cluster: draw test arrow (0101)"/>
+          <button id="1517" action="57" text="Cluster: draw, high channel (0101)"/>
+          <button id="1518" action="58" text="Cluster: size of area 5, tx 4 (0101)"/>
+          <button id="1519" action="59" text="Cluster: draw, tx 4 (0101)"/>
+          <button id="1520" action="60" text="Listen to cluster blocks 20 s"/>
+          <button id="1521" action="61" text="Gateway: find it"/>
+          <button id="1522" action="62" text="Gateway: probe the engine"/>
+          <button id="1523" action="63" text="Gateway: supported OBD values"/>
+          <button id="1524" action="64" text="Engine via MOST tunnel (read only)"/>
+          <button id="1525" action="65" text="Listen to the diagnosis block 20 s"/>
+          <button id="1526" action="66" text="Car data: show all values"/>
+        </components>
+      </hmiState>
+      <hmiState id="971" parentId="970" text="Test results">
+        <components>
+          <label id="1499" model="109">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="4"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1500" model="110">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="48"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1501" model="111">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="90"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1502" model="112">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="132"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1503" model="113">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="174"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1504" model="114">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="216"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1505" model="115">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="258"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1506" model="116">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="300"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1507" model="117">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="342"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1508" model="118">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="384"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+          <label id="1509" model="119">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="426"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+        </components>
+      </hmiState>
+    </hmiStates>
+  </pluginApp>
+</pluginApps>
