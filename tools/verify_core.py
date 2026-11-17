@@ -14,6 +14,10 @@ SUFFIXES = {".c", ".cpp", ".h", ".hpp", ".py", ".sh"}
 # Data this project did not write: these files say where they come from instead of carrying the project's notice.
 THIRD_PARTY = {"core/include/dhu_sdp.h", "core/include/hu_certificate.h"}
 ORIGIN = "Not written by this project"
+# Ported from MIT-licensed projects: they keep the MIT licence and name their source in their header.
+PORTED_MIT = {"platform/dme_gauges.hpp", "platform/hsfz.cpp", "platform/hsfz.hpp", "tools/gauge_collector.cpp"}
+MIT_HEADER = "SPDX-License-Identifier: MIT"
+PORTED = "Ported from "
 
 
 def source_files():
@@ -39,13 +43,22 @@ def main():
     missing = [
         name
         for name, path in source_files()
-        if name not in THIRD_PARTY and HEADER not in path.read_text(encoding="utf-8", errors="replace")[:600]
+        if name not in THIRD_PARTY | PORTED_MIT
+        and HEADER not in path.read_text(encoding="utf-8", errors="replace")[:600]
     ]
     if missing:
         raise SystemExit("FAIL: no licence header in " + ", ".join(missing))
     unsigned = [name for name in sorted(THIRD_PARTY) if ORIGIN not in (ROOT / name).read_text(encoding="utf-8")[:600]]
     if unsigned:
         raise SystemExit("FAIL: no origin stated in " + ", ".join(unsigned))
+    ported = [
+        name
+        for name in sorted(PORTED_MIT)
+        if MIT_HEADER not in (ROOT / name).read_text(encoding="utf-8")[:600]
+        or PORTED not in (ROOT / name).read_text(encoding="utf-8")[:1500]
+    ]
+    if ported:
+        raise SystemExit("FAIL: no MIT header or source stated in " + ", ".join(ported))
     print("PASS: LICENSE.md in order with its credits, every source file has its licence header")
 
 
