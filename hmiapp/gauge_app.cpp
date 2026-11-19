@@ -2,26 +2,35 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // The Gauges app, an iDrive app of its own under My Vehicle (libCarGauges.so, CarGauges.xml), next to Android Auto.
 // Its entry has a car icon and a preview card with a car picture: the 800x480 iDrive shows no picture of its own there.
-//   Gauges         the first page: a scrolling list of the pages below (the owner found OPTION menus too hidden)
-//   Dashboard      3 pages of 8 cards (tile, name, value, bar), filled in order with the ticked gauges
+// The entry opens the dashboard straight away (the owner: the gauges were too far to reach); OPTION holds the rest.
+//   Dashboard      up to 3 pages of 4 x 2 cells, filled in order with the ticked gauges, each in its look
+//                  (hmiapp/gauge_layout.hpp): card (name, value, bar), dial (a half circle as BMW's clusters), wide
+//                  bar or wide dial (two cells across), tall bar (two cells high, as ID6 apps' BoostDeck)
+//   OPTION         Dashboard 2 / 3 (while they have gauges), Live values, Shift light, Gauge settings, Diagnostics
 //   Live values    the same gauges as a scrolling list, one row each
-//   Choose gauges  every value of the catalogue (platform/gauge_catalogue.hpp): the iDrive's car data (CDS), standard
-//                  OBD values and BMW engine values from the DME (gauge-collector, through the diagnostic gateway);
-//                  OBD values the DME does not support (/var/local/data/AA/gauges-supported) are hidden
 //   Shift light    rpm bar, speed and the chosen shift point (CDS)
-//   Fault codes    the engine's stored codes with a description (gauge-collector --codes); "Clear the codes..." opens
-//                  a page that says what clearing does, whose one button clears the DME's fault memory
-//                  (gauge-collector --clear, the owner's choice 2026-11-19), then shows the codes left
-//   Gauge colour   8 colours or one per card
-//   Car tests      a list of on-car tests; a press starts one and opens Test results
-// Kept in /var/local/data/AA: gauges-choice (the ticks), gauges-colour, gauges-shift. DME values only once the owner
-// created gauges-dme ("demo" in it: synthetic values) and the gateway's address is in gateway-ip.
+//   Gauge settings:
+//     Choose gauges  every value of the catalogue (platform/gauge_catalogue.hpp): the iDrive's car data (CDS), standard
+//                    OBD values and BMW engine values from the DME (gauge-collector, through the diagnostic gateway);
+//                    OBD values the DME does not support (/var/local/data/AA/gauges-supported) are hidden
+//     Gauge styles   one row per ticked gauge: a press gives it the next look
+//     Gauge colour   8 colours or one per gauge
+//     Shift point
+//   Diagnostics:
+//     Engine values (DME) switch and its state line
+//     Fault codes    the engine's stored codes with a description (gauge-collector --codes); "Clear the codes..."
+//                    opens a page that says what clearing does, whose one button clears the DME's fault memory
+//                    (gauge-collector --clear, the owner's choice 2026-11-19), then shows the codes left
+//     Car tests      a list of on-car tests; a press starts one and opens Test results
+// Kept in /var/local/data/AA: gauges-choice (the ticks), gauges-style (the looks), gauges-colour, gauges-shift. DME
+// values only once the owner created gauges-dme ("demo" in it: synthetic values) and the gateway's address is in
+// gateway-ip.
 //
 // A port of ID6 apps' BoostDeck and ShiftDeck (github.com/inotbarnacle/ID6_apps_prerelease, MIT) from the NBT Evo's
-// QNX to EntryNav2's Linux: the same RHMI framework and approach (bars pre-drawn as images, switched by id; a worker
-// process for the diagnostics, its values over loopback UDP), cards laid out for 800x480 and fed from a catalogue of
-// every value instead of a fixed set. MHD map switching is not ported (stock DME); code clearing follows their
-// Engine Fault Codes.
+// QNX to EntryNav2's Linux: the same RHMI framework and approach (bars and needles pre-drawn as images, switched by
+// id; a worker process for the diagnostics, its values over loopback UDP), laid out for 800x480 and fed from a
+// catalogue of every value instead of a fixed set. MHD map switching is not ported (stock DME); code clearing follows
+// their Engine Fault Codes.
 //
 // The models are updated only while their page shows, and only on change. /var/local/data/AA/gauges-off keeps the app
 // from being created (read at iDrive start).
@@ -66,6 +75,7 @@ const char kChoiceFile[] = "/var/local/data/AA/gauges-choice";
 const char kSupportedFile[] = "/var/local/data/AA/gauges-supported";
 const char kColourFile[] = "/var/local/data/AA/gauges-colour";
 const char kShiftFile[] = "/var/local/data/AA/gauges-shift";
+const char kStyleFile[] = "/var/local/data/AA/gauges-style";
 const char kCollector[] = "/opt/hmi/data/ro/Plugins/CarGauges/gauge-collector";
 const char kCollectorLog[] = "/tmp/gauge-collector.log";
 const char kCodesFile[] = "/tmp/gauge-codes.txt";
@@ -84,7 +94,10 @@ bool g_valid[kEntryCount];
 double g_value[kEntryCount];
 uint64_t g_seenAt[kEntryCount];  // DME values: when the frame carrying it arrived (they go stale)
 bool g_logged[kEntryCount];
-unsigned g_cardEntry[kCards];  // the entry each card shows, kEntryCount: none
+unsigned g_look[kEntryCount];  // each entry's look (gauges-style)
+unsigned g_list[kCards];       // the ticked, offered entries in order (Live values, Gauge styles)
+unsigned g_listCount = 0;
+Layout<kPages> g_layout;  // where they are on the dashboard pages
 
 int g_udp = -1;
 pid_t g_collector = -1;
@@ -115,18 +128,19 @@ void setImage(unsigned model, unsigned image) {
     g_shownImage[model] = image;
 }
 
-int g_cardShown[kCards];  // a card's tile and bar visibility as last set: -1 unknown, 0 hidden, 1 shown
-int g_liveShown[kCards];  // the same for the Live values rows
-int g_menuShown[2];       // the Gauges list's Dashboard 2 and 3
+// Visibility as last set: -1 unknown, 0 hidden, 1 shown.
+int g_lookShown[kLooks][kCards];  // a look's pictures at a cell
+int g_liveShown[kCards];          // the Live values rows
+int g_lookRowShown[kLookRows];    // the Gauge styles rows
+int g_optionShown[kViews][2];     // each view's OPTION Dashboard 2 and 3
 
 void forgetShown() {
     memset(g_shownText, 0, sizeof(g_shownText));
     memset(g_shownImage, 0, sizeof(g_shownImage));
-    for (unsigned c = 0; c < kCards; ++c) {
-        g_cardShown[c] = -1;
-        g_liveShown[c] = -1;
-    }
-    g_menuShown[0] = g_menuShown[1] = -1;
+    memset(g_lookShown, 0xff, sizeof(g_lookShown));  // -1
+    memset(g_liveShown, 0xff, sizeof(g_liveShown));
+    memset(g_lookRowShown, 0xff, sizeof(g_lookRowShown));
+    memset(g_optionShown, 0xff, sizeof(g_optionShown));
 }
 
 void setVisible(unsigned component, bool visible) {
@@ -135,9 +149,25 @@ void setVisible(unsigned component, bool visible) {
     }
 }
 
-unsigned barImage(unsigned card, unsigned level) {
-    const unsigned colour = g_colour == kMulticolour ? card % kColours : g_colour;
-    return kImgBar0 + colour * kBarColourStride + (level < kBarLevels ? level : kBarLevels - 1);
+// Sets a component's visibility when it differs from *shown.
+void showComponent(unsigned component, bool visible, int* shown) {
+    if (*shown != (visible ? 1 : 0)) {
+        setVisible(component, visible);
+        *shown = visible ? 1 : 0;
+    }
+}
+
+unsigned colourOf(unsigned cell) {
+    return g_colour == kMulticolour ? cell % kColours : g_colour;
+}
+
+unsigned barImage(unsigned cell, unsigned level) {
+    return kImgBar0 + colourOf(cell) * kBarColourStride + (level < kBarLevels ? level : kBarLevels - 1);
+}
+
+// A big look's front picture (needle or bar) for a level of kFineLevels.
+unsigned fineImage(unsigned first, unsigned cell, unsigned level) {
+    return first + colourOf(cell) * kFineStride + (level < kFineLevels ? level : kFineLevels - 1);
 }
 
 // ---- small files
@@ -194,17 +224,37 @@ void saveChoice() {
     writeLine(kChoiceFile, line);
 }
 
-// The ticked, offered entries, in catalogue order, onto the cards.
+void loadLooks() {
+    char line[kEntryCount + 8] = "";
+    parseLooks(readLine(kStyleFile, line, sizeof(line)) ? line : nullptr, g_look);
+}
+
+void saveLooks() {
+    char line[kEntryCount + 8];
+    formatLooks(g_look, line, sizeof(line));
+    writeLine(kStyleFile, line);
+}
+
+// The ticked, offered entries, in catalogue order, laid out on the dashboard pages in their looks.
 void assignCards() {
-    unsigned c = 0;
-    for (unsigned i = 0; i < kEntryCount && c < kCards; ++i) {
+    g_listCount = 0;
+    unsigned looks[kCards];
+    for (unsigned i = 0; i < kEntryCount && g_listCount < kCards; ++i) {
         if (g_on[i] && !g_hidden[i]) {
-            g_cardEntry[c++] = i;
+            looks[g_listCount] = g_look[i];
+            g_list[g_listCount++] = i;
         }
     }
-    for (; c < kCards; ++c) {
-        g_cardEntry[c] = kEntryCount;
+    layOut(g_list, looks, g_listCount, &g_layout);
+}
+
+bool onDashboard(unsigned entry) {
+    for (unsigned c = 0; c < kCards; ++c) {
+        if (g_layout.entry[c] == entry) {
+            return true;
+        }
     }
+    return false;
 }
 
 bool dashPage() {
@@ -294,10 +344,10 @@ void updateCollector() {
     char want[512] = "";
     size_t used = 0;
     if (livePage()) {
-        const bool all = g_page == kLiveState;  // the list shows every card
+        const bool all = g_page == kLiveState;  // the list shows every gauge
         const unsigned first = all ? 0 : (g_page - kDashState0) * kCardsPerPage;
-        for (unsigned c = first; c < (all ? kCards : first + kCardsPerPage); ++c) {
-            const unsigned e = g_cardEntry[c];
+        for (unsigned c = first; c < (all ? g_listCount : first + kCardsPerPage); ++c) {
+            const unsigned e = all ? g_list[c] : g_layout.entry[c];
             if (e < kEntryCount && kEntries[e].source != kCds && used + 8 < sizeof(want)) {
                 used += static_cast<size_t>(snprintf(want + used, sizeof(want) - used, "%s%u", used ? "," : "", e));
             }
@@ -428,53 +478,93 @@ bool fresh(unsigned e) {
     return kEntries[e].source == kCds || dme::monoMs() - g_seenAt[e] < dme::kStaleMs;
 }
 
-void showCard(unsigned c) {
-    const unsigned e = g_cardEntry[c];
-    const int shown = e < kEntryCount ? 1 : 0;
-    if (g_cardShown[c] != shown) {
-        setVisible(kCardTile0 + c, shown != 0);
-        setVisible(kCardBarComp0 + c, shown != 0);
-        g_cardShown[c] = shown;
+// Cell c: the gauge that starts there, in its look; every other look's pictures hidden and labels empty there.
+void showCell(unsigned c) {
+    const unsigned e = g_layout.entry[c];
+    const unsigned look = e < kEntryCount ? g_layout.look[c] : static_cast<unsigned>(kLooks);
+    for (unsigned l = 0; l < kLooks; ++l) {
+        if (!lookFits(l, c)) {
+            continue;  // the look has no components at this cell
+        }
+        for (unsigned p = 0; p < kLookImages; ++p) {
+            if (kLookImage0[l][p]) {
+                showComponent(kLookImage0[l][p] + c, l == look, &g_lookShown[l][c]);
+            }
+        }
+        if (l != look) {
+            setText(kLookTitle0[l] + c, "");
+            setText(kLookValue0[l] + c, "");
+        }
     }
-    if (e >= kEntryCount) {
-        setText(kCardTitle0 + c, "");
-        setText(kCardValue0 + c, "");
+    if (look >= kLooks) {
         return;
     }
+    const Entry& entry = kEntries[e];
     char text[48];
     const bool ok = fresh(e);
-    valueText(kEntries[e], ok, g_value[e], text, sizeof(text));
-    if (!ok && kEntries[e].source != kCds && g_dmeWhy[0]) {
+    valueText(entry, ok, g_value[e], text, sizeof(text));
+    if (!ok && entry.source != kCds && g_dmeWhy[0]) {
         snprintf(text, sizeof(text), "%s", g_dmeWhy);  // why there is no value
     }
-    setText(kCardTitle0 + c, kEntries[e].title);
-    setText(kCardValue0 + c, text);
-    setImage(kCardBar0 + c, barImage(c, ok ? barLevel(kEntries[e], g_value[e]) : 0));
+    setText(kLookTitle0[look] + c, entry.title);
+    setText(kLookValue0[look] + c, text);
+    const unsigned fine = ok ? levelOf(entry, g_value[e], kFineLevels) : 0;
+    switch (look) {
+        case kLookDial:
+            setImage(kCardBack0 + c, kImgFace0 + e);
+            setImage(kCardBar0 + c, fineImage(kImgNeedle0, c, fine));
+            break;
+        case kLookWide:
+            setImage(kCardBack0 + c, kImgWideTrack0 + e);
+            setImage(kCardBar0 + c, fineImage(kImgWideBar0, c, fine));
+            break;
+        case kLookWideDial:
+            setImage(kCardBack0 + c, kImgWideFace0 + e);
+            setImage(kCardBar0 + c, fineImage(kImgWideNeedle0, c, fine));
+            break;
+        case kLookArc:
+            setImage(kCardBack0 + c, kImgArcFace0 + e);
+            setImage(kCardBar0 + c, fineImage(kImgArcNeedle0, c, fine));
+            break;
+        case kLookWideArc:
+            setImage(kCardBack0 + c, kImgWideArcFace0 + e);
+            setImage(kCardBar0 + c, fineImage(kImgWideArcNeedle0, c, fine));
+            break;
+        case kLookTall:
+            setImage(kCardBack0 + c, kImgTallTrack0 + e);
+            setImage(kCardBar0 + c, fineImage(kImgTallBar0, c, fine));
+            break;
+        default:
+            setImage(kCardBack0 + c, kImgCardIcon0 + e);
+            setImage(kCardBar0 + c, barImage(c, ok ? barLevel(entry, g_value[e]) : 0));
+            break;
+    }
 }
 
 void showDash() {
     const unsigned first = (g_page - kDashState0) * kCardsPerPage;
     for (unsigned c = first; c < first + kCardsPerPage; ++c) {
-        showCard(c);
+        showCell(c);
     }
 }
 
-unsigned usedCards() {
-    unsigned n = 0;
-    while (n < kCards && g_cardEntry[n] < kEntryCount) {
-        ++n;
+// The views' OPTION menus: Dashboard 2 and 3 only while they have a gauge. A view has no button for itself.
+void showOptions() {
+    for (unsigned v = 0; v < kViews; ++v) {
+        for (unsigned i = 0; i < 2; ++i) {
+            const unsigned item = i == 0 ? kOptionDash2 : kOptionDash3;
+            if (v != item) {  // views 1 and 2 are Dashboard 2 and 3 themselves
+                showComponent(kOptionComp0 + v * 10 + item, g_layout.pages > item, &g_optionShown[v][i]);
+            }
+        }
     }
-    return n;
 }
 
 void showLive() {
     for (unsigned c = 0; c < kCards; ++c) {
-        const unsigned e = g_cardEntry[c];
-        const int shown = e < kEntryCount ? 1 : 0;
-        if (g_liveShown[c] != shown) {
-            setVisible(kLiveRowComp0 + c, shown != 0);
-            g_liveShown[c] = shown;
-        }
+        const unsigned e = c < g_listCount ? g_list[c] : kEntryCount;
+        const bool shown = e < kEntryCount;
+        showComponent(kLiveRowComp0 + c, shown, &g_liveShown[c]);
         if (!shown) {
             continue;
         }
@@ -488,8 +578,8 @@ void showLive() {
     }
 }
 
-// The Gauges list: Dashboard 2 and 3 only while they have a card; the engine values switch and its line.
-void showMenu() {
+// Diagnostics: the engine values switch and its line.
+void showDiag() {
     const bool on = access(kDmeFile, F_OK) == 0;
     g_app->updateModel(kDmeModel, on);
     char host[16] = "";
@@ -505,14 +595,29 @@ void showMenu() {
         snprintf(note, sizeof(note), "Engine values on, gateway %s", host);
     }
     setText(kDmeNote, note);
-    const unsigned used = usedCards();
-    const int want[2] = {used > kCardsPerPage ? 1 : 0, used > 2 * kCardsPerPage ? 1 : 0};
-    for (unsigned i = 0; i < 2; ++i) {
-        if (g_menuShown[i] != want[i]) {
-            setVisible(i == 0 ? kMenuDash2Comp : kMenuDash3Comp, want[i] != 0);
-            g_menuShown[i] = want[i];
+}
+
+// Gauge styles: each ticked gauge with its look; a press gives it the next one.
+void showLooks() {
+    unsigned placed = 0;
+    for (unsigned r = 0; r < kLookRows; ++r) {
+        const bool shown = r < g_listCount;
+        showComponent(kLookRowComp0 + r, shown, &g_lookRowShown[r]);
+        if (!shown) {
+            continue;
         }
+        const unsigned e = g_list[r];
+        const bool there = onDashboard(e);
+        placed += there ? 1 : 0;
+        char row[64];
+        snprintf(row, sizeof(row), "%s: %s%s", kEntries[e].title, kLookNames[g_look[e] < kLooks ? g_look[e] : 0],
+                 there ? "" : " (no room on the dashboard)");
+        setText(kLookRow0 + r, row);
     }
+    char note[96];
+    snprintf(note, sizeof(note), "%u gauges on %u dashboard page%s. Press one to change its look.", placed,
+             g_layout.pages, g_layout.pages == 1 ? "" : "s");
+    setText(kLookNote, g_listCount ? note : "No gauge ticked: Choose gauges first");
 }
 
 void showShift() {
@@ -562,7 +667,8 @@ void showChoose() {
     for (unsigned i = 0; i < kEntryCount; ++i) {
         ticked += g_on[i] && !g_hidden[i] ? 1 : 0;
     }
-    snprintf(text, sizeof(text), "%u ticked, %u cards%s", ticked, kCards,
+    const unsigned shown = g_listCount - g_layout.dropped;
+    snprintf(text, sizeof(text), "%u ticked, %u on the dashboard%s", ticked, shown,
              hidden ? " (OBD values this DME lacks are hidden)" : "");
     setText(kChooseNote, text);
 }
@@ -590,8 +696,10 @@ void refresh() {
         showDash();
     } else if (g_page == kLiveState) {
         showLive();
-    } else if (g_page == kMenuState) {
-        showMenu();
+    } else if (g_page == kDiagState) {
+        showDiag();
+    } else if (g_page == kLookState) {
+        showLooks();
     } else if (g_page == kShiftState) {
         showShift();
     } else if (g_page == kChooseState) {
@@ -837,7 +945,7 @@ void pollRun(void*) {
             alog("gauges: gateway discovery ended: %s",
                  readLine(kGatewayFile, host, sizeof(host)) && host[0] ? host : "not found");
             g_dmeWhy[0] = 0;
-            showMenu();  // the list's line, whichever page shows (iDrive keeps the model)
+            showDiag();  // the Diagnostics line, whichever page shows (iDrive keeps the model)
         }
     }
     if (g_testPid > 0) {
@@ -879,9 +987,10 @@ void pageVisible(unsigned state, bool visible) {
     }
     g_page = state;
     forgetShown();  // the HMI may have dropped the models while hidden: everything sent again
-    if (livePage()) {
+    if (livePage() || state == kShiftState) {
         assignCards();
         updateCollector();
+        showOptions();  // the view's OPTION: Dashboard 2 and 3 while they have gauges
     } else if (state == kCodesState) {
         reap(&g_codesPid);
         if (g_codesPid > 0) {
@@ -898,12 +1007,47 @@ void pageVisible(unsigned state, bool visible) {
     } else if (state == kTestResultState) {
         showTestStatus();
         showTestLines();
-    } else if (state == kMenuState) {
+    } else if (state == kLookState) {
         assignCards();  // the ticks may have changed
     }
     startPoll();
     refresh();
 }
+
+// The entry: the dashboard is about to show (opened by the focusEvent below). Its own visibility notice may never
+// come (the old first page, opened by the entry, never sent one): it is treated as shown from here.
+bool onEntry(void*, const bmw::Parcel&) {
+    alog("gauges: entry pressed: dashboard");
+    pageVisible(kDashState0, true);
+    g_app->triggerEvent(kEvDash);
+    return true;
+}
+
+template <unsigned Row>
+bool onLookRow(void*, const bmw::Parcel&) {
+    if (Row >= g_listCount) {
+        return true;
+    }
+    const unsigned e = g_list[Row];
+    g_look[e] = nextLook(g_look[e]);
+    saveLooks();
+    assignCards();
+    alog("gauges: %s look %s%s", kEntries[e].title, kLookNames[g_look[e]], onDashboard(e) ? "" : " (no room)");
+    showLooks();
+    return true;
+}
+
+template <unsigned N>
+struct LookActions {
+    static void add(bmw::PluginApp* self) {
+        LookActions<N - 1>::add(self);
+        addAction(self, kActLookRow0 + N - 1, &onLookRow<N - 1>);
+    }
+};
+template <>
+struct LookActions<0> {
+    static void add(bmw::PluginApp*) {}
+};
 
 template <unsigned State>
 bool onVisible(void*, const bmw::Parcel& value) {
@@ -971,7 +1115,7 @@ bool onDmeToggle(void*, const bmw::Parcel&) {
     }
     g_dmeWhy[0] = 0;
     g_collectorWant[0] = 0;  // judged again on the next dashboard
-    showMenu();
+    showDiag();
     startPoll();
     return true;
 }
@@ -1132,14 +1276,19 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     TestActions<kCarTestCount>::add(self);
     addStateHandler(self, kTestState, kHandlerVisible, &onVisible<kTestState>);
     addStateHandler(self, kTestResultState, kHandlerVisible, &onVisible<kTestResultState>);
-    addStateHandler(self, kMenuState, kHandlerVisible, &onVisible<kMenuState>);
+    addStateHandler(self, kSettingsState, kHandlerVisible, &onVisible<kSettingsState>);
+    addStateHandler(self, kDiagState, kHandlerVisible, &onVisible<kDiagState>);
+    addStateHandler(self, kLookState, kHandlerVisible, &onVisible<kLookState>);
     addStateHandler(self, kLiveState, kHandlerVisible, &onVisible<kLiveState>);
+    addAction(self, kActEntry, &onEntry);
     addAction(self, kActLiveRow, &onLiveRow);
     addAction(self, kActDme, &onDmeToggle);
     ChoiceActions<kEntryCount>::add(self);
+    LookActions<kLookRows>::add(self);
     g_colour = readIndex(kColourFile, kColours + 1, 0);
     g_shiftPoint = readIndex(kShiftFile, sizeof(kShiftPoints) / sizeof(kShiftPoints[0]), 2);
     loadChoice();
+    loadLooks();
     assignCards();
     collectProperties();
     openUdp();

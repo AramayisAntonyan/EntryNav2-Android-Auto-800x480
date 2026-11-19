@@ -65,10 +65,15 @@ phone silent for 2 s), so on this base the fork uses upstream's versions and kee
   column for the 800x480 screen; its entry has a car icon, which small iDrive screens otherwise lack there. Layout and
   approach after ID6 apps' BoostDeck (MIT); CDS fields as AAIdrive reads them (MIT).
 - **Gauges app under My Vehicle** (`opt/hmi/data/ro/Plugins/CarGauges`; `/var/local/data/AA/gauges-off` turns it
-  off). A dashboard of cards (tile, name, value, bar; 8 colours or one per card), filled with any value ticked in
+  off). The entry opens the dashboard; OPTION holds the other views, *Gauge settings* and *Diagnostics*. Each gauge has
+  a look (*Gauge styles*): a card (icon, name, value, bar), a dial (a half circle in the style of BMW's clusters: one rim
+  line turning in at its ends, notches inside it, the F87 M2's slotted needle), an arc (the F-series fuel gauge's
+  shallow arc under its pivot), a wide bar, wide dial or wide arc over two cells,
+  or a tall bar over two cells (BoostDeck's vertical bar); bars are the current M5's wedge of slanted segments. No card
+  background; 8 colours or one per gauge; filled with any value ticked in
   *Choose gauges*: 61 values from the iDrive's car data, standard OBD and BMW engine values (`platform/gauge_catalogue.hpp`,
   from `hmiapp/gauge_catalogue.py`); a shift light; the engine's fault codes, read only. DME values come from
-  `gauge-collector` (HSFZ through the diagnostic gateway, read services only) and stay off until the list's *Engine
+  `gauge-collector` (HSFZ through the diagnostic gateway, read services only) and stay off until Diagnostics' *Engine
   values (DME)* switch creates `/var/local/data/AA/gauges-dme`. On the F22 no gateway answers the identification
   broadcast on any of the head unit's networks, so engine values are not available there yet. The entry has a car icon and a preview card with the car and trip lines; the
   owner's own photo is used when `.local/gauges_card_549x484.png` exists (`tools/card_from_photo.py`, kept out of git).
@@ -118,8 +123,10 @@ this car. Left out, and why:
 | Project | Licence | How it is used |
 |---|---|---|
 | [Sq00ky/Supra-iDrive6-Android-Auto](https://github.com/Sq00ky/Supra-iDrive6-Android-Auto) (NBT-AAD, by nanaisu) | PolyForm Noncommercial 1.0.0 | The origin of entry-aad. Its 6WA cluster driver (MOST HUDTerminal, FBlock `0x82`, tested by its author on an F20 with an NBT Evo) is ported here: the protocol, the maneuver pictures, the 6WA layout and its batches of calls, adapted to this project's phone messages. Its MOST transport is not: this head unit has its own vMOST client. Its programs target NBT Evo (QNX) and cannot run on EntryNav2 (Linux). |
-| [inotbarnacle/ID6_apps_prerelease](https://github.com/inotbarnacle/ID6_apps_prerelease) (ID6 apps) | MIT | The Gauges app's page layout (a bar image over a text label per gauge, bars pre-drawn and switched by image id) follows its BoostDeck, written anew for EntryNav2's Linux at 800x480. Its BoostDeck DME identifiers (boost and other engine values) and colour palette are used in the Gauges catalogue and images; its DME fault code descriptions are `platform/dme_codes.hpp`. car-test's MOST diagnosis tunnel test follows its MOST fallback's message format (FBlock 06.F0, function 050, routine 0F0B, source 63), written anew for vMOST. |
+| [inotbarnacle/ID6_apps_prerelease](https://github.com/inotbarnacle/ID6_apps_prerelease) (ID6 apps) | MIT | The Gauges app's page layout (a bar image over a text label per gauge, bars pre-drawn and switched by image id) and its tall bar over two cells follow its BoostDeck, written anew for EntryNav2's Linux at 800x480. Its BoostDeck DME identifiers (boost and other engine values) and colour palette are used in the Gauges catalogue and images; its DME fault code descriptions are `platform/dme_codes.hpp`. car-test's MOST diagnosis tunnel test follows its MOST fallback's message format (FBlock 06.F0, function 050, routine 0F0B, source 63), written anew for vMOST. |
 | [CallMeLewis/EntryNav-Apps](https://github.com/CallMeLewis/EntryNav-Apps) | MIT | The three firewall rules that open the diagnostic gateway's ports on EntryNav2 (its `install/firewall.rules`), and the fault code clear's sequence of its Engine Fault Codes (itself from ID6 apps). |
+| [jpt/barlow](https://github.com/jpt/barlow) (Barlow) | SIL Open Font License 1.1 | The figures on the Gauges app's dials and bar scales: rendered once from Barlow Semi Condensed SemiBold (`tools/make_gauge_figures.py`) into `hmiapp/res/gauge_figures.png`. The font itself is not part of the project. |
+| [google/material-design-icons](https://github.com/google/material-design-icons) (Material Symbols) | Apache License 2.0 | The gauges' icons (thermometer, oil, turbo fan, ...): rendered once from Material Symbols Outlined into `hmiapp/res/gauge_icons.png`. |
 | [BimmerGestalt/AAIdrive](https://github.com/BimmerGestalt/AAIdrive) | MIT | The CDS JSON paths of the Gauges catalogue (`hmiapp/gauge_catalogue.py`), as its `cds/CDSMetrics.kt` reads them, e.g. `engine.temperature`. |
 
 Required Notice from the origin project, kept as its licence asks:

@@ -89,6 +89,10 @@ A few files hold data this project did not write. The copyright notice above doe
   CA, as open Android Auto head units share it.
 - `core/include/dhu_sdp.h`: the service description sent by Google's Desktop Head Unit.
 - `hmiapp/res/spinner/`: the waiting animation of Supra-iDrive6-Android-Auto.
+- `hmiapp/res/gauge_figures.png`: figures rendered from Barlow Semi Condensed (Copyright 2017 The Barlow Project
+  Authors, https://github.com/jpt/barlow), under the SIL Open Font License 1.1.
+- `hmiapp/res/gauge_icons.png`: icons rendered from Material Symbols (Google, https://github.com/google/material-design-icons),
+  under the Apache License 2.0.
 - `tests/fixtures/gps_e7/LocationData.proto`: an unmodified file of [aasdk](https://github.com/opencardev/aasdk), under
   the GNU General Public License v3.0. It is read by one PC test and is not part of the programs.
 - `platform/kombi_graph_template.hpp` and the car readings of `tests/fixtures/`: bytes and outputs recorded on a BMW

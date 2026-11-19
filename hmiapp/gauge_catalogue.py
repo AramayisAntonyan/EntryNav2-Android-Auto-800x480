@@ -97,6 +97,52 @@ DID = [
 
 FORMULAS = {"A*a": 0, "A+b": 1, "A*a+b": 2, "AB*a": 3, "AB*a+b": 4}
 
+# How a gauge looks on the dashboard until the owner picks another look (Gauge styles; hmiapp/gauge_layout.hpp kLook*):
+# 0 card, 1 dial (half circle), 2 wide bar (two cells across), 3 wide dial, 4 tall bar (two cells high), 5 arc (the
+# fuel gauge's shape), 6 wide arc.
+LOOKS = ("Card", "Dial", "Wide bar", "Wide dial", "Tall bar", "Arc", "Wide arc")
+DEFAULT_LOOK = {"RPM": 3, "Water": 1, "Oil": 1}
+# Each gauge's icon (Material Symbols names, drawn by tools/make_gauge_figures.py into hmiapp/res/gauge_icons.png), as
+# BMW's own gauges carry one (the M5's coolant thermometer and turbo); a gauge with none has no icon.
+ICONS = {
+    "device_thermostat": ("Water", "Coolant (OBD)", "Coolant (DME)"),
+    "oil_barrel": ("Oil", "Oil temp. (OBD)", "Oil pressure"),
+    "av_timer": ("RPM", "RPM (OBD)"),
+    "speed": ("Speed", "Speed shown", "Speed (OBD)", "Avg speed"),
+    "settings": ("Torque", "Torque demand", "Torque actual", "Reference torque"),
+    "mode_fan": ("Boost", "Intake pressure"),
+    "battery_full": ("Battery", "Battery temp."),
+    "electric_bolt": ("Module voltage",),
+    "local_gas_station": ("Fuel level", "Fuel level (OBD)", "Range", "Fuel rate", "Avg consumption"),
+    "thermometer": ("Outside temp.", "Ambient (OBD)", "Inside temp."),
+    "ac_unit": ("A/C exchanger", "A/C evaporator", "A/C compressor"),
+    "altitude": ("Altitude (GPS)",),
+    "explore": ("Heading (GPS)",),
+    "route": ("Odometer", "Distance since clear"),
+    "tune": (
+        "Accelerator",
+        "Clutch",
+        "Throttle",
+        "Relative throttle",
+        "Pedal D",
+        "Commanded throttle",
+        "Engine load",
+        "Absolute load",
+    ),
+    "air": ("Intake air (OBD)", "Intake air (DME)", "Air flow (MAF)"),
+    "compress": ("Rail pressure", "Rail pressure (OBD)"),
+    "mist": ("AFR", "Commanded lambda", "Short fuel trim", "Long fuel trim"),
+    "bolt": ("Timing advance", "Timing (DME)"),
+    "timer": ("Run time",),
+    "landscape": ("Barometric",),
+    "heat": ("Catalyst temp.",),
+}
+
+
+def scale_key(e):
+    """The scale a gauge's dial or bar draws: its range, and a red end for engine speed (the last 1000 rpm)."""
+    return (e["lo"], e["hi"], e["unit"] == "rpm")
+
 
 def entries():
     """Every entry as a dict, in the order the Choose gauges list shows them."""
@@ -111,6 +157,9 @@ def entries():
         )
     for t, u, lo, hi, dec, did in DID:
         out.append(dict(source="did", title=t, unit=u, lo=lo, hi=hi, dec=dec, did=did, on=False))
+    for e in out:
+        e["look"] = DEFAULT_LOOK.get(e["title"], 0)
+        e["icon"] = next((icon for icon, titles in ICONS.items() if e["title"] in titles), None)
     return out
 
 
@@ -124,7 +173,7 @@ def cpp(es):
         rows.append(
             f'    {{{src}, "{e["title"]}", "{e["unit"]}", {e["lo"]!r}, {e["hi"]!r}, {e["dec"]}, {prop}, {key}, '
             f'{e.get("invalid", 0)}, 0x{code:X}, {e.get("n", 0)}, {e.get("f", 0)}, {float(e.get("a", 0))!r}, '
-            f'{float(e.get("b", 0))!r}, {"true" if e["on"] else "false"}}},'
+            f'{float(e.get("b", 0))!r}, {"true" if e["on"] else "false"}, {e["look"]}}},'
         )
     return (
         "// Copyright (c) 2026 Jiraiya43\n"
@@ -139,7 +188,9 @@ def cpp(es):
         '    double invalid;        // CDS: >= this is "no value" (0: none)\n'
         "    unsigned code;         // OBD PID or DID\n    unsigned bytes;        // OBD: data bytes\n"
         "    unsigned formula;      // OBD\n    double a, b;           // OBD\n"
-        "    bool on;               // shown by default\n};\n\n"
+        "    bool on;               // shown by default\n"
+        "    unsigned look;         // until the owner picks one: hmiapp/gauge_layout.hpp Look\n"
+        "};\n\n"
         "// clang-format off\n"
         "const Entry kEntries[] = {\n" + "\n".join(rows) + "\n};\n"
         "// clang-format on\n"
@@ -163,7 +214,8 @@ def main():
     if len(sys.argv) != 2:
         raise SystemExit("Usage: gauge_catalogue.py <platform/gauge_catalogue.hpp>")
     Path(sys.argv[1]).write_bytes(cpp(entries()).encode("utf-8"))
-    print(f"{len(entries())} gauges: {len(CDS)} CDS, {len(OBD)} OBD, {len(DID)} DID")
+    es = entries()
+    print(f"{len(es)} gauges: {len(CDS)} CDS, {len(OBD)} OBD, {len(DID)} DID; {sum(1 for e in es if e['icon'])} icons")
 
 
 if __name__ == "__main__":

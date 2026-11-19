@@ -1,10 +1,12 @@
 // Copyright (c) 2026 Jiraiya43
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Tests hmiapp/gauge_values.hpp and platform/gauge_catalogue.hpp: CDS values read as AAIdrive reads them, OBD
-// formulas, bar levels, value texts and the owner's choice of gauges.
+// formulas, bar levels, value texts, the owner's choice of gauges and their looks, and the dashboard layout
+// (hmiapp/gauge_layout.hpp).
 #include <stdio.h>
 #include <string.h>
 
+#include "gauge_layout.hpp"
 #include "gauge_values.hpp"
 
 static int g_failures = 0;
@@ -76,11 +78,69 @@ int main() {
     for (unsigned i = 0; i < kEntryCount; ++i) {
         CHECK(kEntries[i].hi > kEntries[i].lo && strlen(kEntries[i].title) <= 22);
     }
+    // Looks: the file's digits, the entry's default past its end or for a digit that is no look.
+    unsigned looks[kEntryCount];
+    parseLooks(nullptr, looks);
+    CHECK(looks[2] == kEntries[2].look && looks[0] == kEntries[0].look);
+    parseLooks("49", looks);
+    CHECK(looks[0] == kLookTall && looks[1] == kEntries[1].look && looks[3] == kEntries[3].look);
+    formatLooks(looks, line, sizeof(line));
+    CHECK(strlen(line) == kEntryCount && line[0] == '4');
+    CHECK(!strcmp(find("RPM") ? kLookNames[find("RPM")->look] : "", "Wide dial"));
+    parseLooks("6", looks);
+    CHECK(looks[0] == kLookWideArc && lookWidth(kLookWideArc) == 2 && lookHeight(kLookArc) == 1);
+    {
+        unsigned look = kLookCard, seen = 0;  // a press at a time: every look once, then back to the card
+        do {
+            look = nextLook(look);
+            ++seen;
+        } while (look != kLookCard && seen < 20);
+        CHECK(seen == kLooks && nextLook(kLookCard) == kLookDial && nextLook(kLookDial) == kLookArc);
+    }
+    for (unsigned i = 0; i < kEntryCount; ++i) {
+        CHECK(kEntries[i].look < kLooks);
+    }
+    CHECK(levelOf(*find("Water"), 40, 41) == 0 && levelOf(*find("Water"), 130, 41) == 40);
+    CHECK(levelOf(*find("Water"), 85, 41) == 20 && levelOf(*find("Water"), 500, 41) == 40);
+
+    // Layout: 4 x 2 cells a page, first free place in order.
+    {
+        Layout<3> l;
+        const unsigned e[] = {0, 1, 2, 3};
+        const unsigned k[] = {kLookDial, kLookDial, kLookWideDial, kLookCard};  // the default four
+        layOut(e, k, 4, &l);
+        CHECK(l.entry[0] == 0 && l.entry[1] == 1 && l.entry[2] == 2 && l.look[2] == kLookWideDial);
+        CHECK(l.entry[3] == kEntryCount && l.entry[4] == 3 && l.pages == 1 && l.dropped == 0);
+    }
+    {
+        Layout<3> l;  // a wide gauge after three cards skips to the next row; a later card fills the gap
+        const unsigned e[] = {0, 1, 2, 3, 4};
+        const unsigned k[] = {kLookCard, kLookCard, kLookCard, kLookWide, kLookCard};
+        layOut(e, k, 5, &l);
+        CHECK(l.entry[3] == 4 && l.entry[4] == 3 && l.look[4] == kLookWide && l.entry[6] == kEntryCount);
+    }
+    {
+        Layout<3> l;  // a tall gauge takes both rows of its column; past row 0 it goes to the next page
+        const unsigned e[] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+        const unsigned k[] = {kLookTall, kLookCard, kLookCard, kLookCard, kLookCard,
+                              kLookCard, kLookCard, kLookTall, kLookCard};
+        layOut(e, k, 9, &l);
+        CHECK(l.entry[0] == 0 && l.entry[4] == kEntryCount && l.entry[5] == 4 && l.entry[7] == 6);
+        CHECK(l.entry[8] == 7 && l.look[8] == kLookTall && l.entry[9] == 8 && l.pages == 2);
+    }
+    {
+        Layout<1> l;  // no room: counted, not placed
+        const unsigned e[] = {0, 1, 2, 3, 4};
+        const unsigned k[] = {kLookWideDial, kLookWideDial, kLookWideDial, kLookWideDial, kLookCard};
+        layOut(e, k, 5, &l);
+        CHECK(l.dropped == 1 && l.entry[0] == 0 && l.entry[2] == 1 && l.entry[4] == 2 && l.entry[6] == 3);
+    }
+
     if (g_failures) {
         printf("FAIL gauge values: %d check(s)\n", g_failures);
         return 1;
     }
-    printf("PASS gauge values: %u catalogue entries, CDS fields, OBD formulas, bars, texts, the owner's choice\n",
+    printf("PASS gauge values: %u catalogue entries, CDS fields, OBD formulas, bars, texts, choice, looks, layout\n",
            kEntryCount);
     return 0;
 }

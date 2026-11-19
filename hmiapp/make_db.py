@@ -15,6 +15,10 @@ import zipfile
 import zlib
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import gauge_art  # noqa: E402
+import gauge_catalogue  # noqa: E402
+
 LANGS = {
     "de": "Deutsch",
     "en-UK": "English (UK)",
@@ -148,8 +152,7 @@ def rgba_png(w, h, pixel):
 # under My Vehicle, its bars in every colour, and the shift light's rpm bar.
 GAUGE_ICON_SIZE = (63, 54)  # as the Android Auto row icon
 GAUGE_CARD_SIZE = (549, 484)  # as the Android Auto preview card
-GAUGE_BAR_SIZE = (165, 10)  # a card's bar
-GAUGE_TILE_SIZE = (189, 180)  # a card's dark tile, as BoostDeck's cards
+GAUGE_BAR_SIZE = gauge_art.CARD_BAR.size  # a card's bar (165 x 12)
 GAUGE_BAR_LEVELS = 25  # gauge_values.hpp kBarLevels: images 56000 + colour * 32 + level
 GAUGE_COLOURS = (  # gauge_ids.hpp kColourNames, BoostDeck's palette
     (240, 125, 0),  # BMW Orange
@@ -161,10 +164,13 @@ GAUGE_COLOURS = (  # gauge_ids.hpp kColourNames, BoostDeck's palette
     (0, 188, 212),  # Cyan
     (229, 57, 53),  # Red
 )
-GAUGE_BAR_TRACK = (70, 70, 70)
-SHIFT_BAR_SIZE = (760, 40)
 SHIFT_LEVELS = 33  # gauge_ids.hpp kShiftLevels: 57000 + level, past the shift point 57100 + level
 SHIFT_FILL, SHIFT_WARN = (240, 125, 0), (229, 57, 53)
+# The big looks (hmiapp/gauge_layout.hpp): images + colour * FINE_STRIDE + level (gauge_ids.hpp kFineLevels ...)
+FINE_LEVELS, FINE_STRIDE = 41, 64
+IMG_WIDE_BAR, IMG_TALL_BAR, IMG_NEEDLE, IMG_WIDE_NEEDLE = 59000, 59500, 60000, 60500
+IMG_FACE, IMG_WIDE_FACE, IMG_WIDE_TRACK, IMG_TALL_TRACK, IMG_CARD_ICON = 61000, 61100, 61200, 61300, 61400
+IMG_ARC_NEEDLE, IMG_WIDE_ARC_NEEDLE, IMG_ARC_FACE, IMG_WIDE_ARC_FACE = 62000, 62500, 63000, 63100
 
 
 def car_png(size, box, samples):
@@ -224,37 +230,6 @@ def car_card_png():
     return car_png(GAUGE_CARD_SIZE, ((w - cw) // 2, (h - ch) // 2, cw, ch), 2)
 
 
-def tile_png():
-    """A card's tile: dark, slightly see-through, rounded corners (radius 10), a thin lighter edge."""
-    w, h = GAUGE_TILE_SIZE
-    r = 10
-
-    def inside(x, y):
-        cx = min(max(x, r), w - 1 - r)
-        cy = min(max(y, r), h - 1 - r)
-        return (x - cx) ** 2 + (y - cy) ** 2 <= r * r
-
-    def pixel(x, y):
-        if not inside(x, y):
-            return (0, 0, 0, 0)
-        edge = not (inside(x - 1, y) and inside(x + 1, y) and inside(x, y - 1) and inside(x, y + 1))
-        return (70, 78, 90, 255) if edge else (28, 33, 41, 235)
-
-    return rgba_png(w, h, pixel)
-
-
-def flat_bar_png(size, filled, fill):
-    """A flat bar: a 1 px frame (an empty bar still shows where it is), filled from the left over filled pixels."""
-    w, h = size
-
-    def pixel(x, y):
-        if y in (0, h - 1) or x in (0, w - 1):
-            return (*GAUGE_BAR_TRACK, 255)
-        return (*fill, 255) if x < filled else (*GAUGE_BAR_TRACK, 160)
-
-    return rgba_png(w, h, pixel)
-
-
 def write_gauge_images(path):
     """CarGauges_ALL_Images.zip: the entry icon and card, the bars in every colour, the shift light's bar."""
     with zipfile.ZipFile(path, "w") as archive:
@@ -263,17 +238,53 @@ def write_gauge_images(path):
         # from a photo on a white background; else the drawn car.
         own = Path(__file__).resolve().parents[1] / ".local" / "gauges_card_549x484.png"
         add(archive, "58002.png", own.read_bytes() if own.is_file() else car_card_png())
-        add(archive, "58003.png", tile_png())
-        bw = GAUGE_BAR_SIZE[0]
+        # No card tiles any more (the owner: no background is better): 58003..58005 are gone.
         for colour, fill in enumerate(GAUGE_COLOURS):
             for level in range(GAUGE_BAR_LEVELS):
-                filled = round(bw * level / (GAUGE_BAR_LEVELS - 1))
-                add(archive, f"{56000 + colour * 32 + level}.png", flat_bar_png(GAUGE_BAR_SIZE, filled, fill))
-        sw = SHIFT_BAR_SIZE[0]
+                add(
+                    archive,
+                    f"{56000 + colour * 32 + level}.png",
+                    gauge_art.whole_bar(gauge_art.CARD_BAR, level, GAUGE_BAR_LEVELS, fill),
+                )
         for level in range(SHIFT_LEVELS):
-            filled = round(sw * level / (SHIFT_LEVELS - 1))
-            add(archive, f"{57000 + level}.png", flat_bar_png(SHIFT_BAR_SIZE, filled, SHIFT_FILL))
-            add(archive, f"{57100 + level}.png", flat_bar_png(SHIFT_BAR_SIZE, filled, SHIFT_WARN))
+            for first, fill in ((57000, SHIFT_FILL), (57100, SHIFT_WARN)):
+                add(
+                    archive, f"{first + level}.png", gauge_art.whole_bar(gauge_art.SHIFT_BAR, level, SHIFT_LEVELS, fill)
+                )
+        write_big_looks(archive)
+
+
+def write_big_looks(archive):
+    """The dials and the wide and tall bars: needles and bar values in every colour; per gauge its dial faces, bar
+    tracks and card icon, each with the gauge's icon and scale."""
+    for colour, fill in enumerate(GAUGE_COLOURS):
+        for level in range(FINE_LEVELS):
+            n = colour * FINE_STRIDE + level
+            add(archive, f"{IMG_WIDE_BAR + n}.png", gauge_art.WIDE_BAR.value(level, FINE_LEVELS, fill))
+            add(archive, f"{IMG_TALL_BAR + n}.png", gauge_art.TALL_BAR.value(level, FINE_LEVELS, fill))
+    dials = (
+        (gauge_art.SMALL_DIAL, IMG_NEEDLE),
+        (gauge_art.WIDE_DIAL, IMG_WIDE_NEEDLE),
+        (gauge_art.SMALL_ARC, IMG_ARC_NEEDLE),
+        (gauge_art.WIDE_ARC, IMG_WIDE_ARC_NEEDLE),
+    )
+    for dial, first in dials:
+        masks = dial.needle_masks(FINE_LEVELS)
+        for colour, fill in enumerate(GAUGE_COLOURS):
+            for level, mask in enumerate(masks):
+                add(archive, f"{first + colour * FINE_STRIDE + level}.png", dial.needle(mask, fill))
+    entries = gauge_catalogue.entries()
+    if len(entries) > 100:
+        raise SystemExit("FAIL: more than 100 gauges: the image ranges of gauge_ids.hpp overlap")
+    for n, e in enumerate(entries):
+        scale, icon = gauge_catalogue.scale_key(e), e["icon"]
+        add(archive, f"{IMG_FACE + n}.png", gauge_art.SMALL_DIAL.face(scale, icon))
+        add(archive, f"{IMG_WIDE_FACE + n}.png", gauge_art.WIDE_DIAL.face(scale, icon))
+        add(archive, f"{IMG_WIDE_TRACK + n}.png", gauge_art.WIDE_BAR.track(scale, icon))
+        add(archive, f"{IMG_TALL_TRACK + n}.png", gauge_art.TALL_BAR.track(scale, icon))
+        add(archive, f"{IMG_CARD_ICON + n}.png", gauge_art.card_icon(icon))
+        add(archive, f"{IMG_ARC_FACE + n}.png", gauge_art.SMALL_ARC.face(scale, icon))
+        add(archive, f"{IMG_WIDE_ARC_FACE + n}.png", gauge_art.WIDE_ARC.face(scale, icon))
 
 
 def main():
