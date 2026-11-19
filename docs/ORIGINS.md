@@ -82,6 +82,16 @@ phone silent for 2 s), so on this base the fork uses upstream's versions and kee
   answered or drawn anything yet. `car-test` (Gauges, *Car tests*) holds the on-car tests, including `--raw` calls.
 - **Directions at any distance restarts a running Android Auto**, as the USB cable checkbox does, so the change
   applies at once (after NBT-AAD's restart on leaving Settings when a checkbox changed, rhmiapp-68).
+- **Engine fault codes: descriptions and clearing** (Gauges, *Engine fault codes*). Each code shows with a short
+  description (`platform/dme_codes.hpp`, ID6 apps' `dme_descriptions.h`, MIT, unchanged). *Clear the codes...* opens a
+  page that says what clearing does; its one button runs `gauge-collector --clear`: UDS `14 FF FF FF` to the DME, the
+  extended session (`10 03`, then back to `10 01`) only after a refusal for the session, then the codes read again
+  (as ID6 apps' and EntryNav-Apps' Engine Fault Codes do). `hsfz::clearFaultMemory` is the only write in the
+  diagnostics code; `hsfz::exchange` still refuses everything but reads. The owner's choice (2026-11-19).
+- **Firewall rules for the diagnostic gateway** (`etc/firewall/entry-aad.rules` in the package, to `/etc/firewall/`).
+  The head unit's own firewall (OUTPUT and INPUT policies DROP) drops HSFZ and the gateway search on `vbr0`, which
+  left every connection to the gateway in SYN_SENT on this car. The three rules are CallMeLewis/EntryNav-Apps'
+  (MIT), found on the same head unit; BMW's `iptables-firewall` runs the file at start-up.
 
 ## Reviewed, not ported (2026-11-19)
 
@@ -108,7 +118,8 @@ this car. Left out, and why:
 | Project | Licence | How it is used |
 |---|---|---|
 | [Sq00ky/Supra-iDrive6-Android-Auto](https://github.com/Sq00ky/Supra-iDrive6-Android-Auto) (NBT-AAD, by nanaisu) | PolyForm Noncommercial 1.0.0 | The origin of entry-aad. Its 6WA cluster driver (MOST HUDTerminal, FBlock `0x82`, tested by its author on an F20 with an NBT Evo) is ported here: the protocol, the maneuver pictures, the 6WA layout and its batches of calls, adapted to this project's phone messages. Its MOST transport is not: this head unit has its own vMOST client. Its programs target NBT Evo (QNX) and cannot run on EntryNav2 (Linux). |
-| [inotbarnacle/ID6_apps_prerelease](https://github.com/inotbarnacle/ID6_apps_prerelease) (ID6 apps) | MIT | The Gauges app's page layout (a bar image over a text label per gauge, bars pre-drawn and switched by image id) follows its BoostDeck, written anew for EntryNav2's Linux at 800x480. Its BoostDeck DME identifiers (boost and other engine values) and colour palette are used in the Gauges catalogue and images. car-test's MOST diagnosis tunnel test follows its MOST fallback's message format (FBlock 06.F0, function 050, routine 0F0B, source 63), written anew for vMOST. |
+| [inotbarnacle/ID6_apps_prerelease](https://github.com/inotbarnacle/ID6_apps_prerelease) (ID6 apps) | MIT | The Gauges app's page layout (a bar image over a text label per gauge, bars pre-drawn and switched by image id) follows its BoostDeck, written anew for EntryNav2's Linux at 800x480. Its BoostDeck DME identifiers (boost and other engine values) and colour palette are used in the Gauges catalogue and images; its DME fault code descriptions are `platform/dme_codes.hpp`. car-test's MOST diagnosis tunnel test follows its MOST fallback's message format (FBlock 06.F0, function 050, routine 0F0B, source 63), written anew for vMOST. |
+| [CallMeLewis/EntryNav-Apps](https://github.com/CallMeLewis/EntryNav-Apps) | MIT | The three firewall rules that open the diagnostic gateway's ports on EntryNav2 (its `install/firewall.rules`), and the fault code clear's sequence of its Engine Fault Codes (itself from ID6 apps). |
 | [BimmerGestalt/AAIdrive](https://github.com/BimmerGestalt/AAIdrive) | MIT | The CDS JSON paths of the Gauges catalogue (`hmiapp/gauge_catalogue.py`), as its `cds/CDSMetrics.kt` reads them, e.g. `engine.temperature`. |
 
 Required Notice from the origin project, kept as its licence asks:

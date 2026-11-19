@@ -1,0 +1,10 @@
+# entry-aad: lets the Gauges app reach the car's diagnostic gateway (engine values, fault codes).
+# Installed as /etc/firewall/entry-aad.rules. BMW's iptables-firewall (/usr/local/bin/iptables-firewall) runs every
+# /etc/firewall/*.rules file at start-up, after /etc/sysconfig/iptables.rules set the OUTPUT and INPUT policies to DROP.
+# On vbr0, the unit's car-side Ethernet where the gateway is, it allows HSFZ out (TCP 6801; the answers come back
+# through the ESTABLISHED rule already there) and the gateway search: the identification broadcast out (UDP 6811) and
+# the gateway's answers in, which come from its own address and so match no connection.
+# The same three rules as CallMeLewis/EntryNav-Apps' install/firewall.rules (MIT), found on the same head unit.
+/usr/sbin/iptables -A OUTPUT -o vbr0 -p tcp --dport 6801 -j ACCEPT
+/usr/sbin/iptables -A OUTPUT -o vbr0 -p udp --dport 6811 -j ACCEPT
+/usr/sbin/iptables -A INPUT -i vbr0 -p udp --sport 6811 -j ACCEPT

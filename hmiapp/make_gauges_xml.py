@@ -142,14 +142,18 @@ def main():
     models += [f'      <raBoolModel id="{600 + i}"/>' for i in range(len(entries))]
     models += [f'      <raDataModel id="{109 + i}" modelType="Richtext"/>' for i in range(1 + TEST_LINES)]
     models += ['      <raBoolModel id="125"/>', '      <raDataModel id="126" modelType="Richtext"/>']
+    models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (127, 128)]  # the clear's page
 
     # Every page is reached from the Gauges list (state 98): no OPTION menus.
-    nav = [(11, 901)] + [(a, t) for a, t in MENU_TARGETS]
+    nav = [(11, 901)] + [(a, t) for a, t in MENU_TARGETS] + [(17, 931)]  # 17: Engine fault codes -> clear page
     actions = [f'      <hmiAction id="{a}" target="{t}"/>' for a, t in nav]
-    actions += [f'      <raAction id="{a}"/>' for a in (30, 31, 32, 33, 35, 36, 37, *range(40, 49))]
+    actions += [f'      <raAction id="{a}"/>' for a in (18, 30, 31, 32, 33, 35, 36, 37, *range(40, 49))]
     actions += [f'      <raAction id="{700 + i}"/>' for i in range(len(entries))]
     actions += [f'      <raAction id="{50 + i}"/>' for i in range(len(CAR_TESTS))]
-    events = '      <focusEvent id="60" target="971"/>'  # a car test started: its results page
+    events = (
+        '      <focusEvent id="60" target="971"/>\n'  # a car test started: its results page
+        '      <focusEvent id="88" target="930"/>'  # the clear started: the codes page shows its result
+    )
 
     preview = image(89, 6, 0, 0, 549, 484) + "".join(
         label(236 + i, 106 + i, 20, 345 + 45 * i, 509, 45) for i in range(3)
@@ -173,8 +177,15 @@ def main():
         + label(172, 93, 20, 240, 760)
     )
     states += state(920, "Shift light", shift, parent=901)
-    codes = button(1441, 35, "Read again") + "".join(labelrow(180 + i, 95 + i) for i in range(8))
+    codes = (
+        button(1441, 35, "Read again")
+        + button(1442, 17, "Clear the codes...")
+        + "".join(labelrow(180 + i, 95 + i) for i in range(8))
+    )
     states += state(930, "Engine fault codes", codes, parent=901)
+    # The clear asks first: what it does, then the one button that sends it (iDrive's Back leaves without).
+    clear = labelrow(1443, 127) + labelrow(1444, 128) + button(1445, 18, "Yes, clear the engine's codes")
+    states += state(931, "Clear engine codes?", clear, parent=930)
     colours = labelrow(190, 103) + "".join(button(191 + i, 40 + i, n) for i, n in enumerate(COLOURS))
     states += state(940, "Gauge colour", colours, parent=901)
     points = labelrow(234, 104) + "".join(

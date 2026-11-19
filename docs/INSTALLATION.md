@@ -58,7 +58,7 @@ répète à blanc le démarrage d'Android Auto :
 
 ```sh
 L=/usr/local/lib:/opt/hmi/lib:/usr/lib:/lib
-for f in opt/aa/entry-aad opt/aa/aa-supervisor opt/hmi/data/ro/Plugins/EntryAad/libEntryAad.so; do
+for f in opt/aa/entry-aad opt/aa/aa-supervisor opt/hmi/data/ro/Plugins/*/lib*.so     opt/hmi/data/ro/Plugins/CarGauges/gauge-collector opt/hmi/data/ro/Plugins/CarGauges/car-test; do
     LD_TRACE_LOADED_OBJECTS=1 LD_WARN=yes LD_BIND_NOW=yes LD_LIBRARY_PATH=$L /lib/ld-linux-armhf.so.3 ./$f 2>&1 |
         grep -E 'not found|undefined symbol|not defined in file'
 done
@@ -80,13 +80,16 @@ Si une version précédente tourne, l'arrêter d'abord depuis son menu de l'iDri
 désinstallation d'une unité où il n'existait pas avant pourra le retirer.
 
 ```sh
+grep -q /etc/firewall /usr/local/bin/iptables-firewall && echo firewall-ok
 mount -o remount,rw /
-mkdir -p /opt/hmi/data/ro/Plugins/EntryAad /opt/aa
-rm -f /opt/hmi/data/ro/Plugins/EntryAad/* /opt/aa/*
+mkdir -p /opt/hmi/data/ro/Plugins/EntryAad /opt/hmi/data/ro/Plugins/CarGauges /opt/aa
+rm -f /opt/hmi/data/ro/Plugins/EntryAad/* /opt/hmi/data/ro/Plugins/CarGauges/* /opt/aa/*
 cp opt/hmi/data/ro/Plugins/EntryAad/* /opt/hmi/data/ro/Plugins/EntryAad/
+cp opt/hmi/data/ro/Plugins/CarGauges/* /opt/hmi/data/ro/Plugins/CarGauges/
 cp opt/aa/* /opt/aa/
-chmod 755 /opt/aa/entry-aad /opt/aa/aa-supervisor /opt/hmi/data/ro/Plugins/EntryAad/libEntryAad.so
-touch /opt/aa/.installed-by-entryaad /opt/hmi/data/ro/Plugins/EntryAad/.installed-by-entryaad
+cp etc/firewall/entry-aad.rules /etc/firewall/
+chmod 755 /opt/aa/entry-aad /opt/aa/aa-supervisor /opt/hmi/data/ro/Plugins/*/lib*.so     /opt/hmi/data/ro/Plugins/CarGauges/gauge-collector /opt/hmi/data/ro/Plugins/CarGauges/car-test
+touch /opt/aa/.installed-by-entryaad /opt/hmi/data/ro/Plugins/EntryAad/.installed-by-entryaad     /opt/hmi/data/ro/Plugins/CarGauges/.installed-by-entryaad
 sync
 mount -o remount,ro /
 cd / && md5sum -c /tmp/entrynav2-android-auto-$V/MD5SUMS
@@ -95,6 +98,11 @@ cd / && md5sum -c /tmp/entrynav2-android-auto-$V/MD5SUMS
 - `rm -f` avant la copie : l'iDrive garde l'ancienne appli en mémoire jusqu'à son redémarrage, et un fichier effacé puis
   recopié n'est jamais réécrit sous ses pieds.
 - Le fichier `.installed-by-entryaad` marque chaque dossier comme ajouté par ce projet.
+- `CarGauges` est l'appli Gauges de ce fork (sous *My Vehicle*). `etc/firewall/entry-aad.rules` ouvre au pare-feu de
+  l'unité les ports de la passerelle de diagnostic (TCP 6801, UDP 6811 sur `vbr0`), pour les valeurs et les codes défaut
+  du moteur : le pare-feu de BMW (`/usr/local/bin/iptables-firewall`) lit `/etc/firewall/*.rules` au démarrage. Si la
+  première ligne n'affiche pas `firewall-ok`, cette unité ne lit pas ce dossier : ne pas copier le fichier (son
+  `md5sum -c` dira alors `FAILED`, sans conséquence pour Android Auto).
 - Le dernier `md5sum -c` relit les fichiers installés : chacun doit répondre `OK`.
 - Si `mount -o remount,ro /` échoue, le redémarrage qui suit remet le système en lecture seule.
 
@@ -133,7 +141,7 @@ Arrêter Android Auto depuis son menu, puis, par SSH :
 
 ```sh
 mount -o remount,rw /
-rm -rf /opt/hmi/data/ro/Plugins/EntryAad /opt/aa
+rm -rf /opt/hmi/data/ro/Plugins/EntryAad /opt/hmi/data/ro/Plugins/CarGauges /opt/aa /etc/firewall/entry-aad.rules
 sync
 mount -o remount,ro /
 rm -rf /var/local/data/AA

@@ -18,6 +18,8 @@
       <hmiAction id="16" target="950"/>
       <hmiAction id="13" target="930"/>
       <hmiAction id="26" target="970"/>
+      <hmiAction id="17" target="931"/>
+      <raAction id="18"/>
       <raAction id="30"/>
       <raAction id="31"/>
       <raAction id="32"/>
@@ -306,9 +308,12 @@
       <raDataModel id="119" modelType="Richtext"/>
       <raBoolModel id="125"/>
       <raDataModel id="126" modelType="Richtext"/>
+      <raDataModel id="127" modelType="Richtext"/>
+      <raDataModel id="128" modelType="Richtext"/>
     </models>
     <events>
       <focusEvent id="60" target="971"/>
+      <focusEvent id="88" target="930"/>
     </events>
     <hmiStates>
       <hmiState id="900" text="Gauges">
@@ -1260,6 +1265,7 @@
       <hmiState id="930" parentId="901" text="Engine fault codes">
         <components>
           <button id="1441" action="35" text="Read again"/>
+          <button id="1442" action="17" text="Clear the codes..."/>
           <label id="180" model="95"/>
           <label id="181" model="96"/>
           <label id="182" model="97"/>
@@ -1268,6 +1274,13 @@
           <label id="185" model="100"/>
           <label id="186" model="101"/>
           <label id="187" model="102"/>
+        </components>
+      </hmiState>
+      <hmiState id="931" parentId="930" text="Clear engine codes?">
+        <components>
+          <label id="1443" model="127"/>
+          <label id="1444" model="128"/>
+          <button id="1445" action="18" text="Yes, clear the engine's codes"/>
         </components>
       </hmiState>
       <hmiState id="940" parentId="901" text="Gauge colour">

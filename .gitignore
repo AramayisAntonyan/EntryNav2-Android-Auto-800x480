@@ -59,6 +59,7 @@ __pycache__/
 !/tools/gauge_collector.cpp
 !/tools/card_from_photo.py
 !/tools/car_test.cpp
+!/tools/entry-aad-firewall.rules
 
 # The build image is rebuilt from the Dockerfile; its wrapper is ours to keep
 /toolchain/test/

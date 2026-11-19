@@ -6,7 +6,8 @@
 // diagnostic_lease.h, enet.go), MIT licence, Copyright (c) 2026 ID6 Apps contributors; the full notice is in
 // platform/dme_gauges.hpp and applies to this file and platform/hsfz.cpp. Changes: C++ for Linux, one exchange API
 // for the collector and the probe, the request services limited to reading (0x22 ReadDataByIdentifier, 0x01 OBD
-// current data, 0x19 ReadDTCInformation); nothing that writes, clears or changes a session is built in.
+// current data, 0x19 ReadDTCInformation). The one exception is clearFaultMemory(): the DME's fault memory cleared
+// with fixed requests (the owner's choice, 2026-11-19, as ID6 apps' and EntryNav-Apps' Engine Fault Codes do).
 #ifndef ENTRY_AAD_PLATFORM_HSFZ_HPP
 #define ENTRY_AAD_PLATFORM_HSFZ_HPP
 
@@ -35,6 +36,13 @@ int connectGateway(const char* host, unsigned port, volatile sig_atomic_t* runni
 // transport failure or timeout. "Response pending" (7F xx 78) is waited for; the gateway's alive check answered.
 int exchange(int fd, unsigned ecu, const unsigned char* uds, unsigned udsSize, unsigned char* reply, unsigned replySize,
              unsigned timeoutMs, unsigned* nrc, volatile sig_atomic_t* running);
+
+// Clears the DME's fault memory: ClearDiagnosticInformation for every group (14 FF FF FF), the only request here that
+// changes anything. A DME that refuses it for its session (NRC 22, 31, 7E, 7F) gets it once more in the extended
+// session (10 03), then is put back in the default session (10 01); *usedSession tells. Only the DME (kDme): -1 for any
+// other unit. Returns 1 cleared, -2 refused (*nrc set), -1 no answer.
+const unsigned kClearTimeoutMs = 8000;
+int clearFaultMemory(int fd, unsigned ecu, unsigned* nrc, bool* usedSession, volatile sig_atomic_t* running);
 
 // The gateway's answer to the identification broadcast: true when it carries DIAGADR10 (the gateway), with the
 // address the answer came from. Head units answer DIAGADR62/63 and are not the gateway.

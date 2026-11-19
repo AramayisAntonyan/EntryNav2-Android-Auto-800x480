@@ -34,6 +34,9 @@ GAUGES_FILES = (
     "CarGauges.xml",
     "CarGauges_ALL_Images.zip",
 )
+# The firewall rules that let the Gauges app reach the diagnostic gateway: BMW's iptables-firewall runs every
+# /etc/firewall/*.rules file at start-up (the unit's own rules drop the gateway's ports).
+FIREWALL_RULES = "etc/firewall/entry-aad.rules"
 PROGRAMS = ("entry-aad", "aa-supervisor")
 EXECUTABLES = {f"opt/aa/{name}" for name in PROGRAMS} | {
     f"{PLUGIN}/libEntryAad.so",
@@ -68,6 +71,7 @@ def release_files() -> dict:
     )
     files = {f"{PLUGIN}/{name}": (ROOT / "hmiapp" / name).read_bytes() for name in PLUGIN_FILES}
     files.update({f"{GAUGES}/{name}": (ROOT / "hmiapp" / name).read_bytes() for name in GAUGES_FILES})
+    files[FIREWALL_RULES] = (ROOT / "tools/entry-aad-firewall.rules").read_bytes()
     for lib in (
         f"{PLUGIN}/libEntryAad.so",
         f"{GAUGES}/libCarGauges.so",

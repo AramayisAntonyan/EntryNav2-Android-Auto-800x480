@@ -62,10 +62,51 @@ bool transfer(int fd, unsigned char* buf, size_t n, bool sending, uint64_t deadl
     return n == 0;
 }
 
+int transact(int fd, unsigned ecu, const unsigned char* uds, unsigned udsSize, unsigned char* reply, unsigned replySize,
+             unsigned timeoutMs, unsigned* nrc, volatile sig_atomic_t* running);
+
 }  // namespace
 
 bool readOnlyService(unsigned char service) {
     return service == 0x22 || service == 0x01 || service == 0x19;
+}
+
+int exchange(int fd, unsigned ecu, const unsigned char* uds, unsigned udsSize, unsigned char* reply, unsigned replySize,
+             unsigned timeoutMs, unsigned* nrc, volatile sig_atomic_t* running) {
+    if (!uds || udsSize < 1 || !readOnlyService(uds[0])) {
+        return -1;
+    }
+    return transact(fd, ecu, uds, udsSize, reply, replySize, timeoutMs, nrc, running);
+}
+
+int clearFaultMemory(int fd, unsigned ecu, unsigned* nrc, bool* usedSession, volatile sig_atomic_t* running) {
+    static const unsigned char kClear[4] = {0x14, 0xff, 0xff, 0xff};
+    static const unsigned char kExtended[2] = {0x10, 0x03};
+    static const unsigned char kDefault[2] = {0x10, 0x01};
+    unsigned char reply[64];
+    unsigned refused = 0;
+    if (usedSession) {
+        *usedSession = false;
+    }
+    if (ecu != kDme) {
+        return -1;
+    }
+    int n = transact(fd, ecu, kClear, 4, reply, sizeof(reply), kClearTimeoutMs, &refused, running);
+    // Refused for the session it runs in: once in the extended session, then back to the default one.
+    if (n == -2 && (refused == 0x22 || refused == 0x31 || refused == 0x7e || refused == 0x7f)) {
+        unsigned sessionNrc = 0;
+        if (transact(fd, ecu, kExtended, 2, reply, sizeof(reply), 2000, &sessionNrc, running) >= 2) {
+            if (usedSession) {
+                *usedSession = true;
+            }
+            n = transact(fd, ecu, kClear, 4, reply, sizeof(reply), kClearTimeoutMs, &refused, running);
+            transact(fd, ecu, kDefault, 2, reply, sizeof(reply), 2000, &sessionNrc, running);
+        }
+    }
+    if (nrc) {
+        *nrc = n == -2 ? refused : 0;
+    }
+    return n >= 1 ? 1 : n;
 }
 
 int connectGateway(const char* host, unsigned port, volatile sig_atomic_t* running) {
@@ -99,10 +140,14 @@ int connectGateway(const char* host, unsigned port, volatile sig_atomic_t* runni
     return fd;
 }
 
-int exchange(int fd, unsigned ecu, const unsigned char* uds, unsigned udsSize, unsigned char* reply, unsigned replySize,
+namespace {
+
+// One request and its answer, whatever the service: only exchange() (read services) and clearFaultMemory() (its
+// fixed requests) call it.
+int transact(int fd, unsigned ecu, const unsigned char* uds, unsigned udsSize, unsigned char* reply, unsigned replySize,
              unsigned timeoutMs, unsigned* nrc, volatile sig_atomic_t* running) {
     unsigned char request[16] = {0, 0, 0, 0, 0, 1, static_cast<unsigned char>(kTester), 0};
-    if (fd < 0 || !uds || udsSize < 1 || udsSize > sizeof(request) - 8 || !readOnlyService(uds[0])) {
+    if (fd < 0 || !uds || udsSize < 1 || udsSize > sizeof(request) - 8) {
         return -1;
     }
     request[3] = static_cast<unsigned char>(udsSize + 2);
@@ -159,6 +204,8 @@ int exchange(int fd, unsigned ecu, const unsigned char* uds, unsigned udsSize, u
     }
     return -1;
 }
+
+}  // namespace
 
 bool identIsGateway(const unsigned char* data, size_t n) {
     if (!data || n < 6 || data[4] != 0 || data[5] != 0x11) {

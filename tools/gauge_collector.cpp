@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // gauge-collector: the engine values of the Gauges app, read from the DME through the car's diagnostic gateway (HSFZ,
-// platform/hsfz.hpp), and the engine's fault codes. Read only: ReadDataByIdentifier (BMW values), OBD current data
-// (service 01) and ReadDTCInformation; nothing else can be sent (hsfz::readOnlyService). Installed next to the Gauges
+// platform/hsfz.hpp), and the engine's fault codes. Reads: ReadDataByIdentifier (BMW values), OBD current data
+// (service 01) and ReadDTCInformation (hsfz::readOnlyService). The one write is --clear, the DME's fault memory
+// (hsfz::clearFaultMemory), started only from the Gauges app's confirmation page. Installed next to the Gauges
 // app (opt/hmi/data/ro/Plugins/CarGauges) and started by it only while a dashboard page shows a DME value, after the
 // owner created /var/local/data/AA/gauges-dme and with the gateway's address in /var/local/data/AA/gateway-ip.
 //
@@ -9,7 +10,8 @@
 // Copyright (c) 2026 ID6 Apps contributors (notice in platform/dme_gauges.hpp). Changes: Linux; any list of the
 // catalogue's OBD and BMW values (platform/gauge_catalogue.hpp) instead of a fixed eight; the DME asked which OBD
 // values it supports; a probe that prints the raw answers; the gateway found by the identification broadcast, as their
-// desktop installer does; no MHD map switching and no code clearing (writes to the DME).
+// desktop installer does; no MHD map switching. Code clearing as their Engine Fault Codes does it (14 FF FF FF, the
+// extended session only after a refusal for the session).
 //
 //   gauge-collector --discover [--write FILE]          broadcast the vehicle identification, print/save the gateway
 //   gauge-collector --supported --host IP [--write F]  the OBD PIDs this DME answers (01 00/20/40/60), hex, one line
@@ -17,6 +19,7 @@
 //   gauge-collector --session --host IP --want LIST    the listed catalogue entries (comma-separated indexes) to the
 //                                                      Gauges app (127.0.0.1:42860), until the app (its parent) goes
 //   gauge-collector --codes --host IP [--out FILE]     the engine's stored fault codes
+//   gauge-collector --clear --host IP [--out FILE]     clears the DME's fault memory, then reads the codes again
 //   gauge-collector --demo --want LIST [--cycles N]    synthetic values, no car (page test)
 #include <arpa/inet.h>
 #include <errno.h>
@@ -217,14 +220,38 @@ int probe(const char* host) {
     return 0;
 }
 
-int codes(const char* host, const char* outFile) {
+// The clear, before the codes are read again: false (the reason written) when it did not happen.
+bool clearMemory(int fd, FILE* out, const char** after) {
+    unsigned nrc = 0;
+    bool session = false;
+    const int rc = hsfz::clearFaultMemory(fd, hsfz::kDme, &nrc, &session, &g_running);
+    if (rc == 1) {
+        *after = session ? " after clear (extended session)" : " after clear";
+        return true;
+    }
+    if (rc == -2 && (nrc == 0x22 || nrc == 0x83 || nrc == 0x88)) {
+        fprintf(out, "Clear refused (NRC %02X): ignition on, engine off, then again\n", nrc);
+    } else if (rc == -2) {
+        fprintf(out, "Clear refused (NRC %02X)\n", nrc);
+    } else {
+        fprintf(out, "No answer to the clear: read the codes again\n");
+    }
+    return false;
+}
+
+// The DME's fault memory, cleared first when `clear`. The first line says what happened ("Engine: 2 codes", or why
+// nothing was read), then one line per code, "XXXXXX  status SS", which the Gauges app describes.
+int codes(const char* host, const char* outFile, bool clear) {
     FILE* out = outFile ? fopen(outFile, "w") : stdout;
     if (!out) {
         return 1;
     }
+    const char* after = "";
     const int fd = hsfz::connectGateway(host, hsfz::kPort, &g_running);
     if (fd < 0) {
-        fprintf(out, "Diagnostic gateway unavailable\n");
+        fprintf(out, "Diagnostic gateway unavailable (%s:%u)\n", host, hsfz::kPort);
+    } else if (clear && !clearMemory(fd, out, &after)) {
+        close(fd);
     } else {
         // Fault, pending, confirmed, failed since clear or warning requested (BoostDeck's status mask).
         const unsigned kMask = 0xaf;
@@ -233,16 +260,16 @@ int codes(const char* host, const char* outFile) {
         unsigned nrc = 0;
         const int n = hsfz::exchange(fd, hsfz::kDme, req, 3, reply, sizeof(reply), 1800, &nrc, &g_running);
         if (n == -2) {
-            fprintf(out, "Read refused (NRC %02X)\n", nrc);
+            fprintf(out, "%sRead refused (NRC %02X)\n", clear ? "Cleared. " : "", nrc);
         } else if (n < 3 || (n - 3) % 4 != 0) {
-            fprintf(out, "No valid answer\n");
+            fprintf(out, clear ? "Cleared; the codes could not be read again\n" : "No valid answer\n");
         } else {
             const unsigned mask = reply[2] & kMask;
             int count = 0;
             for (int i = 3; i < n; i += 4) {
                 count += (reply[i + 3] & mask) ? 1 : 0;
             }
-            fprintf(out, "Engine: %d %s\n", count, count == 1 ? "code" : "codes");
+            fprintf(out, "Engine: %d %s%s\n", count, count == 1 ? "code" : "codes", after);
             for (int i = 3, shown = 0; i < n && shown < 128; i += 4) {
                 if (reply[i + 3] & mask) {
                     fprintf(out, "%02X%02X%02X  status %02X\n", reply[i], reply[i + 1], reply[i + 2], reply[i + 3]);
@@ -400,7 +427,7 @@ unsigned number(const char* s, unsigned lo, unsigned hi) {
 
 int main(int argc, char** argv) {
     const char *host = nullptr, *writeFile = nullptr, *outFile = nullptr, *wantList = nullptr;
-    enum { kNone, kDiscover, kSupported, kProbe, kSession, kCodes, kDemo } mode = kNone;
+    enum { kNone, kDiscover, kSupported, kProbe, kSession, kCodes, kClear, kDemo } mode = kNone;
     unsigned cycles = 0, udpPort = dme::kUdpPort;
     for (int i = 1; i < argc; ++i) {
         const char* a = argv[i];
@@ -415,6 +442,8 @@ int main(int argc, char** argv) {
             mode = kSession;
         } else if (!strcmp(a, "--codes") && mode == kNone) {
             mode = kCodes;
+        } else if (!strcmp(a, "--clear") && mode == kNone) {
+            mode = kClear;
         } else if (!strcmp(a, "--demo") && mode == kNone) {
             mode = kDemo;
         } else if (!strcmp(a, "--host") && more) {
@@ -434,12 +463,12 @@ int main(int argc, char** argv) {
             break;
         }
     }
-    const bool needsHost = mode == kSupported || mode == kProbe || mode == kSession || mode == kCodes;
+    const bool needsHost = mode == kSupported || mode == kProbe || mode == kSession || mode == kCodes || mode == kClear;
     if (mode == kNone || (needsHost && !host)) {
         fprintf(stderr,
                 "Usage: gauge-collector --discover [--write FILE] | --supported --host IP [--write FILE] | "
                 "--probe --host IP | --session --host IP --want LIST | --codes --host IP [--out FILE] | "
-                "--demo --want LIST [--cycles N]\n");
+                "--clear --host IP [--out FILE] | --demo --want LIST [--cycles N]\n");
         return 2;
     }
     signal(SIGINT, onSignal);
@@ -457,7 +486,9 @@ int main(int argc, char** argv) {
         case kSession:
             return session(host, false, want, count, cycles, udpPort);
         case kCodes:
-            return codes(host, outFile);
+            return codes(host, outFile, false);
+        case kClear:
+            return codes(host, outFile, true);
         case kDemo:
             return session(nullptr, true, want, count, cycles, udpPort);
         default:

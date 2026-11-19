@@ -1,14 +1,15 @@
 // Copyright (c) 2026 Jiraiya43
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Tests platform/dme_gauges.hpp and platform/hsfz.cpp: DID decoding, the frame of catalogue values to the Gauges app,
-// the gateway's identification answer, and one exchange with a fake gateway (alive check, acknowledgement, "pending",
-// answer).
+// the gateway's identification answer, one exchange with a fake gateway (alive check, acknowledgement, "pending",
+// answer), the fault memory clear (platform/hsfz.hpp clearFaultMemory) and the fault code descriptions.
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "dme_codes.hpp"
 #include "dme_gauges.hpp"
 #include "hsfz.hpp"
 
@@ -39,6 +40,8 @@ static void decoding() {
     CHECK(dme::decodeDid(0x580f, iat, 1, &v) && v == 21);
     CHECK(!dme::decodeDid(0x4300, cool, 1, &v));  // wrong length
     CHECK(!dme::decodeDid(0x1234, cool, 2, &v));  // unknown
+    CHECK(dme::describeCode(0x100213) && !strncmp(dme::describeCode(0x100213), "Throttle valve", 14));
+    CHECK(dme::describeCode(0x123456) == nullptr && dme::kCodeDescriptionCount == 331);
 }
 
 static void frames() {
@@ -129,15 +132,105 @@ static void exchange() {
     close(sv[1]);
 }
 
+// A scripted fake gateway: for each step, reads one request (checked against `expect`) and sends `answer`.
+struct Step {
+    unsigned char expect[8];  // the UDS bytes expected after the HSFZ header and addresses
+    unsigned expectSize;
+    unsigned char answer[8];  // the UDS answer, sent from the DME to the tester
+    unsigned answerSize;
+};
+struct Script {
+    int fd;
+    const Step* steps;
+    unsigned count;
+    unsigned matched;  // requests that were exactly as expected
+};
+
+static bool readAll(int fd, unsigned char* buf, size_t n) {
+    size_t got = 0;
+    while (got < n) {
+        const ssize_t k = read(fd, buf + got, n - got);
+        if (k <= 0) {
+            return false;
+        }
+        got += static_cast<size_t>(k);
+    }
+    return true;
+}
+
+static void* scriptedGateway(void* arg) {
+    Script* s = static_cast<Script*>(arg);
+    for (unsigned i = 0; i < s->count; ++i) {
+        unsigned char head[8], uds[16];
+        if (!readAll(s->fd, head, 8)) {
+            return nullptr;
+        }
+        const unsigned size = head[3] - 2u;
+        if (size > sizeof(uds) || !readAll(s->fd, uds, size)) {
+            return nullptr;
+        }
+        const Step& st = s->steps[i];
+        if (head[6] == 0xf4 && head[7] == 0x12 && size == st.expectSize && !memcmp(uds, st.expect, size)) {
+            ++s->matched;
+        }
+        unsigned char out[16] = {0, 0, 0, static_cast<unsigned char>(st.answerSize + 2), 0, 1, 0x12, 0xf4};
+        memcpy(out + 8, st.answer, st.answerSize);
+        if (write(s->fd, out, 8 + st.answerSize) < 0) {
+            return nullptr;
+        }
+    }
+    return nullptr;
+}
+
+static int runClear(const Step* steps, unsigned count, unsigned* matched, unsigned* nrc, bool* session) {
+    int sv[2];
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv) != 0) {
+        return -99;
+    }
+    Script s = {sv[1], steps, count, 0};
+    pthread_t t;
+    pthread_create(&t, nullptr, scriptedGateway, &s);
+    const int rc = hsfz::clearFaultMemory(sv[0], hsfz::kDme, nrc, session, nullptr);
+    close(sv[0]);  // a gateway still waiting for a request gives up
+    pthread_join(t, nullptr);
+    close(sv[1]);
+    *matched = s.matched;
+    return rc;
+}
+
+static void clearing() {
+    unsigned matched = 0, nrc = 99;
+    bool session = true;
+    // Accepted at once: one request, 14 FF FF FF, nothing else.
+    const Step direct[] = {{{0x14, 0xff, 0xff, 0xff}, 4, {0x54}, 1}};
+    CHECK(runClear(direct, 1, &matched, &nrc, &session) == 1 && matched == 1 && nrc == 0 && !session);
+    // Refused for the session: extended session, the clear again, back to the default session.
+    const Step viaSession[] = {
+        {{0x14, 0xff, 0xff, 0xff}, 4, {0x7f, 0x14, 0x7e}, 3},
+        {{0x10, 0x03}, 2, {0x50, 0x03, 0x00, 0x32, 0x01, 0xf4}, 6},
+        {{0x14, 0xff, 0xff, 0xff}, 4, {0x54}, 1},
+        {{0x10, 0x01}, 2, {0x50, 0x01, 0x00, 0x32, 0x01, 0xf4}, 6},
+    };
+    CHECK(runClear(viaSession, 4, &matched, &nrc, &session) == 1 && matched == 4 && session);
+    // Refused for another reason (conditions not correct): no session change, the NRC reported.
+    const Step conditions[] = {{{0x14, 0xff, 0xff, 0xff}, 4, {0x7f, 0x14, 0x83}, 3}};
+    CHECK(runClear(conditions, 1, &matched, &nrc, &session) == -2 && matched == 1 && nrc == 0x83 && !session);
+    // Only the DME: any other unit is refused before anything is sent.
+    CHECK(hsfz::clearFaultMemory(-1, hsfz::kEgs, &nrc, &session, nullptr) == -1);
+}
+
 int main() {
     decoding();
     frames();
     ident();
     exchange();
+    clearing();
     if (g_failures) {
         printf("FAIL gauge collector: %d check(s)\n", g_failures);
         return 1;
     }
-    puts("PASS gauge collector: DID decoding, frames, gateway identification, HSFZ exchange, writes refused");
+    puts(
+        "PASS gauge collector: DID decoding, frames, gateway identification, HSFZ exchange, writes refused, "
+        "fault memory clear (direct, via the extended session, refused, DME only)");
     return 0;
 }

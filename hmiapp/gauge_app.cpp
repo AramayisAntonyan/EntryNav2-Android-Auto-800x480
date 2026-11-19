@@ -9,7 +9,9 @@
 //                  OBD values and BMW engine values from the DME (gauge-collector, through the diagnostic gateway);
 //                  OBD values the DME does not support (/var/local/data/AA/gauges-supported) are hidden
 //   Shift light    rpm bar, speed and the chosen shift point (CDS)
-//   Fault codes    the engine's stored codes, read only (gauge-collector --codes)
+//   Fault codes    the engine's stored codes with a description (gauge-collector --codes); "Clear the codes..." opens
+//                  a page that says what clearing does, whose one button clears the DME's fault memory
+//                  (gauge-collector --clear, the owner's choice 2026-11-19), then shows the codes left
 //   Gauge colour   8 colours or one per card
 //   Car tests      a list of on-car tests; a press starts one and opens Test results
 // Kept in /var/local/data/AA: gauges-choice (the ticks), gauges-colour, gauges-shift. DME values only once the owner
@@ -18,7 +20,8 @@
 // A port of ID6 apps' BoostDeck and ShiftDeck (github.com/inotbarnacle/ID6_apps_prerelease, MIT) from the NBT Evo's
 // QNX to EntryNav2's Linux: the same RHMI framework and approach (bars pre-drawn as images, switched by id; a worker
 // process for the diagnostics, its values over loopback UDP), cards laid out for 800x480 and fed from a catalogue of
-// every value instead of a fixed set. MHD map switching and code clearing (writes to the DME) are not ported.
+// every value instead of a fixed set. MHD map switching is not ported (stock DME); code clearing follows their
+// Engine Fault Codes.
 //
 // The models are updated only while their page shows, and only on change. /var/local/data/AA/gauges-off keeps the app
 // from being created (read at iDrive start).
@@ -37,6 +40,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "../platform/dme_codes.hpp"
 #include "../platform/dme_gauges.hpp"
 #include "../platform/service_contract.hpp"
 #include "app_log.hpp"
@@ -89,7 +93,7 @@ pid_t g_discoverPid = -1;  // gateway discovery started by the DME switch
 char g_dmeWhy[48] = "";    // why the engine values are not read, "" when they are (cards show it)
 char g_collectorWant[512];
 
-char g_shownText[kModels][48];
+char g_shownText[kModels][96];
 unsigned g_shownImage[kModels];
 
 // ---- models
@@ -326,7 +330,14 @@ void updateCollector() {
          static_cast<int>(g_collector), want, demo ? "demo" : host);
 }
 
-void readCodes() {
+uint64_t g_clearResultUntil = 0;  // until then the codes page shows the clear's result instead of reading again
+
+// Reads (clear false) or clears then reads (clear true) the DME's fault memory into kCodesFile.
+void startCodes(bool clear) {
+    reap(&g_codesPid);
+    if (g_codesPid > 0) {
+        return;  // one at a time: the page shows the running one's result
+    }
     char host[16] = "";
     bool demo = false;
     const char* why = "";
@@ -334,17 +345,40 @@ void readCodes() {
         setText(kCodeLine0 + i, "");
     }
     if (!diagnosticsAllowed(host, &demo, &why) || demo) {
-        setText(kCodeLine0, demo ? "Demo mode: no codes read" : why);
-        return;
-    }
-    reap(&g_codesPid);
-    if (g_codesPid > 0) {
+        setText(kCodeLine0, demo ? "Demo mode: the engine is not asked" : why);
+        if (clear) {
+            alog("gauges: clear of the engine's codes not started: %s", demo ? "demo mode" : why);
+        }
         return;
     }
     unlink(kCodesFile);
-    const char* args[] = {kCollector, "--codes", "--host", host, "--out", kCodesFile, nullptr};
+    const char* args[] = {kCollector, clear ? "--clear" : "--codes", "--host", host, "--out", kCodesFile, nullptr};
     g_codesPid = spawnCollector(args);
-    setText(kCodeLine0, g_codesPid > 0 ? "Reading the engine's codes..." : "Collector missing");
+    if (clear) {
+        alog("gauges: clear of the engine's codes %s (pid %d)", g_codesPid > 0 ? "started" : "NOT started",
+             static_cast<int>(g_codesPid));
+    }
+    setText(kCodeLine0, g_codesPid <= 0 ? "Collector missing"
+                        : clear         ? "Clearing the engine's codes..."
+                                        : "Reading the engine's codes...");
+}
+
+void readCodes() {
+    startCodes(false);
+}
+
+// One collector line "XXXXXX  status SS" as "XXXXXX Active: description"; other lines as they are.
+void codeText(const char* line, char* out, size_t cap) {
+    unsigned code = 0, status = 0;
+    int used = 0;
+    if (sscanf(line, "%6x  status %2x%n", &code, &status, &used) != 2 || line[used] != 0) {
+        snprintf(out, cap, "%s", line);
+        return;
+    }
+    // Status bits (ISO 14229): 0 test failed now, 2 pending, 3 confirmed (stored).
+    const char* state = (status & 0x01) ? "Active" : (status & 0x04) ? "Pending" : "Stored";
+    const char* text = dme::describeCode(code);
+    snprintf(out, cap, "%06X %s: %s", code, state, text ? text : "no description (code not in the list)");
 }
 
 void showCodes() {
@@ -352,13 +386,37 @@ void showCodes() {
     if (!f) {
         return;
     }
-    char line[64];
+    char line[96], text[96];
     unsigned i = 0;
-    while (i < kCodeLines && fgets(line, sizeof(line), f)) {
+    while (fgets(line, sizeof(line), f)) {
         line[strcspn(line, "\r\n")] = 0;
-        setText(kCodeLine0 + i++, line);
+        if (i < kCodeLines) {
+            codeText(line, text, sizeof(text));
+            setText(kCodeLine0 + i, text);
+            alog("gauges: codes: %s", text);
+        }
+        ++i;
     }
     fclose(f);
+    if (i > kCodeLines) {  // the last row says how many more there are
+        snprintf(text, sizeof(text), "... and %u more (all in %s)", i - kCodeLines + 1, kCodesFile);
+        setText(kCodeLine0 + kCodeLines - 1, text);
+    }
+}
+
+// The confirmation page's text (its models kept by iDrive: set at start and again when it shows).
+void showClearNotes() {
+    setText(kClearNote0, "Clears the engine computer's (DME) stored fault codes and their freeze-frame data.");
+    setText(kClearNote0 + 1,
+            "Ignition on, engine off. A fault still present comes back; emissions readiness restarts.");
+}
+
+bool onClearCodes(void*, const bmw::Parcel&) {
+    alog("gauges: \"Yes, clear the engine's codes\" pressed");
+    startCodes(true);
+    g_clearResultUntil = dme::monoMs() + 120000;
+    g_app->triggerEvent(kEvCodes);  // the codes page shows the clear's progress and result
+    return true;
 }
 
 // ---- pages
@@ -732,8 +790,7 @@ AppRunnable g_pollRunnable;
 bool g_pollPosted = false;
 
 bool needsPoll() {
-    return (livePage() && g_collector > 0) || (g_page == kCodesState && g_codesPid > 0) || g_testPid > 0 ||
-           g_discoverPid > 0;
+    return (livePage() && g_collector > 0) || g_codesPid > 0 || g_testPid > 0 || g_discoverPid > 0;
 }
 
 void pollRun(void*) {
@@ -766,10 +823,11 @@ void pollRun(void*) {
     if (livePage()) {
         updateCollector();  // started again if it ended (gateway gone), at most every poll
         refresh();
-    } else if (g_page == kCodesState) {
+    }
+    if (g_codesPid > 0) {
         reap(&g_codesPid);
         if (g_codesPid <= 0) {
-            showCodes();
+            showCodes();  // whichever page shows: the models stay for the codes page
         }
     }
     if (g_discoverPid > 0) {
@@ -825,7 +883,16 @@ void pageVisible(unsigned state, bool visible) {
         assignCards();
         updateCollector();
     } else if (state == kCodesState) {
-        readCodes();
+        reap(&g_codesPid);
+        if (g_codesPid > 0) {
+            // a read or the clear runs: its "...ing the engine's codes" line stays until its result replaces it
+        } else if (dme::monoMs() < g_clearResultUntil) {
+            showCodes();  // back from the clear: its result, not a new read
+        } else {
+            readCodes();
+        }
+    } else if (state == kClearState) {
+        showClearNotes();
     } else if (state == kChooseState) {
         loadChoice();  // gauges-supported may have been written meanwhile
     } else if (state == kTestResultState) {
@@ -1060,6 +1127,8 @@ bool gaugesOnInit(bmw::PluginApp* self) {
         addAction(self, kActShiftPoint0 + i, kPoint[i]);
     }
     addAction(self, kActReadCodes, &onReadCodes);
+    addAction(self, kActClearCodes, &onClearCodes);
+    addStateHandler(self, kClearState, kHandlerVisible, &onVisible<kClearState>);
     TestActions<kCarTestCount>::add(self);
     addStateHandler(self, kTestState, kHandlerVisible, &onVisible<kTestState>);
     addStateHandler(self, kTestResultState, kHandlerVisible, &onVisible<kTestResultState>);
@@ -1075,6 +1144,7 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     collectProperties();
     openUdp();
     const bool ok = self->onInit();
+    showClearNotes();
     alog("gauges: onInit -> %d, %u catalogue entries, colour %s", static_cast<int>(ok), kEntryCount,
          kColourNames[g_colour]);
     makeRunnable(g_pollRunnable, &pollRun);

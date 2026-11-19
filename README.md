@@ -68,8 +68,9 @@ Everything in [Status](#status) was seen on one car; nothing else has been tried
 - **Driving mode changes leave Android Auto on screen.** Upstream steps the picture aside so that iDrive's driving
   mode popup shows (G-series); on the F22 the mode shows in the cluster only, so that only stalled the picture.
 - **Gauges, a second iDrive app under My Vehicle.** Dashboards of cards (water and oil temperature, torque, rpm, trip
-  values and more from the iDrive's car data), a shift light, the engine's fault codes (read only; not working on this
-  car yet, see below), and a *Car tests* page with on-screen results for checks at the car.
+  values and more from the iDrive's car data), a shift light, the engine's fault codes with a description and a
+  *Clear the codes* page that asks first (not working on this car yet, see below), and a *Car tests* page with
+  on-screen results for checks at the car.
 - **6WA cluster arrows** (NBT-AAD's driver, ported with its guidance rules, junction view, lanes and *directions at any
   distance*). They are worked out from the phone's guidance and logged; sending them to the cluster is off by default
   until the cluster accepts them (see Status).
@@ -109,6 +110,11 @@ yet**. They pass the PC and QEMU tests only.
 - **Android Auto fragment fix** (NBT-AAD #223): a message whose first part was lost is dropped instead of being shown
   cut.
 - **Sending the 6WA calls to the cluster** (`kombi-6wa-live`, off by default; only parked, for tests).
+- **The firewall rules for the diagnostic gateway** (`/etc/firewall/entry-aad.rules`): the head unit's own firewall
+  drops connections to the gateway's diagnostic port, which is likely why the engine values never connected (below).
+- **Clearing the engine's fault codes** (Gauges, *Engine fault codes*, *Clear the codes...*, then *Yes*): clears the
+  DME's fault memory (UDS `14 FF FF FF`, the extended session only if the DME asks for it), then reads the codes again.
+  The codes now show with a short description (ID6 apps' list, made on a 340i: some codes of other engines have none).
 - **New Car tests** (Gauges, *OPTION*, *Car tests*): *Cluster: settings read* (read only), *Engine via MOST tunnel*
   (DME reads only), *Listen to the diagnosis block 20 s*; and over SSH only, `car-test --nav-draw` (the head unit
   presented as the car's navigation, then a test drawing).
@@ -122,10 +128,12 @@ yet**. They pass the PC and QEMU tests only.
   layout, any channel). Sending is off by default. Once, after a burst of test calls, the cluster's media line
   disappeared until the next restart, so keep `kombi-6wa-live` off while driving. Next try: presenting the head unit
   as the car's navigation first (this car has none, and the cluster may wait for one).
-- **Engine values and fault codes from the DME** (boost, intake air, oil pressure, the fault code list). The car's
-  diagnostic gateway answers the head unit's ping but ignores its diagnostic connections; it accepts them only from
-  the OBD socket (E-Sys, ISTA). The Gauges app therefore shows only the iDrive's own car data (temperatures, torque,
-  rpm, trip). Next try: the head unit's diagnosis tunnel over MOST, as ID6 apps do.
+- **Engine values and fault codes from the DME** (boost, intake air, oil pressure, the fault code list and its
+  clearing). The car's diagnostic gateway answers the head unit's ping, but no diagnostic connection to it has
+  opened so far. The likely reason is the head unit's own firewall, which drops that port: CallMeLewis/EntryNav-Apps
+  found it on the same unit and open it with three rules, which this version installs (above). Until that is checked
+  in the car, the Gauges app shows only the iDrive's own car data (temperatures, torque, rpm, trip). The fallback:
+  the head unit's diagnosis tunnel over MOST, as ID6 apps do.
 - **Knob centre press on Android Auto's media screen** acts on the button Android Auto has selected, which is often
   "previous track": the track restarts or goes back. The head unit sends a plain "select"; which button gets it is
   Android Auto's choice.
@@ -169,7 +177,9 @@ NBT, NBT Evo, ID7 and MGU head units run other systems: this project cannot run 
 The installation is upstream's manual procedure over SSH: [docs/INSTALLATION.md](docs/INSTALLATION.md) (in French;
 the commands speak for themselves). In short: copy `entrynav2-android-auto-<version>-armhf.tar` to the unit's `/tmp`,
 run the read-only checks, install the two folders (`/opt/aa`, `/opt/hmi/data/ro/Plugins/EntryAad`) and, for this
-fork, the Gauges app (`/opt/hmi/data/ro/Plugins/CarGauges`), then restart the unit. Build the archive yourself
+fork, the Gauges app (`/opt/hmi/data/ro/Plugins/CarGauges`) and its firewall rules (`etc/firewall/entry-aad.rules` to
+`/etc/firewall/`, read by BMW's firewall at start-up; check first that `/usr/local/bin/iptables-firewall` mentions
+`/etc/firewall`), then restart the unit. Build the archive yourself
 ([Building](#building-from-source)).
 
 ### This fork's settings
@@ -187,7 +197,7 @@ Each is a file in `/var/local/data/AA`; without the file the feature is off (or 
 | `kombi-6wa-lanes`, `kombi-6wa-junction-off` | lanes on; the junction view off |
 | `kombi-anydist` | show the next maneuver at any distance (also in the Android Auto menu) |
 | `gauges-off` | hide the Gauges app |
-| `gauges-dme`, `gateway-ip` | engine values from the DME, and the gateway's address (not working on this car yet) |
+| `gauges-dme`, `gateway-ip` | engine values and fault codes from the DME, and the gateway's address (not yet working on this car) |
 
 Logs: `/tmp/entry-aa-service.log` (service), `/var/local/data/AA/app.log` (iDrive apps),
 `/var/local/data/AA/car-tests.log` (Car tests page). More in [docs/MAINTENANCE.md](docs/MAINTENANCE.md) (upstream's,

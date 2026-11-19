@@ -15,7 +15,13 @@ SUFFIXES = {".c", ".cpp", ".h", ".hpp", ".py", ".sh"}
 THIRD_PARTY = {"core/include/dhu_sdp.h", "core/include/hu_certificate.h"}
 ORIGIN = "Not written by this project"
 # Ported from MIT-licensed projects: they keep the MIT licence and name their source in their header.
-PORTED_MIT = {"platform/dme_gauges.hpp", "platform/hsfz.cpp", "platform/hsfz.hpp", "tools/gauge_collector.cpp"}
+PORTED_MIT = {
+    "platform/dme_codes.hpp",
+    "platform/dme_gauges.hpp",
+    "platform/hsfz.cpp",
+    "platform/hsfz.hpp",
+    "tools/gauge_collector.cpp",
+}
 MIT_HEADER = "SPDX-License-Identifier: MIT"
 PORTED = "Ported from "
 
