@@ -1,15 +1,21 @@
 // Copyright (c) 2026 Jiraiya43
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// Read-only probe of USB video (UVC) adapters on the car, for a front camera on its own input. A developer tool, not
-// part of a release (make dev-tools), run by hand from /tmp/stagex.
+// Read-only probe of USB video adapters on the car, for a camera on its own input: UVC cameras and the analog
+// "EasyCap" grabbers (UTV007 usbtv, STK1160, EM28xx, Somagic). A developer tool, not part of a release
+// (make dev-tools), run by hand from /tmp/stagex.
 //
-//   uvc-probe                    the UVC driver's presence, every video device; capabilities, formats and frame
-//                                sizes of the UVC ones
-//   uvc-probe --grab /dev/videoN one frame of that UVC device to /tmp/stagex/uvc-frame.<mjpg|yuyv|raw>
+//   uvc-probe                    the video drivers' presence, every video device; capabilities, formats, inputs and
+//                                frame sizes of the USB ones
+//   uvc-probe --usb              every USB device: vendor:product, names, each interface's class and driver, and the
+//                                grabber chip when the id is a known one (with the driver it needs)
+//   uvc-probe --grab /dev/videoN [--input N] [--pal|--ntsc]
+//                                one frame of that USB device to /tmp/stagex/video-frame.<mjpg|yuyv|uyvy|raw>; an
+//                                analog grabber may need its input (0 composite, 1 S-video) and TV standard chosen
 //
-// A device is identified from sysfs (its driver link) before anything is opened, and only uvcvideo devices are ever
-// opened: /dev/video0 (BMW's camera capture, dra7xx-vip) and /dev/video1 (the VPE scaler) are listed and left alone.
-// Nothing is configured but the capture of --grab (format as the device has it, two buffers, then stopped).
+// A device is identified from sysfs (its driver link) before anything is opened, and only the USB video drivers
+// below are ever opened: /dev/video0 (BMW's camera capture, dra7xx-vip) and /dev/video1 (the VPE scaler) are listed
+// and left alone. Nothing is configured but the capture of --grab (input and standard when asked, the format as the
+// device has it, two buffers, then stopped).
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -70,22 +76,169 @@ void readLine(const char* path, char* out, size_t size) {
     }
 }
 
-bool isUvc(const char* node) {
+// The USB video drivers this probe opens: UVC cameras and the analog grabbers sold as "EasyCap".
+const char* const kVideoDrivers[] = {"uvcvideo", "usbtv", "stk1160", "em28xx", "smi2021", "somagic_easycap"};
+const unsigned kVideoDriverCount = sizeof(kVideoDrivers) / sizeof(kVideoDrivers[0]);
+
+bool isUsbVideo(const char* node) {
     char driver[64];
     driverOf(node, driver, sizeof(driver));
-    return !strcmp(driver, "uvcvideo");
+    for (unsigned i = 0; i < kVideoDriverCount; ++i) {
+        if (!strcmp(driver, kVideoDrivers[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// The first file named `name` under dir (depth-first, a few levels), into out; false when none.
+bool findFile(const char* dir, const char* name, int depth, char* out, size_t size) {
+    DIR* d = opendir(dir);
+    if (!d) {
+        return false;
+    }
+    bool found = false;
+    while (!found) {
+        struct dirent* e = readdir(d);
+        if (!e) {
+            break;
+        }
+        if (e->d_name[0] == '.') {
+            continue;
+        }
+        char path[PATH_MAX];
+        snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
+        struct stat st;
+        if (stat(path, &st) != 0) {
+            continue;
+        }
+        if (S_ISDIR(st.st_mode)) {
+            found = depth > 0 && findFile(path, name, depth - 1, out, size);
+        } else if (!strcmp(e->d_name, name)) {
+            snprintf(out, size, "%s", path);
+            found = true;
+        }
+    }
+    closedir(d);
+    return found;
 }
 
 void driverPresence() {
     struct utsname u;
     uname(&u);
     struct stat st;
-    char path[PATH_MAX];
-    snprintf(path, sizeof(path), "/lib/modules/%s/kernel/drivers/media/usb/uvc/uvcvideo.ko", u.release);
+    char modules[PATH_MAX];
+    snprintf(modules, sizeof(modules), "/lib/modules/%s", u.release);
     printf("kernel %s\n", u.release);
-    printf("uvcvideo loaded: %s\n", stat("/sys/module/uvcvideo", &st) == 0 ? "yes" : "no");
-    printf("uvcvideo module file: %s\n", stat(path, &st) == 0 ? path : "absent (may be built in or missing)");
-    printf("uvcvideo built in: %s\n", stat("/sys/bus/usb/drivers/uvcvideo", &st) == 0 ? "driver registered" : "no");
+    printf("videodev (V4L2 core): %s\n", stat("/sys/module/videodev", &st) == 0 ? "loaded or built in" : "not seen");
+    for (unsigned i = 0; i < kVideoDriverCount; ++i) {
+        char sys[PATH_MAX], file[PATH_MAX], ko[64];
+        snprintf(sys, sizeof(sys), "/sys/bus/usb/drivers/%s", kVideoDrivers[i]);
+        const bool registered = stat(sys, &st) == 0;
+        snprintf(sys, sizeof(sys), "/sys/module/%s", kVideoDrivers[i]);
+        const bool loaded = stat(sys, &st) == 0;
+        snprintf(ko, sizeof(ko), "%s.ko", kVideoDrivers[i]);
+        const bool file_ = findFile(modules, ko, 6, file, sizeof(file));
+        printf("%s: %s, %s, module file %s\n", kVideoDrivers[i], registered ? "registered" : "not registered",
+               loaded ? "loaded" : "not loaded", file_ ? file : "absent");
+    }
+}
+
+// Known grabber and camera chips by USB id: what they are and the driver they need.
+struct Chip {
+    unsigned vendor, product;
+    const char* what;
+};
+const Chip kChips[] = {
+    {0x1b71, 0x3002, "Fushicai UTV007 grabber (EasyCap): driver usbtv"},
+    {0x1f71, 0x3301, "Fushicai UTV007 grabber: driver usbtv"},
+    {0x1f71, 0x3306, "Fushicai UTV007 grabber: driver usbtv"},
+    {0x05e1, 0x0408, "Syntek STK1160 grabber (EasyCap): driver stk1160"},
+    {0xeb1a, 0x2860, "Empia EM2860 grabber (EasyCap): driver em28xx"},
+    {0xeb1a, 0x2861, "Empia EM2861 grabber: driver em28xx"},
+    {0xeb1a, 0x2862, "Empia EM2862 grabber: driver em28xx"},
+    {0xeb1a, 0x2863, "Empia EM2863 grabber: driver em28xx"},
+    {0xeb1a, 0x2870, "Empia EM2870: driver em28xx"},
+    {0xeb1a, 0x5051, "Empia EM2860 (EasyCap DC60): driver em28xx"},
+    {0x1c88, 0x0007, "Somagic SMI2021 grabber (EasyCap), firmware not loaded: no mainline driver"},
+    {0x1c88, 0x003c, "Somagic SMI2021 grabber (EasyCap): no mainline driver (smi2021, out of tree)"},
+    {0x1c88, 0x003d, "Somagic SMI2021 grabber: no mainline driver"},
+    {0x1c88, 0x003e, "Somagic SMI2021 grabber: no mainline driver"},
+    {0x1c88, 0x003f, "Somagic SMI2021 grabber: no mainline driver"},
+    {0x534d, 0x2109, "MacroSilicon MS2109 HDMI grabber: driver uvcvideo"},
+    {0x534d, 0x0021, "MacroSilicon MS210x grabber: driver uvcvideo"},
+};
+
+unsigned hexFile(const char* path) {
+    char text[16];
+    readLine(path, text, sizeof(text));
+    return static_cast<unsigned>(strtoul(text, nullptr, 16));
+}
+
+// Every USB device, its interfaces' classes and drivers, and the chip when known.
+int usb() {
+    const char* base = "/sys/bus/usb/devices";
+    DIR* d = opendir(base);
+    if (!d) {
+        printf("no %s\n", base);
+        return 1;
+    }
+    while (struct dirent* e = readdir(d)) {
+        char path[PATH_MAX];
+        snprintf(path, sizeof(path), "%s/%s/idVendor", base, e->d_name);
+        struct stat st;
+        if (e->d_name[0] == '.' || strchr(e->d_name, ':') || stat(path, &st) != 0) {
+            continue;  // interfaces are listed under their device
+        }
+        const unsigned vendor = hexFile(path);
+        snprintf(path, sizeof(path), "%s/%s/idProduct", base, e->d_name);
+        const unsigned product = hexFile(path);
+        char maker[96], name[96], speed[16];
+        snprintf(path, sizeof(path), "%s/%s/manufacturer", base, e->d_name);
+        readLine(path, maker, sizeof(maker));
+        snprintf(path, sizeof(path), "%s/%s/product", base, e->d_name);
+        readLine(path, name, sizeof(name));
+        snprintf(path, sizeof(path), "%s/%s/speed", base, e->d_name);
+        readLine(path, speed, sizeof(speed));
+        printf("%s: %04x:%04x '%s' '%s', %s Mbit/s\n", e->d_name, vendor, product, maker, name, speed);
+        for (unsigned i = 0; i < sizeof(kChips) / sizeof(kChips[0]); ++i) {
+            if (kChips[i].vendor == vendor && kChips[i].product == product) {
+                printf("  chip: %s\n", kChips[i].what);
+            }
+        }
+        DIR* sub = opendir(base);
+        while (sub) {
+            struct dirent* f = readdir(sub);
+            if (!f) {
+                break;
+            }
+            const size_t n = strlen(e->d_name);
+            if (strncmp(f->d_name, e->d_name, n) != 0 || f->d_name[n] != ':') {
+                continue;
+            }
+            char iface[PATH_MAX], target[PATH_MAX], driver[64] = "none";
+            snprintf(iface, sizeof(iface), "%s/%s/bInterfaceClass", base, f->d_name);
+            const unsigned cls = hexFile(iface);
+            snprintf(iface, sizeof(iface), "%s/%s/driver", base, f->d_name);
+            const ssize_t k = readlink(iface, target, sizeof(target) - 1);
+            if (k > 0) {
+                target[k] = 0;
+                const char* slash = strrchr(target, '/');
+                snprintf(driver, sizeof(driver), "%s", slash ? slash + 1 : target);
+            }
+            printf("  interface %s: class 0x%02x%s, driver %s\n", f->d_name, cls,
+                   cls == 0x0e   ? " (video)"
+                   : cls == 0x01 ? " (audio)"
+                   : cls == 0xff ? " (vendor)"
+                                 : "",
+                   driver);
+        }
+        if (sub) {
+            closedir(sub);
+        }
+    }
+    closedir(d);
+    return 0;
 }
 
 void describe(int fd) {
@@ -175,8 +328,8 @@ int list() {
         readLine(path, name, sizeof(name));
         driverOf(e->d_name, driver, sizeof(driver));
         printf("/dev/%s: '%s', driver %s\n", e->d_name, name, driver[0] ? driver : "?");
-        if (!isUvc(e->d_name)) {
-            printf("  not UVC: left alone\n");
+        if (!isUsbVideo(e->d_name)) {
+            printf("  not a USB video device: left alone\n");
             continue;
         }
         ++uvc;
@@ -190,21 +343,28 @@ int list() {
         close(fd);
     }
     closedir(d);
-    printf("%d UVC device(s)\n", uvc);
+    printf("%d USB video device(s)\n", uvc);
     return 0;
 }
 
-int grab(const char* dev) {
+int grab(const char* dev, int input, v4l2_std_id std) {
     const char* node = strrchr(dev, '/');
     node = node ? node + 1 : dev;
-    if (!isUvc(node)) {
-        fprintf(stderr, "%s is not a UVC device: refused (only uvcvideo devices are opened)\n", dev);
+    if (!isUsbVideo(node)) {
+        fprintf(stderr, "%s is not a USB video device: refused (only USB cameras and grabbers are opened)\n", dev);
         return 2;
     }
     const int fd = open(dev, O_RDWR | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) {
         fprintf(stderr, "open %s: %s\n", dev, strerror(errno));
         return 1;
+    }
+    if (input >= 0) {
+        printf("input %d: %s\n", input, xioctl(fd, VIDIOC_S_INPUT, &input) == 0 ? "set" : strerror(errno));
+    }
+    if (std) {
+        printf("standard %s: %s\n", std == V4L2_STD_PAL ? "PAL" : "NTSC",
+               xioctl(fd, VIDIOC_S_STD, &std) == 0 ? "set" : strerror(errno));
     }
     int rc = 1;
     struct v4l2_format fmt;
@@ -244,13 +404,13 @@ int grab(const char* dev) {
             fd_set rf;
             FD_ZERO(&rf);
             FD_SET(fd, &rf);
-            struct timeval tv = {3, 0};
+            struct timeval tv = {5, 0};
             struct v4l2_buffer b;
             memset(&b, 0, sizeof(b));
             b.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
             b.memory = V4L2_MEMORY_MMAP;
             if (select(fd + 1, &rf, nullptr, nullptr, &tv) <= 0) {
-                fprintf(stderr, "no frame within 3 s\n");
+                fprintf(stderr, "no frame within 5 s (no signal on that input or standard?)\n");
             } else if (xioctl(fd, VIDIOC_DQBUF, &b) < 0 || b.index >= 2 || maps[b.index] == MAP_FAILED) {
                 fprintf(stderr, "dequeue failed: %s\n", strerror(errno));
             } else {
@@ -258,10 +418,11 @@ int grab(const char* dev) {
                 fourcc(fmt.fmt.pix.pixelformat, cc);
                 const char* ext = fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG  ? "mjpg"
                                   : fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV ? "yuyv"
+                                  : fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_UYVY ? "uyvy"
                                                                                  : "raw";
                 char out[PATH_MAX];
                 mkdir(kOutDir, 0755);
-                snprintf(out, sizeof(out), "%s/uvc-frame.%s", kOutDir, ext);
+                snprintf(out, sizeof(out), "%s/video-frame.%s", kOutDir, ext);
                 FILE* f = fopen(out, "wb");
                 if (f && fwrite(maps[b.index], 1, b.bytesused, f) == b.bytesused && fclose(f) == 0) {
                     printf("%s: %ux%u %s, %u bytes\n", out, fmt.fmt.pix.width, fmt.fmt.pix.height, cc, b.bytesused);
@@ -296,12 +457,29 @@ int main(int argc, char** argv) {
     if (argc == 1) {
         return list();
     }
-    if (argc == 3 && !strcmp(argv[1], "--grab")) {
-        return grab(argv[2]);
+    if (argc == 2 && !strcmp(argv[1], "--usb")) {
+        return usb();
+    }
+    if (argc >= 3 && !strcmp(argv[1], "--grab")) {
+        int input = -1;
+        v4l2_std_id std = 0;
+        for (int i = 3; i < argc; ++i) {
+            if (!strcmp(argv[i], "--input") && i + 1 < argc) {
+                input = atoi(argv[++i]);
+            } else if (!strcmp(argv[i], "--pal")) {
+                std = V4L2_STD_PAL;
+            } else if (!strcmp(argv[i], "--ntsc")) {
+                std = V4L2_STD_NTSC;
+            } else {
+                fprintf(stderr, "unknown option %s\n", argv[i]);
+                return 2;
+            }
+        }
+        return grab(argv[2], input, std);
     }
     fprintf(stderr,
-            "Usage: uvc-probe | uvc-probe --grab /dev/videoN\n"
-            "Read-only: only uvcvideo devices are opened; --grab saves one frame to %s.\n",
+            "Usage: uvc-probe | uvc-probe --usb | uvc-probe --grab /dev/videoN [--input N] [--pal|--ntsc]\n"
+            "Read-only: only USB cameras and grabbers are opened; --grab saves one frame to %s.\n",
             kOutDir);
     return argc == 2 && !strcmp(argv[1], "--help") ? 0 : 2;
 }
