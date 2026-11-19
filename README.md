@@ -104,6 +104,8 @@ yet**. They pass the PC and QEMU tests only.
 - **The rest of NBT-AAD's 6WA guidance rules**: when a maneuver shows (by the phone's seconds: 50 s ahead, main prompt
   at 20 s; off-ramps and forks from 2 km), renewed steps, no departure arrow at 0 m, lanes (off by default), short
   distance text. Still log only, as the cluster draws nothing yet.
+- **Directions at any distance restarts a running Android Auto** so the change applies at once (as the USB cable
+  checkbox does).
 - **Android Auto fragment fix** (NBT-AAD #223): a message whose first part was lost is dropped instead of being shown
   cut.
 - **Sending the 6WA calls to the cluster** (`kombi-6wa-live`, off by default; only parked, for tests).

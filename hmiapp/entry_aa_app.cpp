@@ -22,7 +22,8 @@
 //   service_link   the supervisor /opt/aa/aa-supervisor, control messages, the service's state, the stop sequence
 //   car_signals    gear, phone calls, day/night and driving mode from the car's CDS
 //   hold_machine   iDrive kept on the blank state while Android Auto is on screen (pure, tested on the PC)
-//   pending_restart  the restart the USB checkbox asks for while Android Auto runs (pure, tested on the PC)
+//   pending_restart  the restart a checkbox (USB cable, any distance) asks for while Android Auto runs (pure,
+//                    tested on the PC)
 // Uninstall: delete the plugin folder and reboot.
 #include <dlfcn.h>
 #include <stdint.h>
@@ -153,7 +154,7 @@ void showSettings(bmw::PluginApp* app) {
     app->updateModel(kAnyDistanceModel, anyDistanceOn());
     g_settingsShown = true;
 }
-PendingRestart g_restart;  // the USB checkbox changed while Android Auto ran
+PendingRestart g_restart;  // a checkbox the service reads at its start changed while Android Auto ran
 
 bool guardedByOverlay(const char* what) {
     ServiceState d = readServiceState();
@@ -243,8 +244,27 @@ bool onMapTap(void*, const bmw::Parcel&) {
     return true;
 }
 
+// A setting the service reads at its start changed: one that runs is stopped, and started again by the status poll
+// once nothing of it is left (g_restart).
+void restartForSetting(const char* what) {
+    if (stopInProgress()) {
+        if (g_restart.asked()) {
+            g_restart.ask(monoSeconds());  // changed again during its own restart
+        }
+    } else if (readServiceState().pid != 0) {
+        alog("menu: %s changed while Android Auto runs: stopping it, then starting it again", what);
+        beginStop();
+        g_restart.ask(monoSeconds());
+    }
+}
+
+// The service reads it when Android Auto starts: one that runs is restarted, as for the USB checkbox (a change applies
+// at once, as NBT-AAD's restart after a Settings change, rhmiapp-68).
 bool onAnyDistanceToggle(void*, const bmw::Parcel&) {
-    toggleAnyDistance();
+    if (!guardedByOverlay("directions at any distance")) {
+        toggleAnyDistance();
+        restartForSetting("directions at any distance");
+    }
     if (g_runApp) {
         showSettings(g_runApp);
     }
@@ -271,15 +291,7 @@ bool onAutostartToggle(void*, const bmw::Parcel&) {
 bool onUsbCableToggle(void*, const bmw::Parcel&) {
     if (!guardedByOverlay("USB cable")) {
         toggleUsbCable();
-        if (stopInProgress()) {
-            if (g_restart.asked()) {
-                g_restart.ask(monoSeconds());  // changed again during its own restart
-            }
-        } else if (readServiceState().pid != 0) {
-            alog("menu: link changed while Android Auto runs: stopping it, then starting it again");
-            beginStop();
-            g_restart.ask(monoSeconds());
-        }
+        restartForSetting("link");
     }
     if (g_runApp) {
         showSettings(g_runApp);  // the setting as it is now, changed or not

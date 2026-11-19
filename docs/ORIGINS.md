@@ -80,6 +80,28 @@ phone silent for 2 s), so on this base the fork uses upstream's versions and kee
   car, the HUDTerminal (FBlock `0x82`, device `0101`) answers this head unit's reads through vMOST (its function list;
   ErrorAck for a wrong op type), but no method call (op 0, 2 or 6, any payload layout, channels 0, 1 and 4) has been
   answered or drawn anything yet. `car-test` (Gauges, *Car tests*) holds the on-car tests, including `--raw` calls.
+- **Directions at any distance restarts a running Android Auto**, as the USB cable checkbox does, so the change
+  applies at once (after NBT-AAD's restart on leaving Settings when a checkbox changed, rhmiapp-68).
+
+## Reviewed, not ported (2026-11-19)
+
+NBT-AAD `87fd962..a868ff5` and its open branches, and ID6 apps up to `d0df14a`, were read for anything that fits
+this car. Left out, and why:
+
+- NBT-AAD's cluster type setting (J29 / 6WA / 6WB): this fork drives the 6WA only.
+- NBT-AAD's track title in the cluster (`feat/native-audio-kombi-media`): SOME/IP to the Supra's G-series cluster; the
+  6WA is on MOST.
+- NBT-AAD's camera views by iDrive context (`feat/camera-ctx`): for a button-opened 360 / Top View, with NBT
+  context numbers; the F22 has the rear camera and parking view only, and this app already steps aside for any
+  iDrive screen that takes the focus.
+- NBT-AAD's USB start-up reset fix and longer retry gaps (v1.9.92): written for the NBT's QNX USB stack. This
+  fork's USB loop already treats an accessory it switched itself as its own (no reset); the gaps were tuned on one
+  phone model and stay a fallback if a phone needs them here.
+- NBT-AAD's Wi-Fi Direct passphrase and group name, Bluetooth SPP re-registration, navigation prompts over the car's
+  audio, NBTApps packages, translations: NBT (QNX) wireless and audio paths, or their packaging.
+- ID6 apps' BEAMer (exterior light patterns) and the MOST fallback for Bootmod3 and exhaust controls: they write to
+  the car; this fork only reads. Road Jet (a game): not taken. Saved gauge preferences and polling only visible
+  gauges: the Gauges app already does both.
 
 ## Referenced
 
