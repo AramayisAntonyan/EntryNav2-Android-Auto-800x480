@@ -61,17 +61,29 @@ OPTIONS = (
     (27, 903, "Diagnostics"),
 )
 VIEWS = (910, 911, 912, 980, 920)
-SETTINGS = ((24, 960, "Choose gauges"), (28, 961, "Gauge styles"), (16, 950, "Shift point"))
+SETTINGS = (
+    (24, 960, "Choose: car data"),
+    (29, 962, "Choose: engine (DME)"),
+    (34, 963, "Choose: OBD values"),
+    (28, 961, "Gauge styles"),
+    (16, 950, "Shift point"),
+)
+# The Choose pages, one per source (gauge_ids.hpp kChooseStates): state, title, source, note label, note model
+CHOOSE = (
+    (960, "Choose: car data", "cds", 235, 105),
+    (962, "Choose: engine (DME)", "did", 1612, 129),
+    (963, "Choose: OBD values", "obd", 1613, 130),
+)
 DIAGNOSTICS = ((13, 930, "Engine fault codes"), (26, 970, "Car tests"))
 
-# Each look's components at cell c (gauge_ids.hpp kLookImage0, kLookTitleComp0, kLookValueComp0) and label models
-# (kLookTitle0, kLookValue0); every look's pictures use the cell's front (360 + c) and back (424 + c) image models.
-LOOK_TITLE = (300, 130, 190, 250, 530, 870, 918)
-LOOK_VALUE = (330, 160, 220, 274, 560, 894, 942)
-LOOK_TITLE_COMP = (1130, 2060, 2210, 2330, 2480, 2860, 2980)
-LOOK_VALUE_COMP = (1160, 2090, 2240, 2360, 2510, 2890, 3010)
+# Each look's picture components at cell c (gauge_ids.hpp kLookImage0). Only the card writes its value as text
+# (component 1160 + c, model kCardValue0 330 + c): the other looks are pictures alone, as the M5's gauges (the owner,
+# 2026-11-20: the number should not always show).
+CARD_VALUE, CARD_VALUE_COMP = 330, 1160
 CARD, DIAL, WIDE, WIDE_DIAL, TALL, ARC, WIDE_ARC = range(7)
-FRONT, BACK = 360, 424
+# Each look's own picture models (gauge_ids.hpp kLookFront0, kLookBack0): shared models showed in the wrong component.
+LOOK_FRONT = (1100, 1160, 1220, 1280, 1340, 1400, 1460)
+LOOK_BACK = (1130, 1190, 1250, 1310, 1370, 1430, 1490)
 STYLE_ROW_MODEL, STYLE_ROW_COMP, STYLE_ROW_ACTION, STYLE_NOTE = 450, 2701, 480, 474
 
 
@@ -122,55 +134,28 @@ def cell(c):
     """Every look's components at cell c: pictures first (drawn below), then the labels."""
     slot = c % PER_PAGE
     x, y = TILE_X[slot % COLS], TILE_Y[slot // COLS]
-    tw, vw = LOOK_TITLE_COMP, LOOK_VALUE_COMP
-    out = (  # card: icon, name, value, bar (no tile: the owner prefers iDrive's own background)
-        image(1100 + c, BACK + c, x + 12, y + 17, 22, 22)
-        + label(tw[CARD] + c, LOOK_TITLE[CARD] + c, x + 40, y + 8, TILE_W - 48, 40)
-        + label(vw[CARD] + c, LOOK_VALUE[CARD] + c, x + 10, y + 56, TILE_W - 20, 55)
-        + image(1190 + c, FRONT + c, x + 12, y + 140, 165, 12)
+    out = (  # card: its head (icon and name, one picture), the value, the bar (no tile: iDrive's own background)
+        image(1100 + c, LOOK_BACK[CARD] + c, x + 12, y + 10, 165, 24)  # gauge_art.card_label
+        + label(CARD_VALUE_COMP + c, CARD_VALUE + c, x + 10, y + 44, TILE_W - 20, 55)
+        + image(1190 + c, LOOK_FRONT[CARD] + c, x + 12, y + 140, 165, 12)
     )
-    # dial: face and needle over the whole cell; the hub at (94, 100), the text under it
-    out += (
-        image(2000 + c, BACK + c, x, y, TILE_W, TILE_H, False)
-        + image(2030 + c, FRONT + c, x, y, TILE_W, TILE_H, False)
-        + label(tw[DIAL] + c, LOOK_TITLE[DIAL] + c, x + 10, y + 140, TILE_W - 20, 38)
-        + label(vw[DIAL] + c, LOOK_VALUE[DIAL] + c, x + 10, y + 104, TILE_W - 20, 38)
-    )
-    # arc: the fuel gauge's shape, its pivot above the cell; the value over it, the name under it
-    out += (
-        image(2800 + c, BACK + c, x, y, TILE_W, TILE_H, False)
-        + image(2830 + c, FRONT + c, x, y, TILE_W, TILE_H, False)
-        + label(tw[ARC] + c, LOOK_TITLE[ARC] + c, x + 10, y + 140, TILE_W - 20, 38)
-        + label(vw[ARC] + c, LOOK_VALUE[ARC] + c, x + 10, y + 4, TILE_W - 20, 38)
-    )
-    if fits(WIDE_ARC, c):  # the name top left, the value top right, the icon between them
-        out += (
-            image(2920 + c, BACK + c, x, y, WIDE_W, TILE_H, False)
-            + image(2950 + c, FRONT + c, x, y, WIDE_W, TILE_H, False)
-            + label(tw[WIDE_ARC] + c, LOOK_TITLE[WIDE_ARC] + c, x + 12, y + 4, 166, 40)
-            + label(vw[WIDE_ARC] + c, LOOK_VALUE[WIDE_ARC] + c, x + 232, y + 4, WIDE_W - 244, 40)
-        )
-    if fits(WIDE, c):  # the pictures over both cells: icon, track, notches, numbers; the value's segments over them
-        out += (
-            image(2150 + c, BACK + c, x, y, WIDE_W, TILE_H, False)
-            + image(2180 + c, FRONT + c, x + 12, y + 112, 372, 17, False)  # gauge_art.WIDE_VALUE_BOX
-            + label(tw[WIDE] + c, LOOK_TITLE[WIDE] + c, x + 42, y + 8, WIDE_W - 54, 40)
-            + label(vw[WIDE] + c, LOOK_VALUE[WIDE] + c, x + 12, y + 52, WIDE_W - 24, 55)
-        )
-    if fits(WIDE_DIAL, c):  # the hub at (193, 128), the name left and the value right under it
-        out += (
-            image(2270 + c, BACK + c, x, y, WIDE_W, TILE_H, False)
-            + image(2300 + c, FRONT + c, x, y, WIDE_W, TILE_H, False)
-            + label(tw[WIDE_DIAL] + c, LOOK_TITLE[WIDE_DIAL] + c, x + 12, y + 136, 214, 40)
-            + label(vw[WIDE_DIAL] + c, LOOK_VALUE[WIDE_DIAL] + c, x + 232, y + 136, WIDE_W - 244, 40)
-        )
-    if fits(TALL, c):
-        out += (
-            image(2420 + c, BACK + c, x, y, TILE_W, TALL_H, False)
-            + image(2450 + c, FRONT + c, x + 40, y + 104, 18, 252, False)  # gauge_art.TALL_VALUE_BOX
-            + label(tw[TALL] + c, LOOK_TITLE[TALL] + c, x + 40, y + 8, TILE_W - 48, 40)
-            + label(vw[TALL] + c, LOOK_VALUE[TALL] + c, x + 10, y + 52, TILE_W - 20, 55)
-        )
+    # dial and arc: face and needle over the whole cell (the face carries icon, unit and figures)
+    out += image(2000 + c, LOOK_BACK[DIAL] + c, x, y, TILE_W, TILE_H, False)
+    out += image(2030 + c, LOOK_FRONT[DIAL] + c, x, y, TILE_W, TILE_H, False)
+    out += image(2800 + c, LOOK_BACK[ARC] + c, x, y, TILE_W, TILE_H, False)
+    out += image(2830 + c, LOOK_FRONT[ARC] + c, x, y, TILE_W, TILE_H, False)
+    if fits(WIDE_ARC, c):
+        out += image(2920 + c, LOOK_BACK[WIDE_ARC] + c, x, y, WIDE_W, TILE_H, False)
+        out += image(2950 + c, LOOK_FRONT[WIDE_ARC] + c, x, y, WIDE_W, TILE_H, False)
+    if fits(WIDE, c):  # the track over both cells; the value's gradient over it (gauge_art.WIDE_VALUE_BOX)
+        out += image(2150 + c, LOOK_BACK[WIDE] + c, x, y, WIDE_W, TILE_H, False)
+        out += image(2180 + c, LOOK_FRONT[WIDE] + c, x + 12, y + 112, 372, 17, False)
+    if fits(WIDE_DIAL, c):
+        out += image(2270 + c, LOOK_BACK[WIDE_DIAL] + c, x, y, WIDE_W, TILE_H, False)
+        out += image(2300 + c, LOOK_FRONT[WIDE_DIAL] + c, x, y, WIDE_W, TILE_H, False)
+    if fits(TALL, c):  # gauge_art.TALL_VALUE_BOX
+        out += image(2420 + c, LOOK_BACK[TALL] + c, x, y, TILE_W, TALL_H, False)
+        out += image(2450 + c, LOOK_FRONT[TALL] + c, x + 40, y + 104, 18, 252, False)
     return out
 
 
@@ -200,14 +185,14 @@ def main():
         '      <imageIdModel id="6" imageId="58002"/>',
     ]
     for c in range(CELLS):
-        models += [f'      <raDataModel id="{m + c}" modelType="Richtext"/>' for m in LOOK_TITLE + LOOK_VALUE]
+        models.append(f'      <raDataModel id="{CARD_VALUE + c}" modelType="Richtext"/>')
         models += [
             # the gauge pictures come from the app (CarGauges_Art.pack), not from iDrive's image archive
-            f'      <raImageModel id="{FRONT + c}"/>',
-            f'      <raImageModel id="{BACK + c}"/>',
             f'      <raDataModel id="{400 + c}" modelType="Richtext"/>',
             f'      <raDataModel id="{STYLE_ROW_MODEL + c}" modelType="Richtext"/>',
         ]
+    for first in LOOK_FRONT + LOOK_BACK:  # each look's own picture models
+        models += [f'      <raImageModel id="{first + c}"/>' for c in range(CELLS)]
     models.append(f'      <raDataModel id="{STYLE_NOTE}" modelType="Richtext"/>')
     models.append('      <imageIdModel id="90" imageId="57000"/>')
     models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (91, 92, 93, 104, 105, 106, 107, 108)]
@@ -215,6 +200,7 @@ def main():
     models += [f'      <raBoolModel id="{600 + i}"/>' for i in range(len(entries))]
     models += [f'      <raDataModel id="{109 + i}" modelType="Richtext"/>' for i in range(1 + TEST_LINES)]
     models += ['      <raDataModel id="126" modelType="Richtext"/>']
+    models += [f'      <raDataModel id="{note}" modelType="Richtext"/>' for *_, note in CHOOSE[1:]]
     models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (127, 128)]  # the clear's page
 
     # The entry is a combinedAction (11): raAction 19 tells the app, hmiAction 20 opens the dashboard. An entry's
@@ -275,12 +261,14 @@ def main():
     )
     states += state(950, "Shift point", points, parent=902)
     source = {"cds": "", "obd": " (OBD)", "did": " (DME)"}
-    choose = labelrow(235, 105) + "".join(
-        f'          <checkbox id="{1300 + i}" action="{700 + i}" model="{600 + i}" '
-        f'text="{e["title"]}{source[e["source"]] if "(" not in e["title"] else ""}"/>\n'
-        for i, e in enumerate(entries)
-    )
-    states += state(960, "Choose gauges", choose, parent=902)
+    for sid, title, src, note_comp, note in CHOOSE:  # one page per source: the full list was too long to find in
+        choose = labelrow(note_comp, note) + "".join(
+            f'          <checkbox id="{1300 + i}" action="{700 + i}" model="{600 + i}" '
+            f'text="{e["title"]}{source[e["source"]] if "(" not in e["title"] else ""}"/>\n'
+            for i, e in enumerate(entries)
+            if e["source"] == src
+        )
+        states += state(sid, title, choose, parent=902)
     # Gauge styles: one row per ticked gauge ("Water: Dial"), a press gives it the next look
     styles = labelrow(2700, STYLE_NOTE) + "".join(
         modelbutton(STYLE_ROW_COMP + i, STYLE_ROW_ACTION + i, STYLE_ROW_MODEL + i) for i in range(CELLS)

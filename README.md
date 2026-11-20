@@ -113,12 +113,15 @@ yet**. They pass the PC and QEMU tests only.
 - **Sending the 6WA calls to the cluster** (`kombi-6wa-live`, off by default; only parked, for tests).
 - **The firewall rules for the diagnostic gateway** (`/etc/firewall/entry-aad.rules`): the head unit's own firewall
   drops connections to the gateway's diagnostic port, which is likely why the engine values never connected (below).
-- **Fuel quality gauge** (Choose gauges, *Fuel quality*): the octane the engine computer has adapted to from knock
+- **Fuel quality gauge** (*Choose: engine (DME)*, *Fuel quality*): the octane the engine computer has adapted to from knock
   control (DME identifier 0x5776, 0 = RON 98 to 1 = RON 91 on the B48), shown as Armenia's grades: Regular 92,
   Premium 95, Super 98 ("Super+" at the top: the DME learns no higher, so racing fuel, 100, reads the same).
 - **Gauge looks and the new Gauges menus**: the entry opens the dashboard straight away; *OPTION* holds Dashboard 2
-  and 3, Live values, Shift light, *Gauge settings* (Choose gauges, Gauge styles, shift point) and
-  *Diagnostics* (engine values switch, fault codes, car tests). Dials, wide and tall bars and the icons are new.
+  and 3, Live values, Shift light, *Gauge settings* (three Choose pages: car data, engine (DME), OBD values; Gauge
+  styles; shift point) and *Diagnostics* (engine values status, fault codes, car tests). Dials, arcs, wide and tall
+  bars and the icons are new, drawn as the current M5's gauges: a thin scale with a red start mark and a red end
+  zone, the value as a grey-to-white bar or a red needle, icon and unit on the gauge, no number beside it (only the
+  card writes its value).
 - **Clearing the engine's fault codes** (Gauges, *Diagnostics*, *Engine fault codes*, *Clear the codes...*, then *Yes*): clears the
   DME's fault memory (UDS `14 FF FF FF`, the extended session only if the DME asks for it), then reads the codes again.
   The codes now show with a short description (ID6 apps' list, made on a 340i: some codes of other engines have none).

@@ -22,7 +22,15 @@ from pathlib import Path
 
 WHITE = (235, 235, 235)
 RED = (229, 57, 53)
-TRACK = (120, 122, 128)  # a bar's segments above the value
+TRACK = (92, 94, 100)  # a bar's thin line above the value
+VALUE_DIM, VALUE_BRIGHT = (150, 152, 158), (245, 245, 245)  # the value's gradient, as the M5's bars: grey to white
+
+
+def unit_text(unit):
+    """A unit as the gauges write it: "C" is degrees Celsius."""
+    return "\u00b0C" if unit == "C" else unit
+
+
 FIGURES = Path(__file__).resolve().parent / "res" / "gauge_figures"
 ICONS = Path(__file__).resolve().parent / "res" / "gauge_icons"
 
@@ -68,11 +76,11 @@ class Figures:
     def __init__(self):
         self.alpha, self.w, _ = unpng(FIGURES.with_suffix(".png").read_bytes())
         self.glyphs = {}
-        for line in FIGURES.with_suffix(".txt").read_text(encoding="ascii").splitlines():
+        for line in FIGURES.with_suffix(".txt").read_text(encoding="utf-8").splitlines():
             if line.startswith("#") or not line.strip():
                 continue
-            size, ch, x, y, w, h, left, advance = line.split()
-            self.glyphs[(int(size), ch)] = (int(x), int(y), int(w), int(h), int(left), float(advance))
+            size, code, x, y, w, h, left, advance = line.split()
+            self.glyphs[(int(size), chr(int(code)))] = (int(x), int(y), int(w), int(h), int(left), float(advance))
         self.sizes = sorted({s for s, _ in self.glyphs})
 
     def size(self, height):
@@ -80,7 +88,7 @@ class Figures:
 
     def width(self, s, height):
         size = self.size(height)
-        return sum(self.glyphs[(size, ch)][5] for ch in s) + 0.6 * (len(s) - 1)
+        return sum(self.glyphs[(size, ch)][5] for ch in s if (size, ch) in self.glyphs) + 0.6 * (len(s) - 1)
 
 
 _figures = None
@@ -183,6 +191,8 @@ class Mask:
         top = int(round(y - size / 2))
         pen = left
         for ch in s:
+            if (size, ch) not in f.glyphs:
+                continue  # a character the sheet lacks: left out
             gx, gy, gw, gh, ink, advance = f.glyphs[(size, ch)]
             ox = int(round(pen + ink))
             for j in range(gh):
@@ -197,6 +207,8 @@ def draw_icon(mask, name, cx, cy, size):
     if not name:
         return
     places, alpha, sw = icons()
+    if (name, size) not in places:  # the nearest size the sheet has
+        size = min((s for n, s in places if n == name), key=lambda s: abs(s - size))
     x0, y0 = places[(name, size)]
     left, top = int(round(cx - size / 2)), int(round(cy - size / 2))
     for j in range(size):
@@ -288,11 +300,16 @@ class Dial:
         self.major, self.minor, self.gap = major, minor, gap
         self.figure_h, self.figure_gap, self.most = figure_h, figure_gap, most
         self.pointer = needle
-        self.icon_size = 22 if size[0] < 300 else 30
-        if a0 > a1:  # over the pivot: the icon just above the pivot, "x1000" above it
-            self.marks = ((cx, cy - radius * 0.55), (cx, cy - radius * 0.27))
-        else:  # under the pivot: inside the arc's middle, "x1000" just above the numbers
+        self.icon_size = 20 if size[0] < 300 else 26
+        if a0 > a1:  # over the pivot: the needle sweeps above it, so icon and unit go under it, "x1000" or the
+            # name below them (on the car's first try the needle crossed them at the pivot)
+            below = cy + (20 if size[0] < 300 else 18)
+            self.marks = ((cx, below + 24), (cx - self.icon_size * 0.4, below))
+            self.title_at = (cx, below + 26)
+        else:  # under the pivot: inside the arc's middle, "x1000" just above the numbers; the name on top
             self.marks = (self.point(0.5, radius * 0.78), self.point(0.5, radius * 0.62))
+            self.marks = (self.marks[0], (self.marks[1][0] - self.icon_size * 0.4, self.marks[1][1]))
+            self.title_at = (cx, 16 if size[0] < 300 else 18)
 
     def angle(self, t):
         return self.a0 + (self.a1 - self.a0) * t
@@ -301,11 +318,10 @@ class Dial:
         a = self.angle(t)
         return self.cx + r * math.cos(a), self.cy - r * math.sin(a)
 
-    def face(self, scale, icon=None):
-        lo, hi, red, marks = scale
+    def face(self, scale, icon=None, title=None, unit=None):
+        lo, hi, red_from, marks = scale
         w, h = self.size
         white, reds = Mask(w, h), Mask(w, h)
-        red_from = hi - 1000 if red else None
         t_of = lambda v: (v - lo) / (hi - lo)  # noqa: E731
         hot = lambda v: red_from is not None and v >= red_from - 1e-9  # noqa: E731
         # the rim: one line all the way, turning in at both ends
@@ -360,7 +376,15 @@ class Dial:
             m.text(figure(v, div), fx, fy, fh)
         if div != 1:
             white.text("x1000", *self.marks[0], fh * 0.7)
-        draw_icon(white, icon, *self.marks[1], self.icon_size)
+        ix, iy = self.marks[1]
+        if icon:
+            draw_icon(white, icon, ix, iy, self.icon_size)
+            if unit:  # the unit beside the icon, as the M5 writes it
+                white.text(unit_text(unit), ix + self.icon_size * 0.7, iy, fh * 0.85, anchor="left")
+        elif unit:  # no icon: the unit alone, centred
+            white.text(unit_text(unit), self.cx, iy, fh * 0.85, anchor="centre")
+        if title:  # the name, small, under the unit
+            white.text(title, *self.title_at, fh * 0.85, anchor="centre")
         return picture(w, h, [(white, WHITE), (reds, RED)])
 
     def needle_masks(self, levels):
@@ -399,10 +423,11 @@ class Bar:
     beside it. Drawn along u (0 .. long) and across v (0 at the wedge's straight edge, growing away from the scale);
     to_xy maps (u, v) to the picture."""
 
-    def __init__(self, size, long, thin, thick, count, to_xy, notch_at, figure_at, anchors, icon_at=None):
+    def __init__(self, size, long, thin, thick, count, to_xy, notch_at, figure_at, anchors, icon_at=None, unit_at=None):
         self.size, self.long, self.thin, self.thick, self.count = size, long, thin, thick, count
         self.to_xy, self.notch_at, self.figure_at, self.anchors = to_xy, notch_at, figure_at, anchors
         self.icon_at = icon_at  # the icon's centre: top left, before the gauge's name, as the M5 shows it
+        self.unit_at = unit_at  # the unit's right end: top right
 
     def thickness(self, u):
         return self.thin + (self.thick - self.thin) * u / self.long
@@ -436,17 +461,28 @@ class Bar:
         size = (self.long - gap * (self.count - 1)) / self.count
         return [k * (size + gap) - gap / 2 for k in range(1, self.count)]
 
-    def track(self, scale, icon=None, decimals=None):
-        """The back picture: every segment in the track's grey (the last red for a rev counter), the notches and the
-        numbers at the start, middle and end."""
-        lo, hi, red, marks = scale
+    def track(self, scale, icon=None, title=None, unit=None, decimals=None):
+        """The back picture, as the M5's bars: a thin grey line (red over the red zone), a red mark at the start, a
+        notch under each cut, the numbers at the start, middle and end; the icon and the name at the top left, the
+        unit at the top right."""
+        lo, hi, red_from, marks = scale
         w, h = self.size
         grey, white, reds = Mask(w, h), Mask(w, h), Mask(w, h)
         if marks:
             decimals = 0  # the grades: "92 95 98"
-        for k in range(self.count):
-            (reds if red and k == self.count - 1 else grey).polygon(self.segment(k))
-        for u in [0.0] + self.cuts() + [self.long]:
+        u_red = self.long * (red_from - lo) / (hi - lo) if red_from is not None else self.long
+        line = 2.5
+        grey.polygon([self.to_xy(u, v) for u, v in ((0, 0), (u_red, 0), (u_red, line), (0, line))])
+        if red_from is not None:
+            reds.polygon(
+                [
+                    self.to_xy(u, v)
+                    for u, v in ((u_red, 0), (self.long, 0), (self.long, line + 1.5), (u_red, line + 1.5))
+                ]
+            )
+        (xa, ya), (xb, yb) = self.to_xy(-2.0, -3.0), self.to_xy(4.0, self.thick + 2)  # the red start mark
+        reds.stroke(xa, ya, xb, yb, 1.4)
+        for u in self.cuts() + [self.long]:
             (xa, ya), (xb, yb) = self.notch_at(u)
             white.stroke(xa, ya, xb, yb, 0.8)
         div = divisor(lo, hi)
@@ -457,22 +493,34 @@ class Bar:
         for frac, anchor in zip((0.0, 0.5, 1.0), self.anchors):
             v = lo + (hi - lo) * frac
             x, y = self.figure_at(frac * self.long)
-            (reds if red and frac == 1.0 else white).text(figure(v, div, decimals), x, y, 13, anchor)
+            white.text(figure(v, div, decimals), x, y, 15, anchor)
         if self.icon_at:
-            draw_icon(white, icon, *self.icon_at, 22)
+            ix, iy = self.icon_at
+            draw_icon(white, icon, ix, iy, 26)
+            if title:
+                white.text(title, ix + 20, iy, 15, anchor="left")
+            if unit:
+                white.text(unit_text(unit), self.unit_at[0], self.unit_at[1], 18, anchor="right")
         return picture(w, h, [(grey, TRACK), (white, WHITE), (reds, RED)])
 
-    def value(self, level, levels, colour, box=None):
-        """The front picture: the segments up to the level, in colour."""
+    def value(self, level, levels, colour=None, box=None):
+        """The front picture: the segments up to the level, grey brightening to white towards the value (the M5's)."""
         w, h = self.size
-        m = Mask(w, h)
         upto = self.long * level / (levels - 1)
+        layers = []
+        size = (self.long - 3.0 * (self.count - 1)) / self.count
         for k in range(self.count):
-            if level > 0:
-                pts = self.segment(k, upto)
-                if len(pts) >= 3:
-                    m.polygon(pts)
-        full = picture(w, h, [(m, colour)])
+            if level == 0:
+                break
+            pts = self.segment(k, upto)
+            if len(pts) < 3:
+                continue
+            m = Mask(w, h)
+            m.polygon(pts)
+            mid = min(upto, k * (size + 3.0) + size / 2)
+            t = mid / upto if upto else 1.0
+            layers.append((m, tuple(int(a + (b - a) * t) for a, b in zip(VALUE_DIM, VALUE_BRIGHT))))
+        full = picture(w, h, layers)
         return crop(full, box) if box else full
 
 
@@ -488,7 +536,8 @@ WIDE_BAR = Bar(
     lambda u: ((u + 13, 129), (u + 10.5, 134)),
     lambda u: (u + 14, 145),
     ("left", "centre", "right"),
-    (24, 28),
+    (22, 96),
+    (372, 96),
 )
 # Tall (189 x 368): the wedge upwards from y 354, its straight edge at x 56 facing the notches and numbers right of it.
 TALL_BAR = Bar(
@@ -501,15 +550,18 @@ TALL_BAR = Bar(
     lambda u: ((58, 354 - u), (63, 354 - u + 1.5)),
     lambda u: (68, 354 - u),
     ("left", "left", "left"),
-    (24, 28),
+    (22, 82),
+    (178, 82),
 )
 
 
-def card_icon(name):
-    """A card's icon, 22 x 22, before its name."""
-    m = Mask(22, 22)
-    draw_icon(m, name, 11, 11, 22)
-    return picture(22, 22, [(m, WHITE)])
+def card_label(icon, title):
+    """A card's head, 165 x 24: its icon and name, small (iDrive's labels are too big for it)."""
+    w, h = 165, 24
+    m = Mask(w, h)
+    draw_icon(m, icon, 9, 12, 22)
+    m.text(title or "", 22 if icon else 2, 12, 15, anchor="left")
+    return picture(w, h, [(m, WHITE)])
 
 
 # The bars' front pictures hold only the wedge (x, y, w, h in the cell): wide and tall.
@@ -524,14 +576,32 @@ CARD_BAR = Bar((165, 12), 158, 4, 10, 6, lambda u, v: (u + 1, 11 - v), None, Non
 SHIFT_BAR = Bar((760, 40), 740, 12, 34, 16, lambda u, v: (u + 1, 37 - v), None, None, None)
 
 
-def whole_bar(bar, level, levels, colour):
+def whole_bar(bar, level, levels, colour=None):
+    """A card's or the shift light's bar in one picture: the thin grey line, the red start mark, the value's segments
+    grey to white (colour: one colour for the value instead, as the shift light's warning red)."""
     w, h = bar.size
-    grey, value = Mask(w, h), Mask(w, h)
-    upto = bar.long * level / (levels - 1)
-    for k in range(bar.count):
-        grey.polygon(bar.segment(k))
-        if level > 0:
+    grey, reds = Mask(w, h), Mask(w, h)
+    grey.polygon([bar.to_xy(u, v) for u, v in ((0, 0), (bar.long, 0), (bar.long, 2.0), (0, 2.0))])
+    (xa, ya), (xb, yb) = bar.to_xy(-1.0, -1.0), bar.to_xy(3.0, bar.thick + 1)
+    reds.stroke(xa, ya, xb, yb, 1.2)
+    full = unpng(bar.value(level, levels))[0]
+    layers = [(grey, TRACK), (reds, RED)]
+    base = picture(w, h, layers)
+    if colour is not None and level > 0:  # one colour (the shift light past the shift point)
+        m = Mask(w, h)
+        upto = bar.long * level / (levels - 1)
+        for k in range(bar.count):
             pts = bar.segment(k, upto)
             if len(pts) >= 3:
-                value.polygon(pts)
-    return picture(w, h, [(grey, TRACK), (value, colour)])
+                m.polygon(pts)
+        return picture(w, h, layers + [(m, colour)])
+    rgba, _, _ = unpng(base)
+    for i in range(0, len(rgba), 4):  # the value over the line and mark
+        a = full[i + 3] / 255.0
+        if a > 0:
+            da = rgba[i + 3] / 255.0
+            oa = a + da * (1 - a)
+            for k in range(3):
+                rgba[i + k] = int((full[i + k] * a + rgba[i + k] * da * (1 - a)) / oa + 0.5)
+            rgba[i + 3] = int(oa * 255 + 0.5)
+    return png(rgba, w, h)

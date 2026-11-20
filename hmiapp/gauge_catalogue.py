@@ -147,10 +147,23 @@ ICONS = {
 SCALE_MARKS = {"RON": (92, 95, 98)}
 
 
+# Gauges with a red end, as BMW's: engine speed (the last 1000 rpm) and the engine's temperatures (the top 15 %).
+HOT_TITLES = ("Water", "Oil", "Coolant (OBD)", "Coolant (DME)", "Oil temp. (OBD)")
+
+
+def red_from(e):
+    """Where a gauge's red end starts, or None."""
+    if e["unit"] == "rpm":
+        return e["hi"] - 1000
+    if e["title"] in HOT_TITLES:
+        return e["lo"] + 0.85 * (e["hi"] - e["lo"])
+    return None
+
+
 def scale_key(e):
-    """The scale a gauge's dial or bar draws: its range, a red end for engine speed (the last 1000 rpm), and the
-    values to number when not round steps."""
-    return (e["lo"], e["hi"], e["unit"] == "rpm", SCALE_MARKS.get(e["unit"]))
+    """The scale a gauge's dial or bar draws: its range, where its red end starts (or None), and the values to number
+    when not round steps."""
+    return (e["lo"], e["hi"], red_from(e), SCALE_MARKS.get(e["unit"]))
 
 
 def entries():

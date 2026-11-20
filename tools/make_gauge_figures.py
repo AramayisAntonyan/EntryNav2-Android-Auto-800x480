@@ -18,8 +18,8 @@ from PIL import Image, ImageDraw, ImageFont
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "hmiapp"))
 import gauge_art  # noqa: E402
 
-CHARS = "0123456789.-/x"
-SIZES = (10, 11, 13, 15, 18)  # the height of a figure in pixels
+CHARS = "0123456789.-/x" + "ABCDEFGHIJKLMNOPQRSTUVWYZabcdefghijklmnopqrstuvwyz ()%:,+&'\u00b0"  # figures, names, units
+SIZES = (10, 11, 13, 15, 18)  # the height of a figure in pixels (letters: their cap height; descenders below)
 
 
 def font_for(path, height):
@@ -33,7 +33,7 @@ def font_for(path, height):
     return best[0]
 
 
-ICON_SIZES = (22, 30)  # the icons' box in pixels: bars and cards, dials
+ICON_SIZES = (20, 22, 26, 30)  # the icons' box in pixels: bars and cards, dials
 
 
 def icons(font_path, codepoints, out):
@@ -84,13 +84,13 @@ def main():
         for ch in CHARS:
             left, t, r, b = font.getbbox(ch)
             w = max(1, r - left)
-            img = Image.new("L", (w, size), 0)
+            img = Image.new("L", (w, size + size * 2 // 5), 0)  # room below the baseline for g, p, y
             ImageDraw.Draw(img).text((-left, -top), ch, font=font, fill=255)
             cells.append((size, ch, img, left, font.getlength(ch)))
     width = max(sum(c[2].width + 2 for c in cells if c[0] == s) for s in SIZES)
-    height = sum(SIZES) + 2 * len(SIZES)
+    height = sum(s + s * 2 // 5 for s in SIZES) + 2 * len(SIZES)  # each row: the cells with room below the baseline
     rgba = bytearray(width * height * 4)
-    lines = ["# size char x y width height ink_left advance (pixels; ink_left and advance from the pen)"]
+    lines = ["# size code x y width height ink_left advance (code: the character's number; pixels from the pen)"]
     y = 0
     for size in SIZES:
         x = 0
@@ -102,11 +102,11 @@ def main():
                 for gx in range(img.width):
                     i = ((y + gy) * width + x + gx) * 4
                     rgba[i : i + 4] = bytes((255, 255, 255, px[gx, gy]))
-            lines.append(f"{size} {ch} {x} {y} {img.width} {img.height} {left} {advance:.2f}")
+            lines.append(f"{size} {ord(ch)} {x} {y} {img.width} {img.height} {left} {advance:.2f}")
             x += img.width + 2
-        y += size + 2
+        y += size + size * 2 // 5 + 2
     (out / "gauge_figures.png").write_bytes(gauge_art.png(rgba, width, height))
-    (out / "gauge_figures.txt").write_text("\n".join(lines) + "\n", encoding="ascii", newline="\n")
+    (out / "gauge_figures.txt").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     print(f"wrote gauge_figures.png ({width}x{height}) and gauge_figures.txt: {len(cells)} figures")
 
 

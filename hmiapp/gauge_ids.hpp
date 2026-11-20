@@ -24,7 +24,12 @@ const unsigned kShiftState = 920;
 const unsigned kCodesState = 930;
 const unsigned kClearState = 931;  // "Clear the engine's codes?": what it does, and the one button that does it
 const unsigned kShiftPointState = 950;
-const unsigned kChooseState = 960;
+// The Choose pages, one per source (car data, engine DID, OBD), and their notes above the list.
+constexpr unsigned kChooseStates[3] = {960, 962, 963};
+const unsigned kChooseNotes[3] = {105, 129, 130};
+inline bool isChooseState(unsigned state) {
+    return state == kChooseStates[0] || state == kChooseStates[1] || state == kChooseStates[2];
+}
 const unsigned kLookState = 961;        // Gauge styles: one row per ticked gauge, a press changes its look
 const unsigned kTestState = 970;        // Car tests: a scrolling list of the tests, one per press
 const unsigned kTestResultState = 971;  // Test results: the running test's output, opened by the press
@@ -44,17 +49,18 @@ const unsigned kActEntry = 19;  // the combinedAction's raAction
 // 0..2 only, the tall look in row 0 only.
 const unsigned kCardsPerPage = kCellsPerPage;
 const unsigned kCards = kCardsPerPage * kPages;
-// Each look's labels have their own Richtext models (cell c: + c), empty while the look is not at that cell: labels
-// are never hidden. The pictures share one front and one back model per cell; a look's pictures are hidden (property
-// 3, as Android Auto's album cover) while it is not at the cell.
-const unsigned kLookTitle0[kLooks] = {300, 130, 190, 250, 530, 870, 918};
-const unsigned kLookValue0[kLooks] = {330, 160, 220, 274, 560, 894, 942};
-const unsigned kCardBar0 = 360;   // raImageModels: the front picture (a bar, a dial's needle)
-const unsigned kCardBack0 = 424;  // raImageModels: the back picture (a dial's face, a bar's scale, a card's icon)
+// Only the card writes its value as text (Richtext, cell c: + c; empty while another look is at the cell: labels are
+// never hidden). The other looks are pictures alone, as the M5's gauges. A look's pictures are hidden (property 3, as
+// Android Auto's album cover) while it is not at the cell.
+const unsigned kCardValue0 = 330;
+// Each look has its own picture models too (raImageModels, cell c: + c): the front picture (a bar, a needle) and the
+// back one (a face, a bar's track, a card's icon). Shared between the looks, a model's picture went to another look's
+// component than the shown one (seen on the car 2026-11-20: no needles, a red speck at the card bar's place).
+const unsigned kLookFront0[kLooks] = {1100, 1160, 1220, 1280, 1340, 1400, 1460};
+const unsigned kLookBack0[kLooks] = {1130, 1190, 1250, 1310, 1370, 1430, 1490};
 const unsigned kLookImages = 2;
 // The picture components of each look at cell c: base + c, the back picture (per gauge: its icon, dial face or bar
-// track) then the front one (a bar's value, a needle). No tiles: the owner prefers iDrive's own background. Its labels:
-// title kLookTitleComp0 + c, value kLookValueComp0 + c.
+// track) then the front one (a bar's value, a needle). No tiles: the owner prefers iDrive's own background.
 const unsigned kLookImage0[kLooks][kLookImages] = {
     {1100, 1190},  // card: icon, bar
     {2000, 2030},  // dial: face, needle
@@ -64,8 +70,6 @@ const unsigned kLookImage0[kLooks][kLookImages] = {
     {2800, 2830},  // arc: face, needle
     {2920, 2950},  // wide arc: face, needle
 };
-const unsigned kLookTitleComp0[kLooks] = {1130, 2060, 2210, 2330, 2480, 2860, 2980};
-const unsigned kLookValueComp0[kLooks] = {1160, 2090, 2240, 2360, 2510, 2890, 3010};
 inline bool lookFits(unsigned look, unsigned cell) {
     return cell % kCols + lookWidth(look) <= kCols && cell % kCellsPerPage / kCols + lookHeight(look) <= kRows;
 }
@@ -74,7 +78,6 @@ inline bool lookFits(unsigned look, unsigned cell) {
 const unsigned kChoiceModel0 = 600;   // raBoolModel: + entry
 const unsigned kChoiceAction0 = 700;  // raAction: + entry
 const unsigned kChoiceComp0 = 1300;   // checkbox component: + entry
-const unsigned kChooseNote = 105;     // Richtext above the list
 const unsigned kTestStatus = 109;     // Test results: the test's name and state
 const unsigned kTestLine0 = 110;      // 110..119: the output's last lines
 const unsigned kTestLines = 10;

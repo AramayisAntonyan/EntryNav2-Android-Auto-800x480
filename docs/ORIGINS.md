@@ -72,7 +72,7 @@ phone silent for 2 s), so on this base the fork uses upstream's versions and kee
   or a tall bar over two cells (BoostDeck's vertical bar); bars are the current M5's wedge of slanted segments. No card
   background; red needles and white bars; the pictures sent by the app from its own pack (iDrive refuses a large
   image archive); filled with any value ticked in
-  *Choose gauges*: 61 values from the iDrive's car data, standard OBD and BMW engine values (`platform/gauge_catalogue.hpp`,
+  the three *Choose* pages: 62 values from the iDrive's car data, standard OBD and BMW engine values (`platform/gauge_catalogue.hpp`,
   from `hmiapp/gauge_catalogue.py`); a shift light; the engine's fault codes, read only. DME values come from
   `gauge-collector` (HSFZ through the diagnostic gateway, read services only), whenever an engine gauge shows
   (`/var/local/data/AA/gauges-dme-off` turns them off); the gateway's address is this car's (the installer writes

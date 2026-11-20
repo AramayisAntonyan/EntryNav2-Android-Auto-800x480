@@ -230,7 +230,7 @@ def write_gauge_images(path):
         own = Path(__file__).resolve().parents[1] / ".local" / "gauges_card_549x484.png"
         add(archive, "58002.png", own.read_bytes() if own.is_file() else car_card_png())
         for level in range(SHIFT_LEVELS):
-            for first, fill in ((57000, SHIFT_FILL), (57100, SHIFT_WARN)):
+            for first, fill in ((57000, None), (57100, SHIFT_WARN)):  # the gradient; solid red past the shift point
                 add(
                     archive, f"{first + level}.png", gauge_art.whole_bar(gauge_art.SHIFT_BAR, level, SHIFT_LEVELS, fill)
                 )
@@ -240,7 +240,7 @@ def art_pictures():
     """Every gauge picture as (id, PNG): card bars, the big looks' values and needles; per gauge its dial faces, bar
     tracks and card icon, each with the gauge's icon and scale."""
     for level in range(GAUGE_BAR_LEVELS):
-        yield 56000 + level, gauge_art.whole_bar(gauge_art.CARD_BAR, level, GAUGE_BAR_LEVELS, BAR)
+        yield 56000 + level, gauge_art.whole_bar(gauge_art.CARD_BAR, level, GAUGE_BAR_LEVELS)
     for level in range(FINE_LEVELS):
         yield IMG_WIDE_BAR + level, gauge_art.WIDE_BAR.value(level, FINE_LEVELS, BAR, gauge_art.WIDE_VALUE_BOX)
         yield IMG_TALL_BAR + level, gauge_art.TALL_BAR.value(level, FINE_LEVELS, BAR, gauge_art.TALL_VALUE_BOX)
@@ -257,14 +257,16 @@ def art_pictures():
     if len(entries) > 100:
         raise SystemExit("FAIL: more than 100 gauges: the image ranges of gauge_ids.hpp overlap")
     for n, e in enumerate(entries):
-        scale, icon = gauge_catalogue.scale_key(e), e["icon"]
-        yield IMG_FACE + n, gauge_art.SMALL_DIAL.face(scale, icon)
-        yield IMG_WIDE_FACE + n, gauge_art.WIDE_DIAL.face(scale, icon)
-        yield IMG_WIDE_TRACK + n, gauge_art.WIDE_BAR.track(scale, icon)
-        yield IMG_TALL_TRACK + n, gauge_art.TALL_BAR.track(scale, icon)
-        yield IMG_CARD_ICON + n, gauge_art.card_icon(icon)
-        yield IMG_ARC_FACE + n, gauge_art.SMALL_ARC.face(scale, icon)
-        yield IMG_WIDE_ARC_FACE + n, gauge_art.WIDE_ARC.face(scale, icon)
+        scale, icon, unit = gauge_catalogue.scale_key(e), e["icon"], e["unit"]
+        # as the M5's gauges: the icon names the gauge; the name is written only where there is no icon
+        title = None if icon else e["title"]
+        yield IMG_FACE + n, gauge_art.SMALL_DIAL.face(scale, icon, title, unit)
+        yield IMG_WIDE_FACE + n, gauge_art.WIDE_DIAL.face(scale, icon, title, unit)
+        yield IMG_WIDE_TRACK + n, gauge_art.WIDE_BAR.track(scale, icon, title, unit)
+        yield IMG_TALL_TRACK + n, gauge_art.TALL_BAR.track(scale, icon, title, unit)
+        yield IMG_CARD_ICON + n, gauge_art.card_label(icon, e["title"])
+        yield IMG_ARC_FACE + n, gauge_art.SMALL_ARC.face(scale, icon, title, unit)
+        yield IMG_WIDE_ARC_FACE + n, gauge_art.WIDE_ARC.face(scale, icon, title, unit)
 
 
 def write_art(path):

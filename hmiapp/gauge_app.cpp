@@ -83,7 +83,7 @@ const char kCollectorLog[] = "/var/local/data/AA/gauge-collector.log";
 const char kCollectorLogOld[] = "/var/local/data/AA/gauge-collector.log.old";
 const char kCodesFile[] = "/tmp/gauge-codes.txt";
 const unsigned kPollMs = 150;
-const unsigned kModels = 1024;  // every text and image model id is below this
+const unsigned kModels = 1536;  // every text and image model id is below this
 
 bmw::PluginApp* g_app = nullptr;
 unsigned g_page = 0;  // the state shown, 0: none of ours
@@ -221,7 +221,12 @@ int g_lookRowShown[kLookRows];    // the Gauge styles rows
 int g_optionShown[kViews][2];     // each view's OPTION Dashboard 2 and 3
 
 void forgetShown() {
-    memset(g_shownText, 0, sizeof(g_shownText));
+    // "\x01": nothing is known to be shown, so even an empty text is sent (memset 0 made "" look already shown: a look
+    // switched away from kept its old value and name on the car, 2026-11-20)
+    for (unsigned m = 0; m < kModels; ++m) {
+        g_shownText[m][0] = 1;
+        g_shownText[m][1] = 0;
+    }
     memset(g_shownImage, 0, sizeof(g_shownImage));
     memset(g_lookShown, 0xff, sizeof(g_lookShown));  // -1
     memset(g_liveShown, 0xff, sizeof(g_liveShown));
@@ -580,10 +585,9 @@ void showCell(unsigned c) {
                 showComponent(kLookImage0[l][p] + c, l == look, &g_lookShown[l][c]);
             }
         }
-        if (l != look) {
-            setText(kLookTitle0[l] + c, "");
-            setText(kLookValue0[l] + c, "");
-        }
+    }
+    if (look != kLookCard) {
+        setText(kCardValue0 + c, "");
     }
     if (look >= kLooks) {
         return;
@@ -595,37 +599,38 @@ void showCell(unsigned c) {
     if (!ok && entry.source != kCds && g_dmeWhy[0]) {
         snprintf(text, sizeof(text), "%s", g_dmeWhy);  // why there is no value
     }
-    setText(kLookTitle0[look] + c, entry.title);
-    setText(kLookValue0[look] + c, text);
+    if (look == kLookCard) {
+        setText(kCardValue0 + c, text);  // the other looks show no number (the M5's gauges)
+    }
     const unsigned fine = ok ? levelOf(entry, g_value[e], kFineLevels) : 0;
     switch (look) {
         case kLookDial:
-            setArt(kCardBack0 + c, kImgFace0 + e);
-            setArt(kCardBar0 + c, kImgNeedle0 + fine);
+            setArt(kLookBack0[look] + c, kImgFace0 + e);
+            setArt(kLookFront0[look] + c, kImgNeedle0 + fine);
             break;
         case kLookWide:
-            setArt(kCardBack0 + c, kImgWideTrack0 + e);
-            setArt(kCardBar0 + c, kImgWideBar0 + fine);
+            setArt(kLookBack0[look] + c, kImgWideTrack0 + e);
+            setArt(kLookFront0[look] + c, kImgWideBar0 + fine);
             break;
         case kLookWideDial:
-            setArt(kCardBack0 + c, kImgWideFace0 + e);
-            setArt(kCardBar0 + c, kImgWideNeedle0 + fine);
+            setArt(kLookBack0[look] + c, kImgWideFace0 + e);
+            setArt(kLookFront0[look] + c, kImgWideNeedle0 + fine);
             break;
         case kLookArc:
-            setArt(kCardBack0 + c, kImgArcFace0 + e);
-            setArt(kCardBar0 + c, kImgArcNeedle0 + fine);
+            setArt(kLookBack0[look] + c, kImgArcFace0 + e);
+            setArt(kLookFront0[look] + c, kImgArcNeedle0 + fine);
             break;
         case kLookWideArc:
-            setArt(kCardBack0 + c, kImgWideArcFace0 + e);
-            setArt(kCardBar0 + c, kImgWideArcNeedle0 + fine);
+            setArt(kLookBack0[look] + c, kImgWideArcFace0 + e);
+            setArt(kLookFront0[look] + c, kImgWideArcNeedle0 + fine);
             break;
         case kLookTall:
-            setArt(kCardBack0 + c, kImgTallTrack0 + e);
-            setArt(kCardBar0 + c, kImgTallBar0 + fine);
+            setArt(kLookBack0[look] + c, kImgTallTrack0 + e);
+            setArt(kLookFront0[look] + c, kImgTallBar0 + fine);
             break;
         default:
-            setArt(kCardBack0 + c, kImgCardIcon0 + e);
-            setArt(kCardBar0 + c, barImage(ok ? barLevel(entry, g_value[e]) : 0));
+            setArt(kLookBack0[look] + c, kImgCardIcon0 + e);
+            setArt(kLookFront0[look] + c, barImage(ok ? barLevel(entry, g_value[e]) : 0));
             break;
     }
 }
@@ -758,7 +763,9 @@ void showChoose() {
     const unsigned shown = g_listCount - g_layout.dropped;
     snprintf(text, sizeof(text), "%u ticked, %u on the dashboard%s", ticked, shown,
              hidden ? " (OBD values this DME lacks are hidden)" : "");
-    setText(kChooseNote, text);
+    for (unsigned p = 0; p < 3; ++p) {
+        setText(kChooseNotes[p], text);
+    }
 }
 
 // The preview card's trip lines, as BMW's own My Vehicle card shows them on larger screens. The card has no visibility
@@ -790,7 +797,7 @@ void refresh() {
         showLooks();
     } else if (g_page == kShiftState) {
         showShift();
-    } else if (g_page == kChooseState) {
+    } else if (isChooseState(g_page)) {
         showChoose();
     } else if (g_page == kShiftPointState) {
         char text[48];
@@ -1086,7 +1093,7 @@ void pageVisible(unsigned state, bool visible) {
         }
     } else if (state == kClearState) {
         showClearNotes();
-    } else if (state == kChooseState) {
+    } else if (isChooseState(state)) {
         loadChoice();  // gauges-supported may have been written meanwhile
     } else if (state == kTestResultState) {
         showTestStatus();
@@ -1198,7 +1205,7 @@ bool onChoice(void*, const bmw::Parcel&) {
     saveChoice();
     alog("gauges: %s %s", kEntries[Entry].title, g_on[Entry] ? "ticked" : "unticked");
     assignCards();
-    if (g_page == kChooseState) {
+    if (isChooseState(g_page)) {
         showChoose();
     }
     return true;
@@ -1321,7 +1328,9 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     addStateHandler(self, kShiftState, kHandlerVisible, &onVisible<kShiftState>);
     addStateHandler(self, kCodesState, kHandlerVisible, &onVisible<kCodesState>);
     addStateHandler(self, kShiftPointState, kHandlerVisible, &onVisible<kShiftPointState>);
-    addStateHandler(self, kChooseState, kHandlerVisible, &onVisible<kChooseState>);
+    addStateHandler(self, kChooseStates[0], kHandlerVisible, &onVisible<kChooseStates[0]>);
+    addStateHandler(self, kChooseStates[1], kHandlerVisible, &onVisible<kChooseStates[1]>);
+    addStateHandler(self, kChooseStates[2], kHandlerVisible, &onVisible<kChooseStates[2]>);
     static const ActionStub kPoint[] = {&onShiftPoint<0>, &onShiftPoint<1>, &onShiftPoint<2>, &onShiftPoint<3>};
     for (unsigned i = 0; i < 4; ++i) {
         addAction(self, kActShiftPoint0 + i, kPoint[i]);

@@ -53,7 +53,7 @@ namespace {
 using namespace evo;
 
 const uint8_t kHudFblock = 0x82, kHudInstance = 0x00;
-const uint32_t kOpGet = 0x1, kOpStartResultAck = 0x6, kOpStatus = 0xC, kOpErrorAck = 0xF;
+const uint32_t kOpGet = 0x1, kOpStartResultAck = 0x6, kOpStatus = 0xC, kOpError = 0xF;  // Error; ErrorAck is 0x9
 const uint8_t kKombiFblock = 0xE0, kNavFblock = 0x52;
 const uint16_t kGuidanceActive = 0x276, kArrival = 0xD10;  // RG_GuidanceActive, DTI_DistanceArrivalTimeToDestination
 
@@ -240,7 +240,11 @@ void onMessage(void* msg, void*) {
         printHex(v.data, v.len);
     }
     if (v.op == 0xF && v.len >= 3 && v.data) {
-        printf("  (ErrorAck %02X)", v.data[2]);
+        printf("  (Error %02X)", v.data[2]);
+    } else if (v.op == 0x9) {
+        printf("  (ErrorAck)");
+    } else if (v.op == 0xD) {
+        printf("  (ResultAck)");
     }
     printf("\n");
     fflush(stdout);
@@ -461,10 +465,10 @@ int kombiRead() {
     pump(1.0);
     unsigned values = 0, errors = 0;
     for (std::map<uint16_t, Answer>::const_iterator it = g_kombiAnswers.begin(); it != g_kombiAnswers.end(); ++it) {
-        (it->second.op == kOpErrorAck ? errors : values) += 1;
+        (it->second.op == kOpError ? errors : values) += 1;
     }
     const unsigned asked = kKombiFunctionCount + 1, got = values + errors;
-    printf("summary: %u value(s), %u ErrorAck(s), %u silent of %u functions\n", values, errors,
+    printf("summary: %u value(s), %u Error(s), %u silent of %u functions\n", values, errors,
            asked > got ? asked - got : 0, asked);
     const uint16_t key[] = {0x000, 0xCA7, 0xCA8, 0xCA6, 0x517, 0x504};
     const char* const keyName[] = {"functions",     "KombiSelection2",  "CA8 (availability?)",
