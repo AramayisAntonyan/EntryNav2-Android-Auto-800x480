@@ -3,10 +3,13 @@
 // Where the ticked gauges go on the dashboard pages, each with its look: a card, a dial (a half circle over its pivot,
 // as BMW's clusters draw their gauges), an arc (the F-series fuel gauge's shallow arc under its pivot), a wide bar, a
 // wide dial or a wide arc over two cells across, a tall bar over two cells high (as ID6 apps' BoostDeck shows its
-// vertical bar). A page is 4 x 2 cells; the gauges fill it in order, each in the first
-// free place it fits (a later small gauge may fill a gap a big one left). Pure logic (tests/test_gauge_values.cpp).
+// vertical bar). A page is 4 x 2 cells. A gauge the owner gave a place (Gauge places) goes there first, if its look
+// fits there and the place is free; the others fill the pages in order, each in the first free place it fits (a later
+// small gauge may fill a gap a big one left). Pure logic (tests/test_gauge_values.cpp).
 #ifndef ENTRY_AAD_HMIAPP_GAUGE_LAYOUT_HPP
 #define ENTRY_AAD_HMIAPP_GAUGE_LAYOUT_HPP
+
+#include <stdio.h>
 
 #include "../platform/gauge_catalogue.hpp"
 
@@ -41,6 +44,24 @@ inline unsigned lookHeight(unsigned look) {
 }
 
 // A gauge's cell: page * kCellsPerPage + row * kCols + column. Each gauge is kept at its first (top-left) cell.
+const unsigned kNoPlace = ~0u;  // a gauge without a chosen place
+
+// Whether a gauge in `look` can start at cell c (it stays inside its page).
+inline bool startFits(unsigned look, unsigned c) {
+    const unsigned row = c % kCellsPerPage / kCols, col = c % kCols;
+    return col + lookWidth(look) <= kCols && row + lookHeight(look) <= kRows;
+}
+
+// The cells a gauge in `look` starting at c covers: out[0..count).
+inline unsigned coveredCells(unsigned look, unsigned c, unsigned* out) {
+    unsigned k = 0;
+    for (unsigned dy = 0; dy < lookHeight(look); ++dy) {
+        for (unsigned dx = 0; dx < lookWidth(look); ++dx) {
+            out[k++] = c + dy * kCols + dx;
+        }
+    }
+    return k;
+}
 template <unsigned Pages>
 struct Layout {
     static const unsigned kCells = Pages * kCellsPerPage;
@@ -50,11 +71,37 @@ struct Layout {
     unsigned pages;          // pages with at least one gauge
 };
 
-// Lays out n gauges (entries[i] with looks[i]) in order.
+// Puts gauge i at cell c if its look fits there and the cells are free.
 template <unsigned Pages>
-void layOut(const unsigned* entries, const unsigned* looks, unsigned n, Layout<Pages>* out) {
+bool placeAt(const unsigned* entries, unsigned i, unsigned look, unsigned c, bool* used, Layout<Pages>* out) {
+    if (c >= Layout<Pages>::kCells || !startFits(look, c)) {
+        return false;
+    }
+    unsigned cover[4];
+    const unsigned k = coveredCells(look, c, cover);
+    for (unsigned j = 0; j < k; ++j) {
+        if (used[cover[j]]) {
+            return false;
+        }
+    }
+    for (unsigned j = 0; j < k; ++j) {
+        used[cover[j]] = true;
+    }
+    out->entry[c] = entries[i];
+    out->look[c] = look;
+    out->pages = c / kCellsPerPage + 1 > out->pages ? c / kCellsPerPage + 1 : out->pages;
+    return true;
+}
+
+// Lays out n gauges (entries[i] with looks[i]): first those with a place (places[i], kNoPlace: none; places may be
+// null), then the rest in order, each in the first free place it fits.
+template <unsigned Pages>
+void layOut(const unsigned* entries, const unsigned* looks, unsigned n, Layout<Pages>* out,
+            const unsigned* places = nullptr) {
     const unsigned cells = Layout<Pages>::kCells;
+    const unsigned kMax = 64;  // more gauges than this are laid out in order only
     bool used[cells];
+    bool pinned[kMax];
     for (unsigned c = 0; c < cells; ++c) {
         used[c] = false;
         out->entry[c] = catalogue::kEntryCount;
@@ -62,35 +109,51 @@ void layOut(const unsigned* entries, const unsigned* looks, unsigned n, Layout<P
     }
     out->dropped = 0;
     out->pages = 0;
-    for (unsigned i = 0; i < n; ++i) {
+    for (unsigned i = 0; i < n && i < kMax; ++i) {
         const unsigned look = looks[i] < kLooks ? looks[i] : static_cast<unsigned>(kLookCard);
-        const unsigned w = lookWidth(look), h = lookHeight(look);
+        pinned[i] = places && places[i] != kNoPlace && placeAt(entries, i, look, places[i], used, out);
+    }
+    for (unsigned i = 0; i < n; ++i) {
+        if (i < kMax && pinned[i]) {
+            continue;
+        }
+        const unsigned look = looks[i] < kLooks ? looks[i] : static_cast<unsigned>(kLookCard);
         bool placed = false;
         for (unsigned c = 0; c < cells && !placed; ++c) {
-            const unsigned page = c / kCellsPerPage, row = c % kCellsPerPage / kCols, col = c % kCols;
-            if (col + w > kCols || row + h > kRows) {
-                continue;
-            }
-            bool free = true;
-            for (unsigned dy = 0; dy < h; ++dy) {
-                for (unsigned dx = 0; dx < w; ++dx) {
-                    free = free && !used[c + dy * kCols + dx];
-                }
-            }
-            if (!free) {
-                continue;
-            }
-            for (unsigned dy = 0; dy < h; ++dy) {
-                for (unsigned dx = 0; dx < w; ++dx) {
-                    used[c + dy * kCols + dx] = true;
-                }
-            }
-            out->entry[c] = entries[i];
-            out->look[c] = look;
-            out->pages = page + 1 > out->pages ? page + 1 : out->pages;
-            placed = true;
+            placed = placeAt(entries, i, look, c, used, out);
         }
         out->dropped += placed ? 0 : 1;
+    }
+}
+
+// The owner's places, one character per catalogue entry: '-' none, 'A' + cell. A missing file or entry: none.
+inline void parsePlaces(const char* text, unsigned* places) {
+    unsigned n = 0;
+    while (text && text[n]) {
+        ++n;
+    }
+    for (unsigned i = 0; i < catalogue::kEntryCount; ++i) {
+        const bool given = i < n && text[i] >= 'A' && text[i] < 'A' + 58;
+        places[i] = given ? static_cast<unsigned>(text[i] - 'A') : kNoPlace;
+    }
+}
+inline void formatPlaces(const unsigned* places, char* out, unsigned cap) {
+    unsigned i = 0;
+    for (; i < catalogue::kEntryCount && i + 1 < cap; ++i) {
+        out[i] = places[i] < 58 ? static_cast<char>('A' + places[i]) : '-';
+    }
+    out[i] = 0;
+}
+
+// A place in words: "Dashboard 1, top 2", "Dashboard 2, bottom 1-2" (two across), "Dashboard 1, column 3" (two high).
+inline void placeName(unsigned look, unsigned c, char* out, unsigned cap) {
+    const unsigned page = c / kCellsPerPage + 1, row = c % kCellsPerPage / kCols, col = c % kCols + 1;
+    if (lookHeight(look) > 1) {
+        snprintf(out, cap, "Dashboard %u, column %u", page, col);
+    } else if (lookWidth(look) > 1) {
+        snprintf(out, cap, "Dashboard %u, %s %u-%u", page, row ? "bottom" : "top", col, col + 1);
+    } else {
+        snprintf(out, cap, "Dashboard %u, %s %u", page, row ? "bottom" : "top", col);
     }
 }
 

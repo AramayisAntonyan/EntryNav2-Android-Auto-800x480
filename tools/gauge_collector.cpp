@@ -331,7 +331,11 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
     unsigned misses[dme::kMaxValues] = {0};
     uint64_t restUntil[dme::kMaxValues] = {0};
     unsigned connects = 0, drops = 0, noAnswers = 0;
-    uint64_t statusAt = dme::monoMs() + 30000, cycleMs = 0;
+    // A gateway that closes the connection before answering anything (the car falling asleep, ignition off) is tried
+    // again later each time, up to 10 s, instead of every second.
+    unsigned quickDrops = 0, connectFails = 0;
+    bool answered = false;  // an answer since the last connect
+    uint64_t statusAt = dme::monoMs() + 30000, cycleMs = 0, stateAt = 0;
     const unsigned kTickMs = 150;
     unsigned cycle = 0;
     dme::Frame f;
@@ -351,8 +355,10 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
                     lock = hsfz::reserveGateway();
                 }
                 gw = lock >= 0 ? hsfz::connectGateway(host, hsfz::kPort, &g_running) : -1;
+                answered = false;
                 if (gw < 0) {
                     retryAt = dme::monoMs() + 2000;
+                    connectFails += lock >= 0 ? 1 : 0;
                 } else if (++connects <= 3 || connects % 20 == 0) {
                     printf("[%llu s] session: connected to %s (connection %u)\n",
                            static_cast<unsigned long long>(start / 1000), host, connects);
@@ -376,11 +382,17 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
                 if (rc == -1) {
                     close(gw);
                     gw = -1;
-                    retryAt = dme::monoMs() + 1000;
+                    quickDrops = answered ? 0 : quickDrops + 1;
+                    const unsigned shift = quickDrops < 4 ? quickDrops : 4;
+                    const unsigned waitMs = (1000u << shift) < 10000u ? (1000u << shift) : 10000u;
+                    retryAt = dme::monoMs() + waitMs;
                     ++drops;
-                    printf("[%llu s] session: connection lost at %s\n",
-                           static_cast<unsigned long long>(dme::monoMs() / 1000), e.title);
-                    fflush(stdout);
+                    if (drops <= 3 || drops % 20 == 0) {
+                        printf("[%llu s] session: connection lost at %s (%s; %u so far), again in %u s\n",
+                               static_cast<unsigned long long>(dme::monoMs() / 1000), e.title,
+                               answered ? "after answers" : "before any answer", drops, waitMs / 1000);
+                        fflush(stdout);
+                    }
                     break;
                 }
                 if (rc == -3) {
@@ -395,6 +407,8 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
                     continue;
                 }
                 misses[k] = 0;
+                answered = true;  // an answer, even a refusal: the connection works
+                quickDrops = 0;
                 if (rc != 1) {
                     continue;
                 }
@@ -431,6 +445,30 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
         ++cycle;
         const uint64_t elapsed = dme::monoMs() - start;
         cycleMs = elapsed;
+        if (!demo && now >= stateAt) {  // about once a second: the state in words, for Gauges' Diagnostics
+            char line[160];
+            if (gw >= 0) {
+                snprintf(line, sizeof(line), "connected to %s: %u of %u values current", host, f.count, count);
+            } else if (lock < 0) {
+                snprintf(line, sizeof(line), "waiting: another engine reader holds the gateway");
+            } else if (drops) {
+                snprintf(line, sizeof(line), "not connected to %s: it closed the connection %u times (car asleep?)",
+                         host, drops);
+            } else if (connectFails) {
+                snprintf(line, sizeof(line), "not connected: %s does not accept (%u tries)", host, connectFails);
+            } else {
+                snprintf(line, sizeof(line), "connecting to %s", host);
+            }
+            char tmp[64];
+            snprintf(tmp, sizeof(tmp), "%s.tmp", dme::kStatusFile);
+            if (FILE* s = fopen(tmp, "w")) {
+                fprintf(s, "%s\n", line);
+                if (fclose(s) == 0) {
+                    rename(tmp, dme::kStatusFile);
+                }
+            }
+            stateAt = now + 1000;
+        }
         if (!demo && now >= statusAt) {  // every 30 s: what the gauges get
             printf("[%llu s] session: %s, %u of %u values current, last pass %llu ms, %u no-answers, %u drops\n",
                    static_cast<unsigned long long>(now / 1000), gw >= 0 ? "connected" : "not connected", f.count, count,

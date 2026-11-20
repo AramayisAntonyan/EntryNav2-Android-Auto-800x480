@@ -24,6 +24,7 @@
       <hmiAction id="29" target="962"/>
       <hmiAction id="34" target="963"/>
       <hmiAction id="28" target="961"/>
+      <hmiAction id="354" target="964"/>
       <hmiAction id="16" target="950"/>
       <hmiAction id="13" target="930"/>
       <hmiAction id="26" target="970"/>
@@ -138,6 +139,55 @@
       <raAction id="501"/>
       <raAction id="502"/>
       <raAction id="503"/>
+      <raAction id="191"/>
+      <raAction id="192"/>
+      <raAction id="193"/>
+      <raAction id="194"/>
+      <raAction id="195"/>
+      <raAction id="196"/>
+      <raAction id="197"/>
+      <raAction id="198"/>
+      <raAction id="199"/>
+      <raAction id="200"/>
+      <raAction id="201"/>
+      <raAction id="202"/>
+      <raAction id="203"/>
+      <raAction id="204"/>
+      <raAction id="205"/>
+      <raAction id="206"/>
+      <raAction id="207"/>
+      <raAction id="208"/>
+      <raAction id="209"/>
+      <raAction id="210"/>
+      <raAction id="211"/>
+      <raAction id="212"/>
+      <raAction id="213"/>
+      <raAction id="214"/>
+      <raAction id="281"/>
+      <raAction id="282"/>
+      <raAction id="283"/>
+      <raAction id="284"/>
+      <raAction id="285"/>
+      <raAction id="286"/>
+      <raAction id="287"/>
+      <raAction id="288"/>
+      <raAction id="289"/>
+      <raAction id="290"/>
+      <raAction id="291"/>
+      <raAction id="292"/>
+      <raAction id="293"/>
+      <raAction id="294"/>
+      <raAction id="295"/>
+      <raAction id="296"/>
+      <raAction id="297"/>
+      <raAction id="298"/>
+      <raAction id="299"/>
+      <raAction id="300"/>
+      <raAction id="301"/>
+      <raAction id="302"/>
+      <raAction id="303"/>
+      <raAction id="304"/>
+      <raAction id="357"/>
     </actions>
     <models>
       <imageIdModel id="4" imageId="58001"/>
@@ -552,6 +602,56 @@
       <raImageModel id="1512"/>
       <raImageModel id="1513"/>
       <raDataModel id="474" modelType="Richtext"/>
+      <raDataModel id="131" modelType="Richtext"/>
+      <raDataModel id="132" modelType="Richtext"/>
+      <raDataModel id="133" modelType="Richtext"/>
+      <raDataModel id="134" modelType="Richtext"/>
+      <raDataModel id="135" modelType="Richtext"/>
+      <raDataModel id="136" modelType="Richtext"/>
+      <raDataModel id="137" modelType="Richtext"/>
+      <raDataModel id="138" modelType="Richtext"/>
+      <raDataModel id="139" modelType="Richtext"/>
+      <raDataModel id="140" modelType="Richtext"/>
+      <raDataModel id="141" modelType="Richtext"/>
+      <raDataModel id="142" modelType="Richtext"/>
+      <raDataModel id="143" modelType="Richtext"/>
+      <raDataModel id="144" modelType="Richtext"/>
+      <raDataModel id="145" modelType="Richtext"/>
+      <raDataModel id="146" modelType="Richtext"/>
+      <raDataModel id="147" modelType="Richtext"/>
+      <raDataModel id="148" modelType="Richtext"/>
+      <raDataModel id="149" modelType="Richtext"/>
+      <raDataModel id="150" modelType="Richtext"/>
+      <raDataModel id="151" modelType="Richtext"/>
+      <raDataModel id="152" modelType="Richtext"/>
+      <raDataModel id="153" modelType="Richtext"/>
+      <raDataModel id="154" modelType="Richtext"/>
+      <raDataModel id="221" modelType="Richtext"/>
+      <raDataModel id="222" modelType="Richtext"/>
+      <raDataModel id="223" modelType="Richtext"/>
+      <raDataModel id="224" modelType="Richtext"/>
+      <raDataModel id="225" modelType="Richtext"/>
+      <raDataModel id="226" modelType="Richtext"/>
+      <raDataModel id="227" modelType="Richtext"/>
+      <raDataModel id="228" modelType="Richtext"/>
+      <raDataModel id="229" modelType="Richtext"/>
+      <raDataModel id="230" modelType="Richtext"/>
+      <raDataModel id="231" modelType="Richtext"/>
+      <raDataModel id="232" modelType="Richtext"/>
+      <raDataModel id="233" modelType="Richtext"/>
+      <raDataModel id="234" modelType="Richtext"/>
+      <raDataModel id="235" modelType="Richtext"/>
+      <raDataModel id="236" modelType="Richtext"/>
+      <raDataModel id="237" modelType="Richtext"/>
+      <raDataModel id="238" modelType="Richtext"/>
+      <raDataModel id="239" modelType="Richtext"/>
+      <raDataModel id="240" modelType="Richtext"/>
+      <raDataModel id="241" modelType="Richtext"/>
+      <raDataModel id="242" modelType="Richtext"/>
+      <raDataModel id="243" modelType="Richtext"/>
+      <raDataModel id="244" modelType="Richtext"/>
+      <raDataModel id="355" modelType="Richtext"/>
+      <raDataModel id="356" modelType="Richtext"/>
       <imageIdModel id="90" imageId="57000"/>
       <raDataModel id="91" modelType="Richtext"/>
       <raDataModel id="92" modelType="Richtext"/>
@@ -651,6 +751,7 @@
     <events>
       <focusEvent id="60" target="971"/>
       <focusEvent id="88" target="930"/>
+      <focusEvent id="359" target="965"/>
     </events>
     <hmiStates>
       <hmiState id="900" text="Gauges">
@@ -3489,7 +3590,8 @@
           <button id="2751" action="29" text="Choose: engine (DME)"/>
           <button id="2752" action="34" text="Choose: OBD values"/>
           <button id="2753" action="28" text="Gauge styles"/>
-          <button id="2754" action="16" text="Shift point"/>
+          <button id="2754" action="354" text="Gauge places"/>
+          <button id="2755" action="16" text="Shift point"/>
         </components>
       </hmiState>
       <hmiState id="903" parentId="910" text="Diagnostics">
@@ -3633,6 +3735,65 @@
           <button id="2722" action="501" model="471"/>
           <button id="2723" action="502" model="472"/>
           <button id="2724" action="503" model="473"/>
+        </components>
+      </hmiState>
+      <hmiState id="964" parentId="902" text="Gauge places">
+        <components>
+          <label id="188" model="355"/>
+          <button id="190" action="357" text="Automatic places for all"/>
+          <button id="100" action="191" model="131"/>
+          <button id="101" action="192" model="132"/>
+          <button id="102" action="193" model="133"/>
+          <button id="103" action="194" model="134"/>
+          <button id="104" action="195" model="135"/>
+          <button id="105" action="196" model="136"/>
+          <button id="106" action="197" model="137"/>
+          <button id="107" action="198" model="138"/>
+          <button id="108" action="199" model="139"/>
+          <button id="109" action="200" model="140"/>
+          <button id="110" action="201" model="141"/>
+          <button id="111" action="202" model="142"/>
+          <button id="112" action="203" model="143"/>
+          <button id="113" action="204" model="144"/>
+          <button id="114" action="205" model="145"/>
+          <button id="115" action="206" model="146"/>
+          <button id="116" action="207" model="147"/>
+          <button id="117" action="208" model="148"/>
+          <button id="118" action="209" model="149"/>
+          <button id="119" action="210" model="150"/>
+          <button id="120" action="211" model="151"/>
+          <button id="121" action="212" model="152"/>
+          <button id="122" action="213" model="153"/>
+          <button id="123" action="214" model="154"/>
+        </components>
+      </hmiState>
+      <hmiState id="965" parentId="964" text="Choose a place">
+        <components>
+          <label id="189" model="356"/>
+          <button id="130" action="281" model="221"/>
+          <button id="131" action="282" model="222"/>
+          <button id="132" action="283" model="223"/>
+          <button id="133" action="284" model="224"/>
+          <button id="134" action="285" model="225"/>
+          <button id="135" action="286" model="226"/>
+          <button id="136" action="287" model="227"/>
+          <button id="137" action="288" model="228"/>
+          <button id="138" action="289" model="229"/>
+          <button id="139" action="290" model="230"/>
+          <button id="140" action="291" model="231"/>
+          <button id="141" action="292" model="232"/>
+          <button id="142" action="293" model="233"/>
+          <button id="143" action="294" model="234"/>
+          <button id="144" action="295" model="235"/>
+          <button id="145" action="296" model="236"/>
+          <button id="146" action="297" model="237"/>
+          <button id="147" action="298" model="238"/>
+          <button id="148" action="299" model="239"/>
+          <button id="149" action="300" model="240"/>
+          <button id="150" action="301" model="241"/>
+          <button id="151" action="302" model="242"/>
+          <button id="152" action="303" model="243"/>
+          <button id="153" action="304" model="244"/>
         </components>
       </hmiState>
       <hmiState id="970" parentId="903" text="Car tests">

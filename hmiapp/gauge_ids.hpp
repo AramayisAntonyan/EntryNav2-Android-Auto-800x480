@@ -92,6 +92,20 @@ const unsigned kLookRowComp0 = 2701;  // button rows: + row
 const unsigned kActLookRow0 = 480;    // raActions: + row
 const unsigned kLookRows = kCards;
 
+// ---- Gauge places: one row per ticked gauge; a press opens its places (gauges-place) --------------------------------
+const unsigned kPlacesState = 964;       // the gauges with their places
+const unsigned kPlaceState = 965;        // the places one gauge can take
+const unsigned kPlacesNote = 355;        // Richtext above the rows
+const unsigned kPlaceNote = 356;         // Richtext above the places
+const unsigned kPlaceRow0 = 131;         // Richtext models: + row
+const unsigned kPlaceRowComp0 = 100;     // button rows: + row
+const unsigned kActPlaceRow0 = 191;      // raActions: + row
+const unsigned kPlaceChoice0 = 221;      // Richtext models: + cell
+const unsigned kPlaceChoiceComp0 = 130;  // buttons: + cell
+const unsigned kActPlaceChoice0 = 281;   // raActions: + cell
+const unsigned kActResetPlaces = 357;    // every gauge back to the automatic places
+const unsigned kEvPlace = 359;           // focusEvent -> kPlaceState
+
 // ---- OPTION (on the dashboards, Live values, Shift light) and Live values ----------------------------------------
 // The option buttons of view v (make_gauges_xml.py VIEWS order): kOptionComp0 + v * 10 + item; Dashboard 2 and 3 are
 // hidden while they have no gauge.

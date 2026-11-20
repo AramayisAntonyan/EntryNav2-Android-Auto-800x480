@@ -77,6 +77,7 @@ const char kArtPack[] = "/opt/hmi/data/ro/Plugins/CarGauges/CarGauges_Art.pack";
 const char kArtDir[] = "/tmp/gauge-art";  // pictures unpacked on first use (RAM), sent by path
 const char kShiftFile[] = "/var/local/data/AA/gauges-shift";
 const char kStyleFile[] = "/var/local/data/AA/gauges-style";
+const char kPlaceFile[] = "/var/local/data/AA/gauges-place";  // Gauge places: '-' or 'A' + cell per entry
 const char kCollector[] = "/opt/hmi/data/ro/Plugins/CarGauges/gauge-collector";
 // Kept across restarts (the owner restarts the car between a drive and the next connection): moved to .old at 256 KB.
 const char kCollectorLog[] = "/var/local/data/AA/gauge-collector.log";
@@ -215,10 +216,13 @@ void setArt(unsigned model, unsigned id) {
 }
 
 // Visibility as last set: -1 unknown, 0 hidden, 1 shown.
-int g_lookShown[kLooks][kCards];  // a look's pictures at a cell
-int g_liveShown[kCards];          // the Live values rows
-int g_lookRowShown[kLookRows];    // the Gauge styles rows
-int g_optionShown[kViews][2];     // each view's OPTION Dashboard 2 and 3
+// Each of a look's pictures at a cell has its own flag: one shared flag left the needles hidden (2026-11-20).
+int g_lookShown[kLooks][kLookImages][kCards];
+int g_liveShown[kCards];         // the Live values rows
+int g_lookRowShown[kLookRows];   // the Gauge styles rows
+int g_placeRowShown[kCards];     // the Gauge places rows
+int g_placeChoiceShown[kCards];  // the places of the gauge being placed
+int g_optionShown[kViews][2];    // each view's OPTION Dashboard 2 and 3
 
 void forgetShown() {
     // "\x01": nothing is known to be shown, so even an empty text is sent (memset 0 made "" look already shown: a look
@@ -231,6 +235,8 @@ void forgetShown() {
     memset(g_lookShown, 0xff, sizeof(g_lookShown));  // -1
     memset(g_liveShown, 0xff, sizeof(g_liveShown));
     memset(g_lookRowShown, 0xff, sizeof(g_lookRowShown));
+    memset(g_placeRowShown, 0xff, sizeof(g_placeRowShown));
+    memset(g_placeChoiceShown, 0xff, sizeof(g_placeChoiceShown));
     memset(g_optionShown, 0xff, sizeof(g_optionShown));
 }
 
@@ -317,6 +323,20 @@ void saveLooks() {
     writeLine(kStyleFile, line);
 }
 
+unsigned g_place[kEntryCount];     // each entry's chosen cell, kNoPlace: automatic
+unsigned g_placing = kEntryCount;  // the gauge whose places Choose a place shows
+
+void loadPlaces() {
+    char line[kEntryCount + 8] = "";
+    parsePlaces(readLine(kPlaceFile, line, sizeof(line)) ? line : nullptr, g_place);
+}
+
+void savePlaces() {
+    char line[kEntryCount + 8];
+    formatPlaces(g_place, line, sizeof(line));
+    writeLine(kPlaceFile, line);
+}
+
 // The ticked, offered entries, in catalogue order, laid out on the dashboard pages in their looks.
 void assignCards() {
     g_listCount = 0;
@@ -327,7 +347,39 @@ void assignCards() {
             g_list[g_listCount++] = i;
         }
     }
-    layOut(g_list, looks, g_listCount, &g_layout);
+    unsigned places[kCards];
+    for (unsigned i = 0; i < g_listCount; ++i) {
+        places[i] = g_place[g_list[i]];
+    }
+    layOut(g_list, looks, g_listCount, &g_layout, places);
+}
+
+// The cell where entry e's gauge starts, or kNoPlace.
+unsigned startOf(unsigned e) {
+    for (unsigned c = 0; c < kCards; ++c) {
+        if (g_layout.entry[c] == e) {
+            return c;
+        }
+    }
+    return kNoPlace;
+}
+
+// Which gauge covers each cell (kEntryCount: none).
+void coverMap(unsigned* owner) {
+    for (unsigned c = 0; c < kCards; ++c) {
+        owner[c] = kEntryCount;
+    }
+    for (unsigned c = 0; c < kCards; ++c) {
+        if (g_layout.entry[c] < kEntryCount) {
+            unsigned cover[4];
+            const unsigned k = coveredCells(g_layout.look[c], c, cover);
+            for (unsigned j = 0; j < k; ++j) {
+                if (cover[j] < kCards) {
+                    owner[cover[j]] = g_layout.entry[c];
+                }
+            }
+        }
+    }
 }
 
 bool onDashboard(unsigned entry) {
@@ -434,14 +486,17 @@ bool diagnosticsAllowed(char* host, bool* demo, const char** why) {
 }
 
 // The collector for the DME entries on the shown page's cards; stopped when none is shown.
+uint64_t g_keepCollectorUntil = 0;  // after the last value page closed, the collector runs on until then
+
+// The collector reads every ticked engine gauge (all dashboard pages and Live values), so a page change does not
+// restart it (each restart was a new gateway connection and a gap of "--", 2026-11-20); it stops a minute after the
+// last value page closed.
 void updateCollector() {
     char want[512] = "";
     size_t used = 0;
-    if (livePage()) {
-        const bool all = g_page == kLiveState;  // the list shows every gauge
-        const unsigned first = all ? 0 : (g_page - kDashState0) * kCardsPerPage;
-        for (unsigned c = first; c < (all ? g_listCount : first + kCardsPerPage); ++c) {
-            const unsigned e = all ? g_list[c] : g_layout.entry[c];
+    if (livePage() || dme::monoMs() < g_keepCollectorUntil) {
+        for (unsigned i = 0; i < g_listCount; ++i) {
+            const unsigned e = g_list[i];
             if (e < kEntryCount && kEntries[e].source != kCds && used + 8 < sizeof(want)) {
                 used += static_cast<size_t>(snprintf(want + used, sizeof(want) - used, "%s%u", used ? "," : "", e));
             }
@@ -582,7 +637,7 @@ void showCell(unsigned c) {
         }
         for (unsigned p = 0; p < kLookImages; ++p) {
             if (kLookImage0[l][p]) {
-                showComponent(kLookImage0[l][p] + c, l == look, &g_lookShown[l][c]);
+                showComponent(kLookImage0[l][p] + c, l == look, &g_lookShown[l][p][c]);
             }
         }
     }
@@ -677,17 +732,95 @@ void showDiag() {
     const bool on = access(kDmeOffFile, F_OK) != 0;
     char host[16] = "";
     const bool gateway = readLine(kGatewayFile, host, sizeof(host)) && host[0];
-    char note[64];
+    char note[192];
+    char state[160] = "";
+    struct stat st;
+    reap(&g_collector);
+    const bool running = g_collector > 0 && stat(dme::kStatusFile, &st) == 0 && time(nullptr) - st.st_mtime < 5 &&
+                         readLine(dme::kStatusFile, state, sizeof(state)) && state[0];
     if (!on) {
         snprintf(note, sizeof(note), "Engine values off (gauges-dme-off)");
     } else if (g_discoverPid > 0) {
         snprintf(note, sizeof(note), "Finding the gateway...");
     } else if (!gateway) {
         snprintf(note, sizeof(note), "Gateway not found: is the car awake?");
+    } else if (running) {
+        snprintf(note, sizeof(note), "Engine values: %s", state);
     } else {
-        snprintf(note, sizeof(note), "Engine values: gateway %s", host);
+        snprintf(note, sizeof(note), "Engine values: gateway %s (read while a dashboard shows)", host);
     }
     setText(kDmeNote, note);
+}
+
+// Gauge places: each ticked gauge with its place; a press opens Choose a place.
+void showPlaces() {
+    for (unsigned r = 0; r < kCards; ++r) {
+        const bool shown = r < g_listCount;
+        showComponent(kPlaceRowComp0 + r, shown, &g_placeRowShown[r]);
+        if (!shown) {
+            continue;
+        }
+        const unsigned e = g_list[r];
+        const unsigned c = startOf(e);
+        char where[48] = "no room on the dashboard";
+        if (c != kNoPlace) {
+            placeName(g_layout.look[c], c, where, sizeof(where));
+        }
+        char row[96];
+        snprintf(row, sizeof(row), "%s: %s%s", kEntries[e].title, where,
+                 c != kNoPlace && g_place[e] == kNoPlace ? " (automatic)" : "");
+        setText(kPlaceRow0 + r, row);
+    }
+    setText(kPlacesNote, g_listCount ? "Press a gauge to choose where it goes. A taken place swaps the two."
+                                     : "No gauge ticked: Choose gauges first");
+}
+
+// Choose a place: every place the gauge's look fits, with what is there now.
+void showPlaceChoices() {
+    const bool any = g_placing < kEntryCount;
+    const unsigned look = any ? g_look[g_placing] : static_cast<unsigned>(kLookCard);
+    const unsigned here = any ? startOf(g_placing) : kNoPlace;
+    unsigned owner[kCards];
+    coverMap(owner);
+    for (unsigned c = 0; c < kCards; ++c) {
+        const bool shown = any && startFits(look, c);
+        showComponent(kPlaceChoiceComp0 + c, shown, &g_placeChoiceShown[c]);
+        if (!shown) {
+            continue;
+        }
+        char name[48];
+        placeName(look, c, name, sizeof(name));
+        char what[64] = "";
+        unsigned cover[4];
+        const unsigned k = coveredCells(look, c, cover);
+        unsigned seen[4];
+        unsigned nseen = 0;
+        for (unsigned j = 0; j < k; ++j) {
+            const unsigned o = cover[j] < kCards ? owner[cover[j]] : kEntryCount;
+            bool dup = o >= kEntryCount || o == g_placing;
+            for (unsigned s = 0; s < nseen && !dup; ++s) {
+                dup = seen[s] == o;
+            }
+            if (!dup) {
+                seen[nseen++] = o;
+                const size_t used = strlen(what);
+                snprintf(what + used, sizeof(what) - used, "%s%s", used ? " + " : "", kEntries[o].title);
+            }
+        }
+        char row[128];
+        snprintf(row, sizeof(row), "%s%s%s", name,
+                 c == here ? "  (here now)"
+                 : nseen   ? "  - swap with "
+                           : "  (free)",
+                 c == here ? "" : what);
+        setText(kPlaceChoice0 + c, row);
+    }
+    char note[96];
+    if (any) {
+        snprintf(note, sizeof(note), "Where %s (%s) goes:", kEntries[g_placing].title,
+                 kLookNames[look < kLooks ? look : 0]);
+    }
+    setText(kPlaceNote, any ? note : "Press a gauge on Gauge places first");
 }
 
 // Gauge styles: each ticked gauge with its look; a press gives it the next one.
@@ -795,6 +928,10 @@ void refresh() {
         showDiag();
     } else if (g_page == kLookState) {
         showLooks();
+    } else if (g_page == kPlacesState) {
+        showPlaces();
+    } else if (g_page == kPlaceState) {
+        showPlaceChoices();
     } else if (g_page == kShiftState) {
         showShift();
     } else if (isChooseState(g_page)) {
@@ -989,7 +1126,7 @@ AppRunnable g_pollRunnable;
 bool g_pollPosted = false;
 
 bool needsPoll() {
-    return (livePage() && g_collector > 0) || g_codesPid > 0 || g_testPid > 0 || g_discoverPid > 0;
+    return g_collector > 0 || g_codesPid > 0 || g_testPid > 0 || g_discoverPid > 0;
 }
 
 void pollRun(void*) {
@@ -1022,6 +1159,11 @@ void pollRun(void*) {
     if (livePage()) {
         updateCollector();  // started again if it ended (gateway gone), at most every poll
         refresh();
+    } else if (g_collector > 0) {
+        updateCollector();  // stopped once the minute after the last value page has passed
+        if (g_page == kDiagState) {
+            showDiag();  // the collector's state
+        }
     }
     if (g_codesPid > 0) {
         reap(&g_codesPid);
@@ -1071,8 +1213,11 @@ void pageVisible(unsigned state, bool visible) {
     alog("gauges: state %u %s", state, visible ? "shown" : "hidden");
     if (!visible) {
         if (g_page == state) {
+            if (livePage()) {
+                g_keepCollectorUntil = dme::monoMs() + 60000;  // the next page may well show values again
+            }
             g_page = 0;
-            updateCollector();  // nothing shown: stopped
+            updateCollector();
         }
         return;
     }
@@ -1126,6 +1271,78 @@ bool onLookRow(void*, const bmw::Parcel&) {
     showLooks();
     return true;
 }
+
+template <unsigned Row>
+bool onPlaceRow(void*, const bmw::Parcel&) {
+    if (Row >= g_listCount) {
+        return true;
+    }
+    g_placing = g_list[Row];
+    showPlaceChoices();
+    g_app->triggerEvent(kEvPlace);  // Choose a place opens on the press
+    return true;
+}
+
+// The gauge being placed goes to cell Cell. Every gauge now on the dashboard keeps its place, so nothing else moves;
+// the gauges in the way take its old place (if their look fits there) or the first free one.
+template <unsigned Cell>
+bool onPlaceChoice(void*, const bmw::Parcel&) {
+    const unsigned e = g_placing;
+    if (e >= kEntryCount || !startFits(g_look[e], Cell)) {
+        return true;
+    }
+    const unsigned old = startOf(e);
+    unsigned owner[kCards];
+    coverMap(owner);
+    for (unsigned c = 0; c < kCards; ++c) {
+        if (g_layout.entry[c] < kEntryCount) {
+            g_place[g_layout.entry[c]] = c;
+        }
+    }
+    unsigned cover[4];
+    const unsigned k = coveredCells(g_look[e], Cell, cover);
+    bool oldGiven = false;
+    for (unsigned j = 0; j < k; ++j) {
+        const unsigned o = cover[j] < kCards ? owner[cover[j]] : kEntryCount;
+        if (o < kEntryCount && o != e && g_place[o] != kNoPlace) {
+            const bool takeOld = !oldGiven && old != kNoPlace && startFits(g_look[o], old);
+            g_place[o] = takeOld ? old : kNoPlace;
+            oldGiven = oldGiven || takeOld;
+        }
+    }
+    g_place[e] = Cell;
+    savePlaces();
+    assignCards();
+    char where[48];
+    placeName(g_look[e], Cell, where, sizeof(where));
+    alog("gauges: %s placed at %s%s", kEntries[e].title, where, startOf(e) == Cell ? "" : " (did not fit)");
+    showPlaceChoices();
+    return true;
+}
+
+bool onResetPlaces(void*, const bmw::Parcel&) {
+    for (unsigned i = 0; i < kEntryCount; ++i) {
+        g_place[i] = kNoPlace;
+    }
+    savePlaces();
+    assignCards();
+    alog("gauges: places automatic");
+    showPlaces();
+    return true;
+}
+
+template <unsigned N>
+struct PlaceActions {
+    static void add(bmw::PluginApp* self) {
+        PlaceActions<N - 1>::add(self);
+        addAction(self, kActPlaceRow0 + N - 1, &onPlaceRow<N - 1>);
+        addAction(self, kActPlaceChoice0 + N - 1, &onPlaceChoice<N - 1>);
+    }
+};
+template <>
+struct PlaceActions<0> {
+    static void add(bmw::PluginApp*) {}
+};
 
 template <unsigned N>
 struct LookActions {
@@ -1349,9 +1566,14 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     addAction(self, kActLiveRow, &onLiveRow);
     ChoiceActions<kEntryCount>::add(self);
     LookActions<kLookRows>::add(self);
+    PlaceActions<kCards>::add(self);
+    addAction(self, kActResetPlaces, &onResetPlaces);
+    addStateHandler(self, kPlacesState, kHandlerVisible, &onVisible<kPlacesState>);
+    addStateHandler(self, kPlaceState, kHandlerVisible, &onVisible<kPlaceState>);
     g_shiftPoint = readIndex(kShiftFile, sizeof(kShiftPoints) / sizeof(kShiftPoints[0]), 2);
     loadChoice();
     loadLooks();
+    loadPlaces();
     assignCards();
     collectProperties();
     openUdp();

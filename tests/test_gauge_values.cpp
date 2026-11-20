@@ -151,11 +151,46 @@ int main() {
         CHECK(l.dropped == 1 && l.entry[0] == 0 && l.entry[2] == 1 && l.entry[4] == 2 && l.entry[6] == 3);
     }
 
+    {
+        Layout<3> l;  // a chosen place first; the others fill around it; a place that does not fit is ignored
+        const unsigned e[] = {0, 1, 2, 3};
+        const unsigned k[] = {kLookCard, kLookCard, kLookWide, kLookTall};
+        const unsigned p[] = {kNoPlace, 9, 3, 2};  // the wide one cannot start in the last column
+        layOut(e, k, 4, &l, p);
+        // the tall bar takes cells 2 and 6; the wide one, its place ignored, finds the bottom row's first two
+        CHECK(l.entry[9] == 1 && l.entry[2] == 3 && l.look[2] == kLookTall && l.entry[0] == 0);
+        CHECK(l.entry[4] == 2 && l.look[4] == kLookWide && l.dropped == 0 && l.pages == 2);
+    }
+    {
+        Layout<1> l;  // two gauges want one place: the first in order gets it
+        const unsigned e[] = {0, 1};
+        const unsigned k[] = {kLookCard, kLookCard};
+        const unsigned p[] = {5, 5};
+        layOut(e, k, 2, &l, p);
+        CHECK(l.entry[5] == 0 && l.entry[0] == 1);
+    }
+    {
+        unsigned places[kEntryCount];
+        parsePlaces("-C-", places);
+        CHECK(places[0] == kNoPlace && places[1] == 2 && places[2] == kNoPlace && places[3] == kNoPlace);
+        char line[kEntryCount + 1];
+        formatPlaces(places, line, sizeof(line));
+        CHECK(line[0] == '-' && line[1] == 'C' && strlen(line) == kEntryCount);
+        char name[48];
+        placeName(kLookWide, 12, name, sizeof(name));
+        CHECK(!strcmp(name, "Dashboard 2, bottom 1-2"));
+        placeName(kLookTall, 3, name, sizeof(name));
+        CHECK(!strcmp(name, "Dashboard 1, column 4"));
+        CHECK(startFits(kLookWide, 2) && !startFits(kLookWide, 3) && !startFits(kLookTall, 4));
+    }
+
     if (g_failures) {
         printf("FAIL gauge values: %d check(s)\n", g_failures);
         return 1;
     }
-    printf("PASS gauge values: %u catalogue entries, CDS fields, OBD formulas, bars, texts, choice, looks, layout\n",
-           kEntryCount);
+    printf(
+        "PASS gauge values: %u catalogue entries, CDS fields, OBD formulas, bars, texts, choice, looks, layout, "
+        "places\n",
+        kEntryCount);
     return 0;
 }

@@ -66,6 +66,7 @@ SETTINGS = (
     (29, 962, "Choose: engine (DME)"),
     (34, 963, "Choose: OBD values"),
     (28, 961, "Gauge styles"),
+    (354, 964, "Gauge places"),
     (16, 950, "Shift point"),
 )
 # The Choose pages, one per source (gauge_ids.hpp kChooseStates): state, title, source, note label, note model
@@ -85,6 +86,12 @@ CARD, DIAL, WIDE, WIDE_DIAL, TALL, ARC, WIDE_ARC = range(7)
 LOOK_FRONT = (1100, 1160, 1220, 1280, 1340, 1400, 1460)
 LOOK_BACK = (1130, 1190, 1250, 1310, 1370, 1430, 1490)
 STYLE_ROW_MODEL, STYLE_ROW_COMP, STYLE_ROW_ACTION, STYLE_NOTE = 450, 2701, 480, 474
+# Gauge places (gauge_ids.hpp kPlace*): rows of the ticked gauges (components 100 + i, models 131 + i, raActions
+# 191 + i) and the places one gauge can take (components 130 + c, models 221 + c, raActions 281 + c); the notes above
+# them (labels 188, 189; models 355, 356), the reset (button 190, raAction 357), focusEvent 359 opens the places.
+PLACE_ROW_COMP, PLACE_ROW_MODEL, PLACE_ROW_ACTION = 100, 131, 191
+PLACE_COMP, PLACE_MODEL, PLACE_ACTION = 130, 221, 281
+PLACES_NOTE, PLACE_NOTE, RESET_PLACES, PLACE_EVENT = 355, 356, 357, 359
 
 
 def props(x, y, w, h, extra=""):
@@ -194,6 +201,12 @@ def main():
     for first in LOOK_FRONT + LOOK_BACK:  # each look's own picture models
         models += [f'      <raImageModel id="{first + c}"/>' for c in range(CELLS)]
     models.append(f'      <raDataModel id="{STYLE_NOTE}" modelType="Richtext"/>')
+    models += [
+        f'      <raDataModel id="{m + c}" modelType="Richtext"/>'
+        for m in (PLACE_ROW_MODEL, PLACE_MODEL)
+        for c in range(CELLS)
+    ]
+    models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (PLACES_NOTE, PLACE_NOTE)]
     models.append('      <imageIdModel id="90" imageId="57000"/>')
     models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (91, 92, 93, 104, 105, 106, 107, 108)]
     models += [f'      <raDataModel id="{95 + i}" modelType="Richtext"/>' for i in range(8)]
@@ -215,9 +228,12 @@ def main():
     actions += [f'      <raAction id="{700 + i}"/>' for i in range(len(entries))]
     actions += [f'      <raAction id="{50 + i}"/>' for i in range(len(CAR_TESTS))]
     actions += [f'      <raAction id="{STYLE_ROW_ACTION + i}"/>' for i in range(CELLS)]
+    actions += [f'      <raAction id="{a + c}"/>' for a in (PLACE_ROW_ACTION, PLACE_ACTION) for c in range(CELLS)]
+    actions.append(f'      <raAction id="{RESET_PLACES}"/>')
     events = (
         '      <focusEvent id="60" target="971"/>\n'  # a car test started: its results page
-        '      <focusEvent id="88" target="930"/>'  # the clear started: the codes page shows its result
+        '      <focusEvent id="88" target="930"/>\n'  # the clear started: the codes page shows its result
+        f'      <focusEvent id="{PLACE_EVENT}" target="965"/>'  # a gauge pressed on Gauge places: its places
     )
 
     preview = image(89, 6, 0, 0, 549, 484) + "".join(
@@ -274,6 +290,18 @@ def main():
         modelbutton(STYLE_ROW_COMP + i, STYLE_ROW_ACTION + i, STYLE_ROW_MODEL + i) for i in range(CELLS)
     )
     states += state(961, "Gauge styles", styles, parent=902)
+    # Gauge places: a press on a gauge opens its places (a wide gauge takes two cells across, a tall bar two high:
+    # only the places it fits are shown); a taken place swaps the two
+    places = (
+        labelrow(188, PLACES_NOTE)
+        + button(190, RESET_PLACES, "Automatic places for all")
+        + "".join(modelbutton(PLACE_ROW_COMP + i, PLACE_ROW_ACTION + i, PLACE_ROW_MODEL + i) for i in range(CELLS))
+    )
+    states += state(964, "Gauge places", places, parent=902)
+    choices = labelrow(189, PLACE_NOTE) + "".join(
+        modelbutton(PLACE_COMP + c, PLACE_ACTION + c, PLACE_MODEL + c) for c in range(CELLS)
+    )
+    states += state(965, "Choose a place", choices, parent=964)
     tests = "".join(button(1510 + i, 50 + i, t) for i, t in enumerate(CAR_TESTS))
     states += state(970, "Car tests", tests, parent=903)
     # The results: the test and its state, then the output's last lines, placed so the whole page is one photo.

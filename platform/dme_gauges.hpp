@@ -38,6 +38,8 @@ namespace evo {
 namespace dme {
 
 enum { kMaxPacket = 1400, kMaxValues = 64, kStaleMs = 8000, kUdpPort = 42860 };
+// The collector's state in words, rewritten about once a second (Gauges, Diagnostics shows it).
+const char kStatusFile[] = "/tmp/gauge-dme-status";
 
 // The values read in one cycle, from the collector to the iDrive app over loopback UDP, as text:
 // "G2 <seq> <entry>:<value>:<age ms> ..." where entry is the index in platform/gauge_catalogue.hpp.
