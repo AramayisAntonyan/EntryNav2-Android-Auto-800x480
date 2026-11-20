@@ -165,8 +165,10 @@ yet**. They pass the PC and QEMU tests only.
   buttons* and *Tap the map* stand in for a touch.
 - **Front camera.** The retrofitted console has a camera button, but the car has no front camera, so the button does
   nothing. The plan is an aftermarket front camera through a USB video adapter, shown by the head unit on that button
-  or as an entry next to BMW's own camera view. Nothing of it works yet: only `uvc-probe`, a read-only developer tool
-  that checks whether the head unit recognises such an adapter, exists so far (not part of a release).
+  or as an entry next to BMW's own camera view. First step, not yet tried in the car: the **Camera app** under My
+  Vehicle shows an EasyCap grabber's picture (MacroSilicon 534d:0021, MJPEG, on the car's USB port in place of the
+  phone) a few times a second while its page shows; *OPTION* picks the picture size. The kernel has no UVC driver: the
+  app drives the adapter through usbfs as `uvc-probe --usbfs-grab` does (`platform/uvc_usbfs.cpp`).
 
 **Head unit limits worth knowing:** `reboot` over SSH does nothing on this unit. Restart it by holding the volume
 knob about 30 s; when that does not work, disconnecting the battery does.
@@ -185,7 +187,8 @@ NBT, NBT Evo, ID7 and MGU head units run other systems: this project cannot run 
 The installation is upstream's manual procedure over SSH: [docs/INSTALLATION.md](docs/INSTALLATION.md) (in French;
 the commands speak for themselves). In short: copy `entrynav2-android-auto-<version>-armhf.tar` to the unit's `/tmp`,
 run the read-only checks, install the two folders (`/opt/aa`, `/opt/hmi/data/ro/Plugins/EntryAad`) and, for this
-fork, the Gauges app (`/opt/hmi/data/ro/Plugins/CarGauges`) and its firewall rules (`etc/firewall/entry-aad.rules` to
+fork, the Gauges app (`/opt/hmi/data/ro/Plugins/CarGauges`), the Camera app
+(`/opt/hmi/data/ro/Plugins/AuxCamera`) and the Gauges' firewall rules (`etc/firewall/entry-aad.rules` to
 `/etc/firewall/`, read by BMW's firewall at start-up; check first that `/usr/local/bin/iptables-firewall` mentions
 `/etc/firewall`), then restart the unit. Build the archive yourself
 ([Building](#building-from-source)).
@@ -205,6 +208,7 @@ Each is a file in `/var/local/data/AA`; without the file the feature is off (or 
 | `kombi-6wa-lanes`, `kombi-6wa-junction-off` | lanes on; the junction view off |
 | `kombi-anydist` | show the next maneuver at any distance (also in the Android Auto menu) |
 | `gauges-off` | hide the Gauges app |
+| `camera-off`, `camera-size` | hide the Camera app; its picture size (0 480x320, 1 640x480, 2 720x480; set by *OPTION*) |
 | `gauges-dme-off`, `gateway-ip` | no engine values from the DME (they are read whenever an engine gauge shows), and the gateway's address (the installer writes this car's) |
 
 Logs: `/tmp/entry-aa-service.log` (service), `/var/local/data/AA/app.log` (iDrive apps),
@@ -230,7 +234,7 @@ python3 tools/package_release.py                        # artifacts/entrynav2-an
 ```text
 core/        Android Auto protocol: session, TLS, fragments, car description
 platform/    EntryNav2 specifics: video, layers, input, GPS, microphone, USB, cluster (hudterm*, hud6wa, kombi_*)
-hmiapp/      the iDrive apps loaded by HmiMain3D: EntryAad (Android Auto) and CarGauges (Gauges)
+hmiapp/      the iDrive apps loaded by HmiMain3D: EntryAad (Android Auto), CarGauges (Gauges), AuxCamera (Camera)
 tools/       supervisor, car-test, gauge-collector, release packaging and checks
 tests/       PC tests and ARM tests under QEMU
 toolchain/   Docker image of the cross compiler

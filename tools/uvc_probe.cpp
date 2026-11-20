@@ -24,9 +24,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <linux/usbdevice_fs.h>
 #include <linux/videodev2.h>
 #include <poll.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +38,8 @@
 #include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "../platform/uvc_usbfs.hpp"
 
 namespace {
 
@@ -458,79 +460,44 @@ int grab(const char* dev, int input, v4l2_std_id std) {
     return rc;
 }
 
-// ---- user-space UVC over usbfs
-// ---------------------------------------------------------------------------------------- The head unit's kernel has
-// no uvcvideo, so a UVC grabber's video interfaces stay unclaimed: this drives one the way libuvc does, through
-// /dev/bus/usb (the same usbfs our wired Android Auto uses). Probe/commit of an MJPEG format, the streaming interface's
-// alternate setting with the isochronous endpoint, isochronous transfers, the UVC payload headers assembled into
-// frames; the chosen frame is saved as a JPEG. Only the grabber is configured, and put back (alternate setting 0,
-// interface released) at the end.
-
-// The device's descriptors (sysfs: device then active configuration) and what the grab needs from them.
-struct UvcInfo {
-    unsigned bcdUvc = 0;
-    int vsInterface = -1;        // the VideoStreaming interface
-    int altSetting = -1;         // its alternate setting with the largest isochronous endpoint
-    unsigned endpoint = 0;       // that endpoint
-    unsigned packetSize = 0;     // bytes per (micro)frame: max packet size x transactions
-    int mjpegFormat = -1;        // the MJPEG format's index
-    unsigned frames[8][2] = {};  // its frame sizes (index 1..)
-    unsigned frameCount = 0;
+// ---- user-space UVC over usbfs (platform/uvc_usbfs.cpp)
+// --------------------------------------------------------------
+struct GrabState {
+    unsigned skip;
+    bool saved;
 };
 
-bool readUvcInfo(const char* port, UvcInfo* info) {
-    char path[PATH_MAX];
-    snprintf(path, sizeof(path), "/sys/bus/usb/devices/%s/descriptors", port);
-    FILE* f = fopen(path, "rb");
-    if (!f) {
+bool saveFrame(void* ctx, const unsigned char* jpeg, size_t size, unsigned number) {
+    GrabState* g = static_cast<GrabState*>(ctx);
+    if (number <= g->skip) {
+        return true;  // the picture settles first
+    }
+    mkdir(kOutDir, 0755);
+    char out[PATH_MAX];
+    snprintf(out, sizeof(out), "%s/video-frame.jpg", kOutDir);
+    FILE* o = fopen(out, "wb");
+    if (o && fwrite(jpeg, 1, size, o) == size && fclose(o) == 0) {
+        printf("%s: %zu bytes (frame %u)\n", out, size, number);
+        g->saved = true;
         return false;
     }
-    unsigned char d[4096];
-    const size_t n = fread(d, 1, sizeof(d), f);
-    fclose(f);
-    int ifClass = -1, ifSub = -1, ifNum = -1, alt = -1;
-    for (size_t i = 0; i + 2 <= n && d[i] >= 2 && i + d[i] <= n; i += d[i]) {
-        const unsigned char* b = d + i;
-        if (b[1] == 4) {  // interface
-            ifNum = b[2], alt = b[3], ifClass = b[5], ifSub = b[6];
-        } else if (b[1] == 0x24 && ifClass == 0x0e && ifSub == 1 && b[2] == 1 && b[0] >= 5) {
-            info->bcdUvc = b[3] | (b[4] << 8);
-        } else if (b[1] == 0x24 && ifClass == 0x0e && ifSub == 2 && b[2] == 6 && info->mjpegFormat < 0) {
-            info->mjpegFormat = b[3];
-            info->vsInterface = ifNum;
-        } else if (b[1] == 0x24 && ifClass == 0x0e && ifSub == 2 && b[2] == 7 && b[0] >= 9 &&
-                   info->vsInterface == ifNum && b[3] >= 1 && b[3] <= 8) {
-            info->frames[b[3] - 1][0] = b[5] | (b[6] << 8);
-            info->frames[b[3] - 1][1] = b[7] | (b[8] << 8);
-            info->frameCount = b[3] > info->frameCount ? b[3] : info->frameCount;
-        } else if (b[1] == 5 && ifClass == 0x0e && ifSub == 2 && (b[3] & 3) == 1 && (b[2] & 0x80)) {
-            const unsigned mps = b[4] | (b[5] << 8);
-            const unsigned size = (mps & 0x7ff) * (1 + ((mps >> 11) & 3));
-            if (size > info->packetSize) {
-                info->packetSize = size, info->endpoint = b[2], info->altSetting = alt, info->vsInterface = ifNum;
-            }
-        }
+    if (o) {
+        fclose(o);
     }
-    return info->vsInterface >= 0 && info->altSetting > 0 && info->mjpegFormat > 0 && info->frameCount > 0;
+    return true;
 }
 
-int control(int fd, unsigned char type, unsigned char request, unsigned short value, unsigned short index, void* data,
-            unsigned short length) {
-    struct usbdevfs_ctrltransfer c;
-    memset(&c, 0, sizeof(c));
-    c.bRequestType = type;
-    c.bRequest = request;
-    c.wValue = value;
-    c.wIndex = index;
-    c.wLength = length;
-    c.timeout = 1000;
-    c.data = data;
-    return xioctl(fd, USBDEVFS_CONTROL, &c);
+void printLine(const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    va_end(ap);
+    putchar('\n');
 }
 
 int usbfsGrab(const char* port, unsigned frameIndex, unsigned skip) {
-    UvcInfo info;
-    if (!readUvcInfo(port, &info)) {
+    evo::uvc::Info info;
+    if (!evo::uvc::readInfo(port, &info)) {
         fprintf(stderr, "%s: no UVC device with an MJPEG format and an isochronous endpoint\n", port);
         return 2;
     }
@@ -543,169 +510,14 @@ int usbfsGrab(const char* port, unsigned frameIndex, unsigned skip) {
         printf("  MJPEG frame %u: %ux%u%s\n", i + 1, info.frames[i][0], info.frames[i][1],
                i + 1 == frameIndex ? "  <- grabbed" : "");
     }
-    char path[PATH_MAX], text[16];
-    snprintf(path, sizeof(path), "/sys/bus/usb/devices/%s/busnum", port);
-    readLine(path, text, sizeof(text));
-    const int bus = atoi(text);
-    snprintf(path, sizeof(path), "/sys/bus/usb/devices/%s/devnum", port);
-    readLine(path, text, sizeof(text));
-    const int dev = atoi(text);
-    snprintf(path, sizeof(path), "/dev/bus/usb/%03d/%03d", bus, dev);
-    const int fd = open(path, O_RDWR | O_CLOEXEC);
-    if (fd < 0) {
-        fprintf(stderr, "open %s: %s\n", path, strerror(errno));
-        return 1;
-    }
-    unsigned iface = static_cast<unsigned>(info.vsInterface);
-    if (xioctl(fd, USBDEVFS_CLAIMINTERFACE, &iface) < 0) {
-        fprintf(stderr, "claim interface %u: %s (a driver holds it?)\n", iface, strerror(errno));
-        close(fd);
-        return 1;
-    }
-    int rc = 1;
-    // probe, then commit: MJPEG, the chosen frame size, its default rate
-    const unsigned short len = info.bcdUvc >= 0x0110 ? 34 : 26;
-    unsigned char probe[34];
-    memset(probe, 0, sizeof(probe));
-    probe[0] = 1;  // bmHint: keep dwFrameInterval
-    probe[2] = static_cast<unsigned char>(info.mjpegFormat);
-    probe[3] = static_cast<unsigned char>(frameIndex);
-    const unsigned interval = 400000;  // 25 fps in 100 ns units
-    memcpy(probe + 4, &interval, 4);
-    bool ok = control(fd, 0x21, 0x01, 0x0100, iface, probe, len) >= 0 &&  // SET_CUR VS_PROBE_CONTROL
-              control(fd, 0xa1, 0x81, 0x0100, iface, probe, len) >= 0;    // GET_CUR VS_PROBE_CONTROL
-    unsigned maxFrame = 0, maxPayload = 0;
-    if (ok) {
-        memcpy(&maxFrame, probe + 18, 4);
-        memcpy(&maxPayload, probe + 22, 4);
-        printf("probe: format %u frame %u, max frame %u bytes, max payload %u bytes\n", probe[2], probe[3], maxFrame,
-               maxPayload);
-        ok = control(fd, 0x21, 0x01, 0x0200, iface, probe, len) >= 0;  // SET_CUR VS_COMMIT_CONTROL
-    }
-    struct usbdevfs_setinterface si;
-    si.interface = iface;
-    si.altsetting = static_cast<unsigned>(info.altSetting);
-    if (!ok) {
-        fprintf(stderr, "probe/commit refused: %s\n", strerror(errno));
-    } else if (xioctl(fd, USBDEVFS_SETINTERFACE, &si) < 0) {
-        fprintf(stderr, "alternate setting %d: %s\n", info.altSetting, strerror(errno));
-        ok = false;
-    }
-    const unsigned kUrbs = 8, kPackets = 8;  // 8 x 8 microframes in flight: 8 ms of video
-    struct usbdevfs_urb* urbs[kUrbs] = {};
-    unsigned submitted = 0;
-    if (ok) {
-        for (unsigned u = 0; u < kUrbs; ++u) {
-            const size_t size = sizeof(struct usbdevfs_urb) + kPackets * sizeof(struct usbdevfs_iso_packet_desc);
-            urbs[u] = static_cast<struct usbdevfs_urb*>(calloc(1, size));
-            urbs[u]->type = USBDEVFS_URB_TYPE_ISO;
-            urbs[u]->endpoint = static_cast<unsigned char>(info.endpoint);
-            urbs[u]->flags = USBDEVFS_URB_ISO_ASAP;
-            urbs[u]->buffer = malloc(kPackets * info.packetSize);
-            urbs[u]->buffer_length = static_cast<int>(kPackets * info.packetSize);
-            urbs[u]->number_of_packets = static_cast<int>(kPackets);
-            for (unsigned p = 0; p < kPackets; ++p) {
-                urbs[u]->iso_frame_desc[p].length = info.packetSize;
-            }
-            if (xioctl(fd, USBDEVFS_SUBMITURB, urbs[u]) < 0) {
-                fprintf(stderr, "submit: %s\n", strerror(errno));
-                break;
-            }
-            ++submitted;
-        }
-    }
-    // frames: the UVC payload header's FID bit flips at each new frame, EOF ends one
-    const size_t cap = maxFrame > 0 && maxFrame < 4u << 20 ? maxFrame + 65536 : 1u << 20;
-    unsigned char* frame = static_cast<unsigned char*>(malloc(cap));
-    size_t have = 0;
-    int fid = -1;
-    unsigned complete = 0, packets = 0, payloadBytes = 0, errors = 0;
-    bool started = false;
-    const uint64_t deadline = static_cast<uint64_t>(time(nullptr)) + 6;
-    while (submitted == kUrbs && rc != 0 && static_cast<uint64_t>(time(nullptr)) < deadline) {
-        struct pollfd pfd = {fd, POLLOUT, 0};
-        poll(&pfd, 1, 200);
-        struct usbdevfs_urb* done = nullptr;
-        while (xioctl(fd, USBDEVFS_REAPURBNDELAY, &done) == 0 && done) {
-            const unsigned char* buf = static_cast<const unsigned char*>(done->buffer);
-            for (int p = 0; p < done->number_of_packets && rc != 0; ++p) {
-                const unsigned char* pkt = buf + p * info.packetSize;
-                const unsigned got = done->iso_frame_desc[p].actual_length;
-                ++packets;
-                if (done->iso_frame_desc[p].status != 0) {
-                    ++errors;
-                    continue;
-                }
-                if (got < 2 || pkt[0] < 2 || pkt[0] > got) {
-                    continue;
-                }
-                const unsigned head = pkt[0], bits = pkt[1];
-                const int f = bits & 1;
-                if (bits & 0x40) {  // error bit
-                    ++errors;
-                }
-                if (f != fid) {  // a new frame starts here
-                    if (started && have > 0) {
-                        ++complete;  // the last one ended without EOF
-                    }
-                    started = fid >= 0;  // the first frame seen may have started earlier: skipped
-                    fid = f;
-                    have = 0;
-                }
-                payloadBytes += got - head;
-                if (started && have + (got - head) <= cap) {
-                    memcpy(frame + have, pkt + head, got - head);
-                    have += got - head;
-                }
-                if ((bits & 2) && started && have > 0) {  // EOF
-                    ++complete;
-                    if (complete > skip && have > 2 && frame[0] == 0xff && frame[1] == 0xd8) {
-                        mkdir(kOutDir, 0755);
-                        char out[PATH_MAX];
-                        snprintf(out, sizeof(out), "%s/video-frame.jpg", kOutDir);
-                        FILE* o = fopen(out, "wb");
-                        if (o && fwrite(frame, 1, have, o) == have && fclose(o) == 0) {
-                            printf("%s: %zu bytes (frame %u)\n", out, have, complete);
-                            rc = 0;
-                        } else if (o) {
-                            fclose(o);
-                        }
-                    }
-                    have = 0;
-                    started = false;  // the next FID change starts the next one
-                }
-            }
-            if (rc != 0 && xioctl(fd, USBDEVFS_SUBMITURB, done) < 0) {
-                fprintf(stderr, "resubmit: %s\n", strerror(errno));
-                --submitted;
-                break;
-            }
-        }
-    }
-    printf("%u packets, %u payload bytes, %u frames, %u errors\n", packets, payloadBytes, complete, errors);
-    if (rc != 0) {
+    GrabState g = {skip, false};
+    evo::uvc::Stats st;
+    evo::uvc::stream(port, frameIndex, &saveFrame, &g, nullptr, 6000, 0, &printLine, &st);
+    printf("%u packets, %u payload bytes, %u frames, %u errors\n", st.packets, st.payloadBytes, st.frames, st.errors);
+    if (!g.saved) {
         fprintf(stderr, "no JPEG frame saved (no picture from the input? try another frame size)\n");
     }
-    for (unsigned u = 0; u < kUrbs; ++u) {  // give everything back: discard, reap, alternate setting 0, release
-        if (urbs[u]) {
-            xioctl(fd, USBDEVFS_DISCARDURB, urbs[u]);
-        }
-    }
-    struct usbdevfs_urb* done = nullptr;
-    for (int i = 0; i < 50 && xioctl(fd, USBDEVFS_REAPURBNDELAY, &done) == 0; ++i) {
-    }
-    for (unsigned u = 0; u < kUrbs; ++u) {
-        if (urbs[u]) {
-            free(urbs[u]->buffer);
-            free(urbs[u]);
-        }
-    }
-    free(frame);
-    si.altsetting = 0;
-    xioctl(fd, USBDEVFS_SETINTERFACE, &si);
-    xioctl(fd, USBDEVFS_RELEASEINTERFACE, &iface);
-    close(fd);
-    return rc;
+    return g.saved ? 0 : 1;
 }
 
 }  // namespace
