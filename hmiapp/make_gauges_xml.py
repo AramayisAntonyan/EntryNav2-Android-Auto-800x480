@@ -66,8 +66,8 @@ DIAGNOSTICS = ((13, 930, "Engine fault codes"), (26, 970, "Car tests"))
 
 # Each look's components at cell c (gauge_ids.hpp kLookImage0, kLookTitleComp0, kLookValueComp0) and label models
 # (kLookTitle0, kLookValue0); every look's pictures use the cell's front (360 + c) and back (424 + c) image models.
-LOOK_TITLE = (300, 130, 190, 250, 530, 761, 809)
-LOOK_VALUE = (330, 160, 220, 274, 560, 785, 833)
+LOOK_TITLE = (300, 130, 190, 250, 530, 870, 918)
+LOOK_VALUE = (330, 160, 220, 274, 560, 894, 942)
 LOOK_TITLE_COMP = (1130, 2060, 2210, 2330, 2480, 2860, 2980)
 LOOK_VALUE_COMP = (1160, 2090, 2240, 2360, 2510, 2890, 3010)
 CARD, DIAL, WIDE, WIDE_DIAL, TALL, ARC, WIDE_ARC = range(7)

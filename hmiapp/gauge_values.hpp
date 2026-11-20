@@ -66,10 +66,18 @@ inline unsigned barLevel(const Entry& e, double v) {
     return level > kBarLevels - 1 ? kBarLevels - 1 : level;
 }
 
-// "89 C", or "--" while there is no value. ASCII units, as BoostDeck writes them.
+// "89 C", or "--" while there is no value. ASCII units, as BoostDeck writes them. The fuel quality (unit RON) as
+// Armenia's grades: Regular 92, Premium 95, Super 98, cut half way between; "Super+" at the DME's top (98: it learns no
+// higher, so racing fuel, 100, reads the same).
 inline void valueText(const Entry& e, bool valid, double v, char* out, size_t cap) {
     if (!valid) {
         snprintf(out, cap, "--");
+    } else if (!strcmp(e.unit, "RON")) {
+        if (v >= 97.95) {
+            snprintf(out, cap, "Super+ 98");
+        } else {
+            snprintf(out, cap, "%s %.1f", v >= 96.5 ? "Super" : v >= 93.5 ? "Premium" : "Regular", v);
+        }
     } else if (e.unit[0]) {
         snprintf(out, cap, "%.*f %s", e.decimals, v, e.unit);
     } else {

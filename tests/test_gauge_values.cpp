@@ -74,6 +74,21 @@ int main() {
     formatChoice(on, line, sizeof(line));
     CHECK(strlen(line) == kEntryCount && line[0] == '0' && line[1] == '1');
 
+    // The fuel quality as Armenia's grades.
+    const Entry* fuel = find("Fuel quality");
+    CHECK(fuel != nullptr);
+    if (fuel) {
+        char t[32];
+        valueText(*fuel, true, 92.3, t, sizeof(t));
+        CHECK(!strcmp(t, "Regular 92.3"));
+        valueText(*fuel, true, 95.0, t, sizeof(t));
+        CHECK(!strcmp(t, "Premium 95.0"));
+        valueText(*fuel, true, 97.1, t, sizeof(t));
+        CHECK(!strcmp(t, "Super 97.1"));
+        valueText(*fuel, true, 98.0, t, sizeof(t));
+        CHECK(!strcmp(t, "Super+ 98"));
+    }
+
     // Every entry has a usable range and a title short enough for a card.
     for (unsigned i = 0; i < kEntryCount; ++i) {
         CHECK(kEntries[i].hi > kEntries[i].lo && strlen(kEntries[i].title) <= 22);

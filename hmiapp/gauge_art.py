@@ -302,7 +302,7 @@ class Dial:
         return self.cx + r * math.cos(a), self.cy - r * math.sin(a)
 
     def face(self, scale, icon=None):
-        lo, hi, red = scale
+        lo, hi, red, marks = scale
         w, h = self.size
         white, reds = Mask(w, h), Mask(w, h)
         red_from = hi - 1000 if red else None
@@ -336,9 +336,9 @@ class Dial:
             return x, y, tw
 
         for most in range(self.most, 1, -1):  # as many numbers as fit without two touching
-            numbered, minor = ticks(lo, hi, most)
+            numbered, minor = (list(marks), 1.0) if marks else ticks(lo, hi, most)
             boxes = [place(v) for v in numbered]
-            if all(
+            if marks or all(
                 abs(xa - xb) >= (wa + wb) / 2 + 4 or abs(ya - yb) >= fh + 3
                 for (xa, ya, wa), (xb, yb, wb) in zip(boxes, boxes[1:])
             ):
@@ -439,9 +439,11 @@ class Bar:
     def track(self, scale, icon=None, decimals=None):
         """The back picture: every segment in the track's grey (the last red for a rev counter), the notches and the
         numbers at the start, middle and end."""
-        lo, hi, red = scale
+        lo, hi, red, marks = scale
         w, h = self.size
         grey, white, reds = Mask(w, h), Mask(w, h), Mask(w, h)
+        if marks:
+            decimals = 0  # the grades: "92 95 98"
         for k in range(self.count):
             (reds if red and k == self.count - 1 else grey).polygon(self.segment(k))
         for u in [0.0] + self.cuts() + [self.long]:

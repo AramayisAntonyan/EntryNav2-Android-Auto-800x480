@@ -59,10 +59,11 @@ inline uint64_t monoMs() {
 
 // Payload bytes after the 62 <DID> prefix. False when the length, a sentinel or the plausible range says no.
 inline bool decodeDid(unsigned did, const unsigned char* p, size_t n, double* out) {
-    if (!p || !out || n != (did == 0x580f ? 1u : 2u)) {
+    const bool oneByte = did == 0x580f || did == 0x5776;
+    if (!p || !out || n != (oneByte ? 1u : 2u)) {
         return false;
     }
-    const unsigned r = did == 0x580f ? p[0] : (static_cast<unsigned>(p[0]) << 8) | p[1];
+    const unsigned r = oneByte ? p[0] : (static_cast<unsigned>(p[0]) << 8) | p[1];
     double x, lo, hi;
     switch (did) {
         case 0x4201:  // ambient pressure, kPa
@@ -116,6 +117,11 @@ inline bool decodeDid(unsigned did, const unsigned char* p, size_t n, double* ou
             x = r / 1000.0;
             lo = 0;
             hi = 20;
+            break;
+        case 0x5776:  // adapted fuel quality: factor r / 256, 0 = RON 98 .. 1.0 = RON 91 (B48 DME), as octane
+            x = 98.0 - 7.0 * (r / 256.0);
+            lo = 90;
+            hi = 98.5;
             break;
         case 0x4300:  // coolant, C
             if (r == 65535) {

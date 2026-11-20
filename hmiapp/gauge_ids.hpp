@@ -47,8 +47,8 @@ const unsigned kCards = kCardsPerPage * kPages;
 // Each look's labels have their own Richtext models (cell c: + c), empty while the look is not at that cell: labels
 // are never hidden. The pictures share one front and one back model per cell; a look's pictures are hidden (property
 // 3, as Android Auto's album cover) while it is not at the cell.
-const unsigned kLookTitle0[kLooks] = {300, 130, 190, 250, 530, 761, 809};
-const unsigned kLookValue0[kLooks] = {330, 160, 220, 274, 560, 785, 833};
+const unsigned kLookTitle0[kLooks] = {300, 130, 190, 250, 530, 870, 918};
+const unsigned kLookValue0[kLooks] = {330, 160, 220, 274, 560, 894, 942};
 const unsigned kCardBar0 = 360;   // raImageModels: the front picture (a bar, a dial's needle)
 const unsigned kCardBack0 = 424;  // raImageModels: the back picture (a dial's face, a bar's scale, a card's icon)
 const unsigned kLookImages = 2;

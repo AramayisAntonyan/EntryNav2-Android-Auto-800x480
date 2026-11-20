@@ -93,6 +93,10 @@ DID = [
     ("Rail pressure", "bar", 0, 300, 0, 0x56D7),
     ("Oil pressure", "bar", 0, 8, 1, 0x586F),
     ("Coolant (DME)", "C", -30, 130, 0, 0x4300),
+    # The DME's adapted fuel quality (MEVD17.2.x, B48: FAK_KRAFTSTOFFQUALITAET_ADAPT, 0 = RON 98 .. 1 = RON 91), shown
+    # as Armenia's grades (gauge_values.hpp valueText): Regular 92, Premium 95, Super 98; the DME learns no higher than
+    # 98, so racing fuel (100) reads as "Super+". The scale is marked at the three grades.
+    ("Fuel quality", "RON", 92, 98, 1, 0x5776),
 ]
 
 FORMULAS = {"A*a": 0, "A+b": 1, "A*a+b": 2, "AB*a": 3, "AB*a+b": 4}
@@ -113,7 +117,7 @@ ICONS = {
     "mode_fan": ("Boost", "Intake pressure"),
     "battery_full": ("Battery", "Battery temp."),
     "electric_bolt": ("Module voltage",),
-    "local_gas_station": ("Fuel level", "Fuel level (OBD)", "Range", "Fuel rate", "Avg consumption"),
+    "local_gas_station": ("Fuel level", "Fuel level (OBD)", "Range", "Fuel rate", "Avg consumption", "Fuel quality"),
     "thermometer": ("Outside temp.", "Ambient (OBD)", "Inside temp."),
     "ac_unit": ("A/C exchanger", "A/C evaporator", "A/C compressor"),
     "altitude": ("Altitude (GPS)",),
@@ -139,9 +143,14 @@ ICONS = {
 }
 
 
+# Scales numbered at given values instead of round steps (by unit): the fuel grades.
+SCALE_MARKS = {"RON": (92, 95, 98)}
+
+
 def scale_key(e):
-    """The scale a gauge's dial or bar draws: its range, and a red end for engine speed (the last 1000 rpm)."""
-    return (e["lo"], e["hi"], e["unit"] == "rpm")
+    """The scale a gauge's dial or bar draws: its range, a red end for engine speed (the last 1000 rpm), and the
+    values to number when not round steps."""
+    return (e["lo"], e["hi"], e["unit"] == "rpm", SCALE_MARKS.get(e["unit"]))
 
 
 def entries():

@@ -34,6 +34,12 @@ static void decoding() {
     CHECK(dme::decodeDid(0x4300, cool, 2, &v) && v > 90.1 && v < 90.2);
     const unsigned char none[2] = {0xff, 0xff};
     CHECK(!dme::decodeDid(0x4300, none, 2, &v) && !dme::decodeDid(0x4a49, none, 2, &v));
+    // adapted fuel quality: one byte, 0 = RON 98, 0x80 = half way, 0xFF ~ RON 91
+    const unsigned char q98[1] = {0x00}, qHalf[1] = {0x80}, qLow[1] = {0xff};
+    CHECK(dme::decodeDid(0x5776, q98, 1, &v) && v > 97.99 && v < 98.01);
+    CHECK(dme::decodeDid(0x5776, qHalf, 1, &v) && v > 94.49 && v < 94.51);
+    CHECK(dme::decodeDid(0x5776, qLow, 1, &v) && v > 91.0 && v < 91.1);
+    CHECK(!dme::decodeDid(0x5776, cool, 2, &v));
     const unsigned char neg[2] = {0xff, 0xfe};  // -0.2 degrees
     CHECK(dme::decodeDid(0x4a49, neg, 2, &v) && v < -0.19 && v > -0.21);
     const unsigned char iat[1] = {0x5c};  // 92 * .75 - 48 = 21 C

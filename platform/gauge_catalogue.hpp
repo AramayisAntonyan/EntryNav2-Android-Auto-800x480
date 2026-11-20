@@ -89,6 +89,7 @@ const Entry kEntries[] = {
     {kDid, "Rail pressure", "bar", 0, 300, 0, nullptr, nullptr, 0, 0x56D7, 0, 0, 0.0, 0.0, false, 0},
     {kDid, "Oil pressure", "bar", 0, 8, 1, nullptr, nullptr, 0, 0x586F, 0, 0, 0.0, 0.0, false, 0},
     {kDid, "Coolant (DME)", "C", -30, 130, 0, nullptr, nullptr, 0, 0x4300, 0, 0, 0.0, 0.0, false, 0},
+    {kDid, "Fuel quality", "RON", 92, 98, 1, nullptr, nullptr, 0, 0x5776, 0, 0, 0.0, 0.0, false, 0},
 };
 // clang-format on
 const unsigned kEntryCount = sizeof(kEntries) / sizeof(kEntries[0]);

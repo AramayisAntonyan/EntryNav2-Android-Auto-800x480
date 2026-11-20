@@ -113,6 +113,9 @@ yet**. They pass the PC and QEMU tests only.
 - **Sending the 6WA calls to the cluster** (`kombi-6wa-live`, off by default; only parked, for tests).
 - **The firewall rules for the diagnostic gateway** (`/etc/firewall/entry-aad.rules`): the head unit's own firewall
   drops connections to the gateway's diagnostic port, which is likely why the engine values never connected (below).
+- **Fuel quality gauge** (Choose gauges, *Fuel quality*): the octane the engine computer has adapted to from knock
+  control (DME identifier 0x5776, 0 = RON 98 to 1 = RON 91 on the B48), shown as Armenia's grades: Regular 92,
+  Premium 95, Super 98 ("Super+" at the top: the DME learns no higher, so racing fuel, 100, reads the same).
 - **Gauge looks and the new Gauges menus**: the entry opens the dashboard straight away; *OPTION* holds Dashboard 2
   and 3, Live values, Shift light, *Gauge settings* (Choose gauges, Gauge styles, shift point) and
   *Diagnostics* (engine values switch, fault codes, car tests). Dials, wide and tall bars and the icons are new.
