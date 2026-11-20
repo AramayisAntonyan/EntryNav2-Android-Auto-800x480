@@ -225,6 +225,16 @@ def paint(rgba, w, mask, colour, opacity=1.0):
             rgba[i + 3] = int(oa * 255 + 0.5)
 
 
+def crop(data, box):
+    """A picture's part (x, y, w, h): the front pictures keep only what can be lit, the image archive stays small."""
+    rgba, w, _ = unpng(data)
+    x0, y0, cw, ch = box
+    out = bytearray()
+    for y in range(y0, y0 + ch):
+        out += rgba[(y * w + x0) * 4 : (y * w + x0 + cw) * 4]
+    return png(out, cw, ch)
+
+
 def picture(w, h, layers):
     """A transparent picture with each (mask, colour) painted in order."""
     rgba = bytearray(w * h * 4)
@@ -450,7 +460,7 @@ class Bar:
             draw_icon(white, icon, *self.icon_at, 22)
         return picture(w, h, [(grey, TRACK), (white, WHITE), (reds, RED)])
 
-    def value(self, level, levels, colour):
+    def value(self, level, levels, colour, box=None):
         """The front picture: the segments up to the level, in colour."""
         w, h = self.size
         m = Mask(w, h)
@@ -460,7 +470,8 @@ class Bar:
                 pts = self.segment(k, upto)
                 if len(pts) >= 3:
                     m.polygon(pts)
-        return picture(w, h, [(m, colour)])
+        full = picture(w, h, [(m, colour)])
+        return crop(full, box) if box else full
 
 
 # The wide and tall bars' pictures cover their two cells, so the icon can stand at the top left before the name.
@@ -497,6 +508,12 @@ def card_icon(name):
     m = Mask(22, 22)
     draw_icon(m, name, 11, 11, 22)
     return picture(22, 22, [(m, WHITE)])
+
+
+# The bars' front pictures hold only the wedge (x, y, w, h in the cell): wide and tall.
+WIDE_VALUE_BOX = (12, 112, 372, 17)
+TALL_VALUE_BOX = (40, 104, 18, 252)
+NEEDLE = (240, 125, 0)  # every needle in BMW orange, as BMW's own: the colour setting is for the bars
 
 
 # A card's bar (165 x 12) and the shift light's (760 x 40): the wedge only, track and value in one picture per colour

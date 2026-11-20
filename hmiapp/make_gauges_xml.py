@@ -154,7 +154,7 @@ def cell(c):
     if fits(WIDE, c):  # the pictures over both cells: icon, track, notches, numbers; the value's segments over them
         out += (
             image(2150 + c, BACK + c, x, y, WIDE_W, TILE_H, False)
-            + image(2180 + c, FRONT + c, x, y, WIDE_W, TILE_H, False)
+            + image(2180 + c, FRONT + c, x + 12, y + 112, 372, 17, False)  # gauge_art.WIDE_VALUE_BOX
             + label(tw[WIDE] + c, LOOK_TITLE[WIDE] + c, x + 42, y + 8, WIDE_W - 54, 40)
             + label(vw[WIDE] + c, LOOK_VALUE[WIDE] + c, x + 12, y + 52, WIDE_W - 24, 55)
         )
@@ -168,7 +168,7 @@ def cell(c):
     if fits(TALL, c):
         out += (
             image(2420 + c, BACK + c, x, y, TILE_W, TALL_H, False)
-            + image(2450 + c, FRONT + c, x, y, TILE_W, TALL_H, False)
+            + image(2450 + c, FRONT + c, x + 40, y + 104, 18, 252, False)  # gauge_art.TALL_VALUE_BOX
             + label(tw[TALL] + c, LOOK_TITLE[TALL] + c, x + 40, y + 8, TILE_W - 48, 40)
             + label(vw[TALL] + c, LOOK_VALUE[TALL] + c, x + 10, y + 52, TILE_W - 20, 55)
         )

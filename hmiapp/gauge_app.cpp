@@ -512,7 +512,7 @@ void showCell(unsigned c) {
     switch (look) {
         case kLookDial:
             setImage(kCardBack0 + c, kImgFace0 + e);
-            setImage(kCardBar0 + c, fineImage(kImgNeedle0, c, fine));
+            setImage(kCardBar0 + c, kImgNeedle0 + fine);
             break;
         case kLookWide:
             setImage(kCardBack0 + c, kImgWideTrack0 + e);
@@ -520,15 +520,15 @@ void showCell(unsigned c) {
             break;
         case kLookWideDial:
             setImage(kCardBack0 + c, kImgWideFace0 + e);
-            setImage(kCardBar0 + c, fineImage(kImgWideNeedle0, c, fine));
+            setImage(kCardBar0 + c, kImgWideNeedle0 + fine);
             break;
         case kLookArc:
             setImage(kCardBack0 + c, kImgArcFace0 + e);
-            setImage(kCardBar0 + c, fineImage(kImgArcNeedle0, c, fine));
+            setImage(kCardBar0 + c, kImgArcNeedle0 + fine);
             break;
         case kLookWideArc:
             setImage(kCardBack0 + c, kImgWideArcFace0 + e);
-            setImage(kCardBar0 + c, fineImage(kImgWideArcNeedle0, c, fine));
+            setImage(kCardBar0 + c, kImgWideArcNeedle0 + fine);
             break;
         case kLookTall:
             setImage(kCardBack0 + c, kImgTallTrack0 + e);

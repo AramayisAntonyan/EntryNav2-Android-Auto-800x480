@@ -260,8 +260,10 @@ def write_big_looks(archive):
     for colour, fill in enumerate(GAUGE_COLOURS):
         for level in range(FINE_LEVELS):
             n = colour * FINE_STRIDE + level
-            add(archive, f"{IMG_WIDE_BAR + n}.png", gauge_art.WIDE_BAR.value(level, FINE_LEVELS, fill))
-            add(archive, f"{IMG_TALL_BAR + n}.png", gauge_art.TALL_BAR.value(level, FINE_LEVELS, fill))
+            wide = gauge_art.WIDE_BAR.value(level, FINE_LEVELS, fill, gauge_art.WIDE_VALUE_BOX)
+            add(archive, f"{IMG_WIDE_BAR + n}.png", wide)
+            tall = gauge_art.TALL_BAR.value(level, FINE_LEVELS, fill, gauge_art.TALL_VALUE_BOX)
+            add(archive, f"{IMG_TALL_BAR + n}.png", tall)
     dials = (
         (gauge_art.SMALL_DIAL, IMG_NEEDLE),
         (gauge_art.WIDE_DIAL, IMG_WIDE_NEEDLE),
@@ -269,10 +271,10 @@ def write_big_looks(archive):
         (gauge_art.WIDE_ARC, IMG_WIDE_ARC_NEEDLE),
     )
     for dial, first in dials:
-        masks = dial.needle_masks(FINE_LEVELS)
-        for colour, fill in enumerate(GAUGE_COLOURS):
-            for level, mask in enumerate(masks):
-                add(archive, f"{first + colour * FINE_STRIDE + level}.png", dial.needle(mask, fill))
+        # one colour: the archive must stay small (iDrive refuses a large image database: the app then never
+        # opens; 4.2 MB was refused on the car, 2026-11-20)
+        for level, mask in enumerate(dial.needle_masks(FINE_LEVELS)):
+            add(archive, f"{first + level}.png", dial.needle(mask, gauge_art.NEEDLE))
     entries = gauge_catalogue.entries()
     if len(entries) > 100:
         raise SystemExit("FAIL: more than 100 gauges: the image ranges of gauge_ids.hpp overlap")

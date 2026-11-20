@@ -134,8 +134,9 @@ const unsigned kShiftLevels = 33;       // 250 rpm a step, 0..8000
 // The big looks move in finer steps: + colour * kFineStride + level, levels 0..kFineLevels - 1.
 const unsigned kFineLevels = 41;
 const unsigned kFineStride = 64;
-const unsigned kImgWideBar0 = 59000;     // 386x180, the value's segments (over the track)
-const unsigned kImgTallBar0 = 59500;     // 189x368, filled from the bottom
+const unsigned kImgWideBar0 = 59000;  // 372x17 at the cell's (12, 112): the value's segments over the track
+const unsigned kImgTallBar0 = 59500;  // 18x252 at (40, 104), filled from the bottom
+// Needles are one colour (BMW orange), + level only: iDrive refused the 4.2 MB image archive with every colour.
 const unsigned kImgNeedle0 = 60000;      // 189x180, a dial's needle (transparent but the blade)
 const unsigned kImgWideNeedle0 = 60500;  // 386x180
 // One picture per gauge (+ catalogue entry): its icon, scale and numbers.
@@ -144,7 +145,7 @@ const unsigned kImgWideFace0 = 61100;   // 386x180
 const unsigned kImgWideTrack0 = 61200;  // 386x180, a wide bar's track, notches, numbers and icon
 const unsigned kImgTallTrack0 = 61300;  // 189x368
 const unsigned kImgCardIcon0 = 61400;   // 22x22, a card's icon
-// The arcs (the fuel gauge's shape): needles + colour * kFineStride + level, faces + catalogue entry.
+// The arcs (the fuel gauge's shape): needles + level, faces + catalogue entry.
 const unsigned kImgArcNeedle0 = 62000;      // 189x180
 const unsigned kImgWideArcNeedle0 = 62500;  // 386x180
 const unsigned kImgArcFace0 = 63000;        // 189x180
