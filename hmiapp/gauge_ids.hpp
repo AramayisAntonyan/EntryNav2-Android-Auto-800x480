@@ -81,9 +81,9 @@ const unsigned kChoiceComp0 = 1300;   // checkbox component: + entry
 const unsigned kTestStatus = 109;     // Test results: the test's name and state
 const unsigned kTestLine0 = 110;      // 110..119: the output's last lines
 const unsigned kTestLines = 10;
-const unsigned kEvTestResults = 60;  // focusEvent -> kTestResultState
-const unsigned kActTest0 = 50;       // 50..: one raAction per test (make_gauges_xml.py CAR_TESTS, same order)
-const unsigned kTripLine0 = 106;     // 106..108: the preview card's trip lines (consumption, range, speed)
+const unsigned kEvTestResults = 358;  // focusEvent -> kTestResultState
+const unsigned kActTest0 = 50;        // 50..: one raAction per test (make_gauges_xml.py CAR_TESTS, same order)
+const unsigned kTripLine0 = 106;      // 106..108: the preview card's trip lines (consumption, range, speed)
 
 // ---- Gauge styles: one row per ticked gauge -------------------------------------------------------------------------
 const unsigned kLookNote = 474;       // Richtext above the rows

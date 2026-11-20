@@ -18,6 +18,9 @@
       <raAction id="31"/>
       <raAction id="32"/>
       <raAction id="33"/>
+      <raAction id="34"/>
+      <raAction id="35"/>
+      <raAction id="36"/>
     </actions>
     <models>
       <imageIdModel id="4" imageId="54001"/>
@@ -26,6 +29,8 @@
       <raImageModel id="40"/>
       <raImageModel id="41"/>
       <raImageModel id="42"/>
+      <raImageModel id="43"/>
+      <raImageModel id="44"/>
       <raDataModel id="50" modelType="Richtext"/>
       <raDataModel id="51" modelType="Richtext"/>
     </models>
@@ -45,6 +50,9 @@
       </hmiState>
       <hmiState id="710" text="Camera">
         <optionComponents>
+          <button id="124" action="34" text="View: fill the screen"/>
+          <button id="125" action="35" text="View: keep proportions"/>
+          <button id="126" action="36" text="View: actual size"/>
           <button id="120" action="30" text="Picture 480 x 320"/>
           <button id="121" action="31" text="Picture 640 x 480"/>
           <button id="122" action="32" text="Picture 720 x 480"/>
@@ -75,6 +83,24 @@
               <property id="21" value="8"/>
               <property id="9" value="552"/>
               <property id="10" value="368"/>
+              <property id="3" value="false"/>
+            </properties>
+          </image>
+          <image id="103" model="43">
+            <properties>
+              <property id="20" value="0"/>
+              <property id="21" value="0"/>
+              <property id="9" value="800"/>
+              <property id="10" value="416"/>
+              <property id="3" value="false"/>
+            </properties>
+          </image>
+          <image id="104" model="44">
+            <properties>
+              <property id="20" value="122"/>
+              <property id="21" value="0"/>
+              <property id="9" value="555"/>
+              <property id="10" value="416"/>
               <property id="3" value="false"/>
             </properties>
           </image>

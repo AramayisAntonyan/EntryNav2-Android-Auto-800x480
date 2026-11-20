@@ -231,7 +231,7 @@ def main():
     actions += [f'      <raAction id="{a + c}"/>' for a in (PLACE_ROW_ACTION, PLACE_ACTION) for c in range(CELLS)]
     actions.append(f'      <raAction id="{RESET_PLACES}"/>')
     events = (
-        '      <focusEvent id="60" target="971"/>\n'  # a car test started: its results page
+        '      <focusEvent id="358" target="971"/>\n'  # a car test started: its results page
         '      <focusEvent id="88" target="930"/>\n'  # the clear started: the codes page shows its result
         f'      <focusEvent id="{PLACE_EVENT}" target="965"/>'  # a gauge pressed on Gauge places: its places
     )

@@ -4,7 +4,8 @@
 // analog camera through a USB "EasyCap" grabber (MacroSilicon 534d:0021, UVC with MJPEG), on the car's USB port.
 //   Camera   the newest picture, a few times a second, while the page shows; a line over it when there is none
 //            (no adapter, no signal); a status line under it (size, pictures per second, what iDrive did with them)
-//   OPTION   the picture size (480 x 320, 640 x 480, 720 x 480: the adapter's MJPEG sizes), restart the capture
+//   OPTION   the view (fill the screen, keep proportions, actual size), the picture size (480 x 320, 640 x 480,
+//            720 x 480: the adapter's MJPEG sizes; 720 x 480 by default, the sharpest), restart the capture
 // The adapter has one input (composite: its descriptors have no selector unit), so there is no input choice.
 //
 // The kernel has no uvcvideo: a thread of the app drives the adapter through usbfs (platform/uvc_usbfs.cpp, as
@@ -14,7 +15,8 @@
 // album cover is sent. Whether iDrive draws a JPEG there is the first thing to check on the car: the status line says
 // "sent" when bmw::Image read the file, app.log has the first pictures' results.
 //
-// Kept in /var/local/data/AA: camera-size (0..2). /var/local/data/AA/camera-off keeps the app from being created.
+// Kept in /var/local/data/AA: camera-size (0..2), camera-view (0 fill, 1 proportions, 2 actual size).
+// /var/local/data/AA/camera-off keeps the app from being created.
 #include <errno.h>
 #include <pthread.h>
 #include <stdarg.h>
@@ -42,17 +44,26 @@ const char kFrameDir[] = "/tmp/aux-camera";
 const char kFramePath[] = "/tmp/aux-camera/frame.jpg";
 const char kFrameTmp[] = "/tmp/aux-camera/frame.tmp";
 const char kSizeFile[] = "/var/local/data/AA/camera-size";
+const char kViewFile[] = "/var/local/data/AA/camera-view";
 const char kOffFile[] = "/var/local/data/AA/camera-off";
-const unsigned kRefreshMs = 250;  // the app thread sends the newest picture at most 4 times a second
-const unsigned kWriteMs = 200;    // the capture thread writes one at most every 200 ms (the adapter gives 25)
-const unsigned kIdleMs = 3000;    // no picture for this long: the stream is restarted
+// The adapter's full rate, 25 pictures a second (the owner, 2026-11-21: 8 was too low); the status line shows what
+// iDrive actually manages.
+const unsigned kRefreshMs = 40;  // the app thread sends the newest picture up to 25 times a second
+const unsigned kWriteMs = 40;    // the capture thread writes every picture the adapter gives (25 a second)
+const unsigned kIdleMs = 3000;   // no picture for this long: the stream is restarted
 const long kMaxFrameBytes = 512 * 1024;
 const unsigned kSizes[kSizeCount][2] = {{480, 320}, {640, 480}, {720, 480}};
 
 bmw::PluginApp* g_app = nullptr;
-unsigned g_size = 0;   // kSizes index
-bool g_shown = false;  // the camera page shows
-int g_imageShown[kSizeCount] = {-1, -1, -1};
+unsigned g_size = kSizeCount - 1;  // kSizes index: 720 x 480 unless chosen otherwise
+unsigned g_view = 0;               // 0 fill the screen, 1 keep proportions, 2 actual size
+bool g_shown = false;              // the camera page shows
+int g_imageShown[kSlotCount];
+
+// The box the picture goes to: the view's, or at actual size the size's own.
+unsigned slot() {
+    return g_view == 0 ? kSizeCount : g_view == 1 ? kSizeCount + 1 : g_size;
+}
 char g_shownText[2][128];
 
 uint64_t monoMs() {
@@ -226,7 +237,7 @@ void showImage(unsigned size, bool visible) {
 
 void forgetShown() {
     memset(g_shownText, 0, sizeof(g_shownText));
-    for (unsigned s = 0; s < kSizeCount; ++s) {
+    for (unsigned s = 0; s < kSlotCount; ++s) {
         g_imageShown[s] = -1;
     }
 }
@@ -253,7 +264,7 @@ void sendFrame() {
     bmw::Image image{bmw::BasicString<char>(kFramePath)};
     const bool loaded = image.isLoaded();
     if (loaded) {
-        g_app->updateModel(kFrameModel0 + g_size, image);
+        g_app->updateModel(kFrameModel0 + slot(), image);
         ++g_sent;
         ++g_rateCount;
         g_lastSent = monoMs();
@@ -275,8 +286,8 @@ void showPage() {
         g_rateCount = 0;
     }
     const bool live = g_lastSent && now - g_lastSent < 2000;
-    for (unsigned s = 0; s < kSizeCount; ++s) {
-        showImage(s, live && s == g_size);
+    for (unsigned s = 0; s < kSlotCount; ++s) {
+        showImage(s, live && s == slot());
     }
     const int state = __atomic_load_n(&g_state, __ATOMIC_ACQUIRE);
     const char* message = "";
@@ -302,7 +313,7 @@ void showPage() {
     char status[128];
     snprintf(status, sizeof(status), "%u x %u, composite input   %.1f pictures/s   sent %u, not read %u",
              kSizes[g_size][0], kSizes[g_size][1], g_rate, g_sent, g_notLoaded);
-    setText(1, status);
+    setText(1, live && g_view != 2 ? "" : status);  // over a filled page the line would cover the picture
 }
 
 AppRunnable g_refreshRunnable;
@@ -350,14 +361,34 @@ void saveSize() {
 
 void loadSize() {
     FILE* f = fopen(kSizeFile, "r");
-    unsigned v = 0;
+    unsigned v = kSizeCount - 1;
     if (f) {
         if (fscanf(f, "%u", &v) != 1 || v >= kSizeCount) {
-            v = 0;
+            v = kSizeCount - 1;
         }
         fclose(f);
     }
     g_size = v;
+}
+
+void saveView() {
+    FILE* f = fopen(kViewFile, "w");
+    if (f) {
+        fprintf(f, "%u\n", g_view);
+        fclose(f);
+    }
+}
+
+void loadView() {
+    FILE* f = fopen(kViewFile, "r");
+    unsigned v = 0;
+    if (f) {
+        if (fscanf(f, "%u", &v) != 1 || v >= kViewCount) {
+            v = 0;
+        }
+        fclose(f);
+    }
+    g_view = v;
 }
 
 // ---- iDrive's notifications
@@ -404,6 +435,21 @@ bool onSize(void*, const bmw::Parcel&) {
     return true;
 }
 
+template <unsigned View>
+bool onView(void*, const bmw::Parcel&) {
+    if (View != g_view) {
+        g_view = View;
+        saveView();
+        g_sentSeq = 0;  // the next picture goes to the new box
+        static const char* const kNames[kViewCount] = {"fill the screen", "keep proportions", "actual size"};
+        alog("camera: view %s", kNames[View]);
+    }
+    if (g_shown) {
+        showPage();
+    }
+    return true;
+}
+
 bool onRestart(void*, const bmw::Parcel&) {
     g_sent = g_notLoaded = 0;
     g_lastSent = 0;
@@ -423,7 +469,11 @@ bool cameraOnInit(bmw::PluginApp* self) {
     addAction(self, kActSize0 + 1, &onSize<1>);
     addAction(self, kActSize0 + 2, &onSize<2>);
     addAction(self, kActRestart, &onRestart);
+    addAction(self, kActView0, &onView<0>);
+    addAction(self, kActView0 + 1, &onView<1>);
+    addAction(self, kActView0 + 2, &onView<2>);
     loadSize();
+    loadView();
     makeRunnable(g_refreshRunnable, &refreshRun);
     const bool ok = self->onInit();
     alog("camera: onInit -> %d, size %ux%u", static_cast<int>(ok), kSizes[g_size][0], kSizes[g_size][1]);

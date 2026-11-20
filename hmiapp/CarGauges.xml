@@ -749,7 +749,7 @@
       <raDataModel id="128" modelType="Richtext"/>
     </models>
     <events>
-      <focusEvent id="60" target="971"/>
+      <focusEvent id="358" target="971"/>
       <focusEvent id="88" target="930"/>
       <focusEvent id="359" target="965"/>
     </events>

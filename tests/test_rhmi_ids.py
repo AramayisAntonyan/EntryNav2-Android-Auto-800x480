@@ -52,6 +52,9 @@ def check_app(name, path):
     # actions and models share one table too: the any-distance checkbox (action 31, also a model) never fired
     shared = sorted(ids["actions"] & ids["models"], key=int)
     check(not shared, f"{name}: action ids also used by models: {shared}")
+    # events are in that table as well: focusEvent 60 shared raAction 60 (a car test) and Test results never opened
+    shared = sorted(ids["events"] & (ids["actions"] | ids["models"]), key=int)
+    check(not shared, f"{name}: event ids also used by actions or models: {shared}")
     entry = app.find("entryButton")
     check(entry.get("action") in ids["actions"], f"{name}: entry action {entry.get('action')} missing")
     for s in all_states:
