@@ -74,9 +74,9 @@ phone silent for 2 s), so on this base the fork uses upstream's versions and kee
   image archive); filled with any value ticked in
   *Choose gauges*: 61 values from the iDrive's car data, standard OBD and BMW engine values (`platform/gauge_catalogue.hpp`,
   from `hmiapp/gauge_catalogue.py`); a shift light; the engine's fault codes, read only. DME values come from
-  `gauge-collector` (HSFZ through the diagnostic gateway, read services only) and stay off until Diagnostics' *Engine
-  values (DME)* switch creates `/var/local/data/AA/gauges-dme`. On the F22 no gateway answers the identification
-  broadcast on any of the head unit's networks, so engine values are not available there yet. The entry has a car icon and a preview card with the car and trip lines; the
+  `gauge-collector` (HSFZ through the diagnostic gateway, read services only), whenever an engine gauge shows
+  (`/var/local/data/AA/gauges-dme-off` turns them off); the gateway's address is this car's (the installer writes
+  it) or found by its announcement. The entry has a car icon and a preview card with the car and trip lines; the
   owner's own photo is used when `.local/gauges_card_549x484.png` exists (`tools/card_from_photo.py`, kept out of git).
 - **`uvc-probe`**, a read-only developer tool for a USB video adapter (a front camera), not part of a release.
 - **Arrows for the F-series 6WA cluster, log only** (`/var/local/data/AA/kombi-6wa`, off without the file). Upstream's

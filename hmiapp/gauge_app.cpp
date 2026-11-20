@@ -16,15 +16,14 @@
 //     Gauge styles   one row per ticked gauge: a press gives it the next look
 //     Shift point
 //   Diagnostics:
-//     Engine values (DME) switch and its state line
+//     the engine values' state line (read whenever an engine gauge shows; gauges-dme-off turns them off)
 //     Fault codes    the engine's stored codes with a description (gauge-collector --codes); "Clear the codes..."
 //                    opens a page that says what clearing does, whose one button clears the DME's fault memory
 //                    (gauge-collector --clear, the owner's choice 2026-11-19), then shows the codes left
 //     Car tests      a list of on-car tests; a press starts one and opens Test results
 // Kept in /var/local/data/AA: gauges-choice (the ticks), gauges-style (the looks), gauges-shift. Red needles and white
-// bars (no colour setting). The gauge pictures come from CarGauges_Art.pack (see setArt). DME
-// values only once the owner created gauges-dme ("demo" in it: synthetic values) and the gateway's address is in
-// gateway-ip.
+// bars (no colour setting). The gauge pictures come from CarGauges_Art.pack (see setArt). DME values whenever an
+// engine gauge shows, through the gateway in gateway-ip ("demo" in gauges-dme: synthetic values).
 //
 // A port of ID6 apps' BoostDeck and ShiftDeck (github.com/inotbarnacle/ID6_apps_prerelease, MIT) from the NBT Evo's
 // QNX to EntryNav2's Linux: the same RHMI framework and approach (bars and needles pre-drawn as images, switched by
@@ -69,7 +68,8 @@ using namespace gauges;
 using catalogue::kCds;
 
 const char kGaugesOffFile[] = "/var/local/data/AA/gauges-off";
-const char kDmeFile[] = "/var/local/data/AA/gauges-dme";
+const char kDmeFile[] = "/var/local/data/AA/gauges-dme";         // "demo" in it: synthetic engine values
+const char kDmeOffFile[] = "/var/local/data/AA/gauges-dme-off";  // engine values not read (no switch on the page)
 const char kGatewayFile[] = "/var/local/data/AA/gateway-ip";
 const char kChoiceFile[] = "/var/local/data/AA/gauges-choice";
 const char kSupportedFile[] = "/var/local/data/AA/gauges-supported";
@@ -78,7 +78,9 @@ const char kArtDir[] = "/tmp/gauge-art";  // pictures unpacked on first use (RAM
 const char kShiftFile[] = "/var/local/data/AA/gauges-shift";
 const char kStyleFile[] = "/var/local/data/AA/gauges-style";
 const char kCollector[] = "/opt/hmi/data/ro/Plugins/CarGauges/gauge-collector";
-const char kCollectorLog[] = "/tmp/gauge-collector.log";
+// Kept across restarts (the owner restarts the car between a drive and the next connection): moved to .old at 256 KB.
+const char kCollectorLog[] = "/var/local/data/AA/gauge-collector.log";
+const char kCollectorLogOld[] = "/var/local/data/AA/gauge-collector.log.old";
 const char kCodesFile[] = "/tmp/gauge-codes.txt";
 const unsigned kPollMs = 150;
 const unsigned kModels = 1024;  // every text and image model id is below this
@@ -102,8 +104,9 @@ Layout<kPages> g_layout;  // where they are on the dashboard pages
 int g_udp = -1;
 pid_t g_collector = -1;
 pid_t g_codesPid = -1;
-pid_t g_discoverPid = -1;  // gateway discovery started by the DME switch
-char g_dmeWhy[48] = "";    // why the engine values are not read, "" when they are (cards show it)
+pid_t g_discoverPid = -1;   // gateway discovery, started when the gateway is not known yet
+uint64_t g_discoverAt = 0;  // when it may start again
+char g_dmeWhy[48] = "";     // why the engine values are not read, "" when they are (cards show it)
 char g_collectorWant[512];
 
 char g_shownText[kModels][96];
@@ -376,6 +379,14 @@ pid_t spawnCollector(const char* const* args) {
     return spawnProgram(kCollector, args, kCollectorLog, false);
 }
 
+// The collector's log on the data partition stays small: at 256 KB it becomes .old (the one before is dropped).
+void rotateCollectorLog() {
+    struct stat st;
+    if (stat(kCollectorLog, &st) == 0 && st.st_size > 256 * 1024) {
+        rename(kCollectorLog, kCollectorLogOld);
+    }
+}
+
 void reap(pid_t* pid) {
     if (*pid > 0) {
         const pid_t r = waitpid(*pid, nullptr, WNOHANG);
@@ -394,19 +405,23 @@ void stopCollector() {
     g_collectorWant[0] = 0;
 }
 
-// Diagnostics allowed, and the gateway; false with the reason otherwise.
+void findGateway();
+
+// Diagnostics allowed, and the gateway; false with the reason otherwise. Engine values are read unless gauges-dme-off
+// exists (the owner, 2026-11-20: no switch); without a known gateway the collector looks for it.
 bool diagnosticsAllowed(char* host, bool* demo, const char** why) {
-    char yes[32] = "";
+    char mode[32] = "";
     *demo = false;
-    if (!readLine(kDmeFile, yes, sizeof(yes)) && access(kDmeFile, F_OK) != 0) {
+    if (access(kDmeOffFile, F_OK) == 0) {
         *why = "Engine values off";
         return false;
     }
-    if (!strncmp(yes, "demo", 4)) {
+    if (readLine(kDmeFile, mode, sizeof(mode)) && !strncmp(mode, "demo", 4)) {
         *demo = true;
         return true;
     }
     if (!readLine(kGatewayFile, host, 16) || !host[0]) {
+        findGateway();
         *why = g_discoverPid > 0 ? "Finding gateway" : "No gateway";
         return false;
     }
@@ -652,21 +667,20 @@ void showLive() {
     }
 }
 
-// Diagnostics: the engine values switch and its line.
+// Diagnostics: the engine values' line.
 void showDiag() {
-    const bool on = access(kDmeFile, F_OK) == 0;
-    g_app->updateModel(kDmeModel, on);
+    const bool on = access(kDmeOffFile, F_OK) != 0;
     char host[16] = "";
     const bool gateway = readLine(kGatewayFile, host, sizeof(host)) && host[0];
     char note[64];
     if (!on) {
-        snprintf(note, sizeof(note), "Engine values off (boost, OBD values)");
+        snprintf(note, sizeof(note), "Engine values off (gauges-dme-off)");
     } else if (g_discoverPid > 0) {
         snprintf(note, sizeof(note), "Finding the gateway...");
     } else if (!gateway) {
         snprintf(note, sizeof(note), "Gateway not found: is the car awake?");
     } else {
-        snprintf(note, sizeof(note), "Engine values on, gateway %s", host);
+        snprintf(note, sizeof(note), "Engine values: gateway %s", host);
     }
     setText(kDmeNote, note);
 }
@@ -1153,29 +1167,19 @@ struct TestActions<0> {
     static void add(bmw::PluginApp*) {}
 };
 
-// "Engine values (DME)": the owner's switch for reading the engine computer (read only, gauges-dme). On without a
-// known gateway: the collector looks for it (the gateway's own UDP announcement) and writes gateway-ip.
-bool onDmeToggle(void*, const bmw::Parcel&) {
-    const bool on = access(kDmeFile, F_OK) != 0;
-    if (on) {
-        writeLine(kDmeFile, "1");
-    } else {
-        unlink(kDmeFile);
-    }
-    alog("gauges: engine values (DME) %s", on ? "on" : "off");
-    char host[16] = "";
+// The gateway is not known (gateway-ip empty): the collector looks for it (the gateway's own UDP announcement) and
+// writes gateway-ip; at most once a minute. The installer writes this car's address, so this is rarely needed.
+void findGateway() {
     reap(&g_discoverPid);
-    if (on && (!readLine(kGatewayFile, host, sizeof(host)) || !host[0]) && g_discoverPid <= 0) {
-        const char* args[] = {kCollector, "--discover", "--write", kGatewayFile, nullptr};
-        g_discoverPid = spawnCollector(args);
-        alog("gauges: gateway discovery %s (pid %d)", g_discoverPid > 0 ? "started" : "NOT started",
-             static_cast<int>(g_discoverPid));
+    if (g_discoverPid > 0 || dme::monoMs() < g_discoverAt) {
+        return;
     }
-    g_dmeWhy[0] = 0;
-    g_collectorWant[0] = 0;  // judged again on the next dashboard
-    showDiag();
+    g_discoverAt = dme::monoMs() + 60000;
+    const char* args[] = {kCollector, "--discover", "--write", kGatewayFile, nullptr};
+    g_discoverPid = spawnCollector(args);
+    alog("gauges: gateway discovery %s (pid %d)", g_discoverPid > 0 ? "started" : "NOT started",
+         static_cast<int>(g_discoverPid));
     startPoll();
-    return true;
 }
 
 bool onLiveRow(void*, const bmw::Parcel&) {
@@ -1334,7 +1338,6 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     addStateHandler(self, kLiveState, kHandlerVisible, &onVisible<kLiveState>);
     addAction(self, kActEntry, &onEntry);
     addAction(self, kActLiveRow, &onLiveRow);
-    addAction(self, kActDme, &onDmeToggle);
     ChoiceActions<kEntryCount>::add(self);
     LookActions<kLookRows>::add(self);
     g_shiftPoint = readIndex(kShiftFile, sizeof(kShiftPoints) / sizeof(kShiftPoints[0]), 2);
@@ -1344,6 +1347,7 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     collectProperties();
     openUdp();
     openArt();
+    rotateCollectorLog();
     const bool ok = self->onInit();
     showClearNotes();
     alog("gauges: onInit -> %d, %u catalogue entries", static_cast<int>(ok), kEntryCount);

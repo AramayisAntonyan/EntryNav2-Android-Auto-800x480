@@ -3,8 +3,8 @@
 // platform/hsfz.hpp), and the engine's fault codes. Reads: ReadDataByIdentifier (BMW values), OBD current data
 // (service 01) and ReadDTCInformation (hsfz::readOnlyService). The one write is --clear, the DME's fault memory
 // (hsfz::clearFaultMemory), started only from the Gauges app's confirmation page. Installed next to the Gauges
-// app (opt/hmi/data/ro/Plugins/CarGauges) and started by it only while a dashboard page shows a DME value, after the
-// owner created /var/local/data/AA/gauges-dme and with the gateway's address in /var/local/data/AA/gateway-ip.
+// app (opt/hmi/data/ro/Plugins/CarGauges) and started by it only while a dashboard page shows a DME value, with the
+// gateway's address in /var/local/data/AA/gateway-ip (none while /var/local/data/AA/gauges-dme-off exists).
 //
 // Ported from ID6 apps' collector (github.com/inotbarnacle/ID6_apps_prerelease, source/native/src/collector.c), MIT,
 // Copyright (c) 2026 ID6 Apps contributors (notice in platform/dme_gauges.hpp). Changes: Linux; any list of the
@@ -59,7 +59,8 @@ void pauseMs(int ms) {
 const unsigned kAmbientDid = 0x4201;  // ambient pressure: boost is the absolute pressure minus this
 const unsigned kBoostDid = 0x4205;
 
-// One DME value: 1 decoded, 0 refused or not plausible, -1 the connection failed. Raw answer printed when trace.
+// One DME value: 1 decoded, 0 refused or not plausible, -3 no answer in time (the connection is kept), -1 the
+// connection failed. Raw answer printed when trace.
 int readEntry(int fd, const Entry& e, double* value, bool trace) {
     unsigned char req[3];
     unsigned size;
@@ -88,7 +89,7 @@ int readEntry(int fd, const Entry& e, double* value, bool trace) {
         if (trace) {
             printf("%-22s no answer\n", e.title);
         }
-        return n < 0 ? -1 : 0;
+        return n == -3 ? -3 : n < 0 ? -1 : 0;
     }
     const unsigned char* data = reply + size;  // after the positive service byte and the echoed PID / DID
     const unsigned dataLen = static_cast<unsigned>(n) - size;
@@ -213,7 +214,7 @@ int probe(const char* host) {
     printf("%-22s %s\n", "Ambient pressure", readAmbient(fd, &amb) ? "read" : "not read");
     for (unsigned i = 0; i < kEntryCount && g_running; ++i) {
         double v = 0;
-        if (kEntries[i].source != catalogue::kCds && readEntry(fd, kEntries[i], &v, true) < 0) {
+        if (kEntries[i].source != catalogue::kCds && readEntry(fd, kEntries[i], &v, true) == -1) {
             break;
         }
         pauseMs(30);
@@ -325,6 +326,12 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
     uint64_t ambientAt = 0;
     int gw = -1, lock = -1;
     uint64_t retryAt = 0;
+    // A value that does not answer is skipped, the connection kept; one that misses 3 times running rests 10 s, so
+    // the others stay current (while driving, a slow answer used to drop the connection and every value went "--").
+    unsigned misses[dme::kMaxValues] = {0};
+    uint64_t restUntil[dme::kMaxValues] = {0};
+    unsigned connects = 0, drops = 0, noAnswers = 0;
+    uint64_t statusAt = dme::monoMs() + 30000, cycleMs = 0;
     const unsigned kTickMs = 150;
     unsigned cycle = 0;
     dme::Frame f;
@@ -346,6 +353,10 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
                 gw = lock >= 0 ? hsfz::connectGateway(host, hsfz::kPort, &g_running) : -1;
                 if (gw < 0) {
                     retryAt = dme::monoMs() + 2000;
+                } else if (++connects <= 3 || connects % 20 == 0) {
+                    printf("[%llu s] session: connected to %s (connection %u)\n",
+                           static_cast<unsigned long long>(start / 1000), host, connects);
+                    fflush(stdout);
                 }
             }
             if (gw >= 0 && wantsBoost && start - ambientAt > 1000) {
@@ -357,14 +368,33 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
             }
             for (unsigned k = 0; gw >= 0 && k < count && g_running; ++k) {
                 const Entry& e = kEntries[want[k]];
+                if (restUntil[k] > dme::monoMs()) {
+                    continue;
+                }
                 double v = 0;
                 const int rc = readEntry(gw, e, &v, false);
-                if (rc < 0) {
+                if (rc == -1) {
                     close(gw);
                     gw = -1;
                     retryAt = dme::monoMs() + 1000;
+                    ++drops;
+                    printf("[%llu s] session: connection lost at %s\n",
+                           static_cast<unsigned long long>(dme::monoMs() / 1000), e.title);
+                    fflush(stdout);
                     break;
                 }
+                if (rc == -3) {
+                    ++noAnswers;
+                    if (++misses[k] >= 3) {
+                        misses[k] = 0;
+                        restUntil[k] = dme::monoMs() + 10000;
+                        printf("[%llu s] session: %s did not answer 3 times: rests 10 s\n",
+                               static_cast<unsigned long long>(dme::monoMs() / 1000), e.title);
+                        fflush(stdout);
+                    }
+                    continue;
+                }
+                misses[k] = 0;
                 if (rc != 1) {
                     continue;
                 }
@@ -400,6 +430,14 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
         }
         ++cycle;
         const uint64_t elapsed = dme::monoMs() - start;
+        cycleMs = elapsed;
+        if (!demo && now >= statusAt) {  // every 30 s: what the gauges get
+            printf("[%llu s] session: %s, %u of %u values current, last pass %llu ms, %u no-answers, %u drops\n",
+                   static_cast<unsigned long long>(now / 1000), gw >= 0 ? "connected" : "not connected", f.count, count,
+                   static_cast<unsigned long long>(cycleMs), noAnswers, drops);
+            fflush(stdout);
+            statusAt = now + 30000;
+        }
         pauseMs(elapsed < kTickMs ? static_cast<int>(kTickMs - elapsed) : 10);
     }
     if (gw >= 0) {

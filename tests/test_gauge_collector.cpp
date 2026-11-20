@@ -130,6 +130,22 @@ static void exchange() {
     CHECK(hsfz::readOnlyService(0x22) && hsfz::readOnlyService(0x19) && !hsfz::readOnlyService(0x2f));
     close(sv[0]);
     close(sv[1]);
+
+    // No answer in time: -3, and the connection stays usable; the late answer is skipped by its echo, the next
+    // request's answer taken (while driving a slow value used to drop the connection: every value went "--").
+    CHECK(socketpair(AF_UNIX, SOCK_STREAM, 0, sv) == 0);
+    const unsigned char req2[3] = {0x22, 0x58, 0x6f};
+    CHECK(hsfz::exchange(sv[0], hsfz::kDme, req, 3, reply, sizeof(reply), 50, &nrc, nullptr) == -3);
+    unsigned char sink[64];
+    CHECK(read(sv[1], sink, 11) == 11);  // the first request, unanswered so far
+    const unsigned char late[] = {0, 0, 0, 7, 0, 1, 0x12, 0xf4, 0x62, 0x43, 0x00, 0x0e, 0x31};  // 22 4300's answer
+    const unsigned char next[] = {0, 0, 0, 7, 0, 1, 0x12, 0xf4, 0x62, 0x58, 0x6f, 0x03, 0x75};  // 22 586F's answer
+    CHECK(::write(sv[1], late, sizeof(late)) == static_cast<ssize_t>(sizeof(late)));
+    CHECK(::write(sv[1], next, sizeof(next)) == static_cast<ssize_t>(sizeof(next)));
+    const int m = hsfz::exchange(sv[0], hsfz::kDme, req2, 3, reply, sizeof(reply), 500, &nrc, nullptr);
+    CHECK(m == 5 && reply[1] == 0x58 && reply[2] == 0x6f && reply[3] == 0x03);
+    close(sv[0]);
+    close(sv[1]);
 }
 
 // A scripted fake gateway: for each step, reads one request (checked against `expect`) and sends `answer`.

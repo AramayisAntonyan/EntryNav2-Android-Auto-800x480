@@ -99,9 +99,7 @@ const unsigned kViews = 5;            // the dashboards, Live values, Shift ligh
 const unsigned kLiveRow0 = 400;       // Richtext models: + row
 const unsigned kLiveRowComp0 = 1700;  // button rows: + row
 const unsigned kActLiveRow = 36;      // a row's press: nothing
-const unsigned kActDme = 37;          // Diagnostics' "Engine values (DME)" checkbox
-const unsigned kDmeModel = 125;       // its raBoolModel
-const unsigned kDmeNote = 126;        // the line under it: what the engine values are doing
+const unsigned kDmeNote = 126;        // Diagnostics' first line: what the engine values are doing
 
 // ---- other pages ----------------------------------------------------------------------------------------------------
 const unsigned kActShiftPoint0 = 30;  // 30..33: kShiftPoints

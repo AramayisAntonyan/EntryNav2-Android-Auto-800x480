@@ -37,7 +37,7 @@
 namespace evo {
 namespace dme {
 
-enum { kMaxPacket = 1400, kMaxValues = 64, kStaleMs = 2500, kUdpPort = 42860 };
+enum { kMaxPacket = 1400, kMaxValues = 64, kStaleMs = 8000, kUdpPort = 42860 };
 
 // The values read in one cycle, from the collector to the iDrive app over loopback UDP, as text:
 // "G2 <seq> <entry>:<value>:<age ms> ..." where entry is the index in platform/gauge_catalogue.hpp.

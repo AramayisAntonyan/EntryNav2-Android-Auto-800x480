@@ -214,7 +214,7 @@ def main():
     models += [f'      <raDataModel id="{95 + i}" modelType="Richtext"/>' for i in range(8)]
     models += [f'      <raBoolModel id="{600 + i}"/>' for i in range(len(entries))]
     models += [f'      <raDataModel id="{109 + i}" modelType="Richtext"/>' for i in range(1 + TEST_LINES)]
-    models += ['      <raBoolModel id="125"/>', '      <raDataModel id="126" modelType="Richtext"/>']
+    models += ['      <raDataModel id="126" modelType="Richtext"/>']
     models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (127, 128)]  # the clear's page
 
     # The entry is a combinedAction (11): raAction 19 tells the app, hmiAction 20 opens the dashboard. An entry's
@@ -225,7 +225,7 @@ def main():
         '          <hmiAction id="20" target="910"/>\n        </actions>\n      </combinedAction>'
     ]
     actions += [f'      <hmiAction id="{a}" target="{t}"/>' for a, t in nav]
-    actions += [f'      <raAction id="{a}"/>' for a in (18, 30, 31, 32, 33, 35, 36, 37)]
+    actions += [f'      <raAction id="{a}"/>' for a in (18, 30, 31, 32, 33, 35, 36)]
     actions += [f'      <raAction id="{700 + i}"/>' for i in range(len(entries))]
     actions += [f'      <raAction id="{50 + i}"/>' for i in range(len(CAR_TESTS))]
     actions += [f'      <raAction id="{STYLE_ROW_ACTION + i}"/>' for i in range(CELLS)]
@@ -256,10 +256,9 @@ def main():
     # Gauge settings: what the dashboard shows and how
     settings = "".join(button(2750 + i, a, text) for i, (a, _, text) in enumerate(SETTINGS))
     states += state(902, "Gauge settings", settings, parent=910)
-    # Diagnostics: the owner's switch for the engine computer's values (read only: gauges-dme, the gateway found when
-    # needed) and its line, the fault codes, the car tests
-    diag = '          <checkbox id="1610" action="37" model="125" text="Engine values (DME)"/>\n'
-    diag += labelrow(1611, 126)
+    # Diagnostics: what the engine values are doing (read whenever an engine gauge shows; no switch, the owner
+    # 2026-11-20), the fault codes, the car tests
+    diag = labelrow(1611, 126)
     diag += "".join(button(2760 + i, a, text) for i, (a, _, text) in enumerate(DIAGNOSTICS))
     states += state(903, "Diagnostics", diag, parent=910)
     codes = (

@@ -106,7 +106,7 @@ int clearFaultMemory(int fd, unsigned ecu, unsigned* nrc, bool* usedSession, vol
     if (nrc) {
         *nrc = n == -2 ? refused : 0;
     }
-    return n >= 1 ? 1 : n;
+    return n >= 1 ? 1 : n == -2 ? -2 : -1;
 }
 
 int connectGateway(const char* host, unsigned port, volatile sig_atomic_t* running) {
@@ -163,6 +163,11 @@ int transact(int fd, unsigned ecu, const unsigned char* uds, unsigned udsSize, u
     const unsigned char positive = static_cast<unsigned char>(uds[0] + 0x40);
     unsigned char header[6], body[4096];
     while (!running || *running) {
+        // Nothing of the next message yet by the deadline: no answer, but the stream is still in step (a late answer
+        // is told apart by its echo). A message cut off halfway is a broken stream: -1.
+        if (!ready(fd, POLLIN, deadline, running)) {
+            return -3;
+        }
         if (!transfer(fd, header, 6, false, deadline, running)) {
             return -1;
         }

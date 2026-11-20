@@ -70,7 +70,7 @@ Everything in [Status](#status) was seen on one car; nothing else has been tried
 - **Gauges, a second iDrive app under My Vehicle.** The entry opens the dashboard: gauges as cards, BMW-style dials
   and arcs, wide or tall bars (water and oil temperature, torque, rpm, trip values and more from the iDrive's car data), each
   with its icon, the look picked per gauge in *OPTION*, *Gauge settings*, *Gauge styles*; a shift light, the engine's fault codes with a description and a
-  *Clear the codes* page that asks first (not working on this car yet, see below), and a *Car tests* page with
+  *Clear the codes* page that asks first, and a *Car tests* page with
   on-screen results for checks at the car.
 - **6WA cluster arrows** (NBT-AAD's driver, ported with its guidance rules, junction view, lanes and *directions at any
   distance*). They are worked out from the phone's guidance and logged; sending them to the cluster is off by default
@@ -132,12 +132,10 @@ yet**. They pass the PC and QEMU tests only.
   layout, any channel). Sending is off by default. Once, after a burst of test calls, the cluster's media line
   disappeared until the next restart, so keep `kombi-6wa-live` off while driving. Next try: presenting the head unit
   as the car's navigation first (this car has none, and the cluster may wait for one).
-- **Engine values and fault codes from the DME** (boost, intake air, oil pressure, the fault code list and its
-  clearing). The car's diagnostic gateway answers the head unit's ping, but no diagnostic connection to it has
-  opened so far. The likely reason is the head unit's own firewall, which drops that port: CallMeLewis/EntryNav-Apps
-  found it on the same unit and open it with three rules, which this version installs (above). Until that is checked
-  in the car, the Gauges app shows only the iDrive's own car data (temperatures, torque, rpm, trip). The fallback:
-  the head unit's diagnosis tunnel over MOST, as ID6 apps do.
+- **Engine values while driving** (2026-11-20): the gateway connects since the firewall rules (engine values and
+  OBD read in the car, engine off), but after driving the engine gauges showed "--". A value that answered late made
+  the reader drop the connection and start over; it now skips that value and keeps the others current. Not yet
+  checked in the car.
 - **Knob centre press on Android Auto's media screen** acts on the button Android Auto has selected, which is often
   "previous track": the track restarts or goes back. The head unit sends a plain "select"; which button gets it is
   Android Auto's choice.
@@ -201,7 +199,7 @@ Each is a file in `/var/local/data/AA`; without the file the feature is off (or 
 | `kombi-6wa-lanes`, `kombi-6wa-junction-off` | lanes on; the junction view off |
 | `kombi-anydist` | show the next maneuver at any distance (also in the Android Auto menu) |
 | `gauges-off` | hide the Gauges app |
-| `gauges-dme`, `gateway-ip` | engine values and fault codes from the DME, and the gateway's address (not yet working on this car) |
+| `gauges-dme-off`, `gateway-ip` | no engine values from the DME (they are read whenever an engine gauge shows), and the gateway's address (the installer writes this car's) |
 
 Logs: `/tmp/entry-aa-service.log` (service), `/var/local/data/AA/app.log` (iDrive apps),
 `/var/local/data/AA/car-tests.log` (Car tests page). More in [docs/MAINTENANCE.md](docs/MAINTENANCE.md) (upstream's,

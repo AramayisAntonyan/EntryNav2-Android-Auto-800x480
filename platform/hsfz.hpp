@@ -32,8 +32,9 @@ bool readOnlyService(unsigned char service);
 int connectGateway(const char* host, unsigned port, volatile sig_atomic_t* running);
 
 // One request to `ecu` and its answer: the reply bytes after the HSFZ address bytes, starting with the positive
-// response service (e.g. 62 <DID> ...). Returns their count, -2 for a negative response (*nrc set), -1 for a
-// transport failure or timeout. "Response pending" (7F xx 78) is waited for; the gateway's alive check answered.
+// response service (e.g. 62 <DID> ...). Returns their count, -2 for a negative response (*nrc set), -3 when no answer
+// came in time (the connection stays usable: a late answer is skipped by its echo), -1 for a transport failure (the
+// connection is unusable). "Response pending" (7F xx 78) is waited for; the gateway's alive check answered.
 int exchange(int fd, unsigned ecu, const unsigned char* uds, unsigned udsSize, unsigned char* reply, unsigned replySize,
              unsigned timeoutMs, unsigned* nrc, volatile sig_atomic_t* running);
 

@@ -33,7 +33,6 @@
       <raAction id="33"/>
       <raAction id="35"/>
       <raAction id="36"/>
-      <raAction id="37"/>
       <raAction id="700"/>
       <raAction id="701"/>
       <raAction id="702"/>
@@ -663,7 +662,6 @@
       <raDataModel id="117" modelType="Richtext"/>
       <raDataModel id="118" modelType="Richtext"/>
       <raDataModel id="119" modelType="Richtext"/>
-      <raBoolModel id="125"/>
       <raDataModel id="126" modelType="Richtext"/>
       <raDataModel id="127" modelType="Richtext"/>
       <raDataModel id="128" modelType="Richtext"/>
@@ -5528,7 +5526,6 @@
       </hmiState>
       <hmiState id="903" parentId="910" text="Diagnostics">
         <components>
-          <checkbox id="1610" action="37" model="125" text="Engine values (DME)"/>
           <label id="1611" model="126"/>
           <button id="2760" action="13" text="Engine fault codes"/>
           <button id="2761" action="26" text="Car tests"/>
