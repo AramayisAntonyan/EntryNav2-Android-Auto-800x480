@@ -148,26 +148,17 @@ def rgba_png(w, h, pixel):
     )
 
 
-# The Gauges app (hmiapp/gauge_app.cpp, CarGauges.xml, ids in hmiapp/gauge_ids.hpp): its entry icon and preview card
-# under My Vehicle, its bars in every colour, and the shift light's rpm bar.
+# The Gauges app (hmiapp/gauge_app.cpp, CarGauges.xml, ids in hmiapp/gauge_ids.hpp). iDrive refuses an image archive of
+# 1.5 MB or more (the app then never opens; 0.58 MB passed, 2026-11-20): its archive holds only the entry icon, the
+# preview card and the shift light's bar; every gauge picture is in CarGauges_Art.pack, which the app sends itself.
+# Red needles, white bars: no colour setting.
 GAUGE_ICON_SIZE = (63, 54)  # as the Android Auto row icon
 GAUGE_CARD_SIZE = (549, 484)  # as the Android Auto preview card
-GAUGE_BAR_SIZE = gauge_art.CARD_BAR.size  # a card's bar (165 x 12)
-GAUGE_BAR_LEVELS = 25  # gauge_values.hpp kBarLevels: images 56000 + colour * 32 + level
-GAUGE_COLOURS = (  # gauge_ids.hpp kColourNames, BoostDeck's palette
-    (240, 125, 0),  # BMW Orange
-    (30, 136, 229),  # Blue
-    (67, 160, 71),  # Green
-    (235, 235, 235),  # White
-    (142, 68, 173),  # Purple
-    (233, 30, 99),  # Pink
-    (0, 188, 212),  # Cyan
-    (229, 57, 53),  # Red
-)
+GAUGE_BAR_LEVELS = 25  # gauge_values.hpp kBarLevels: card bars 56000 + level
+BAR = (235, 235, 235)  # the value's segments: white, as the M5's gauges
 SHIFT_LEVELS = 33  # gauge_ids.hpp kShiftLevels: 57000 + level, past the shift point 57100 + level
-SHIFT_FILL, SHIFT_WARN = (240, 125, 0), (229, 57, 53)
-# The big looks (hmiapp/gauge_layout.hpp): images + colour * FINE_STRIDE + level (gauge_ids.hpp kFineLevels ...)
-FINE_LEVELS, FINE_STRIDE = 41, 64
+SHIFT_FILL, SHIFT_WARN = BAR, (229, 57, 53)
+FINE_LEVELS = 41  # gauge_ids.hpp kFineLevels: the big looks' images + level
 IMG_WIDE_BAR, IMG_TALL_BAR, IMG_NEEDLE, IMG_WIDE_NEEDLE = 59000, 59500, 60000, 60500
 IMG_FACE, IMG_WIDE_FACE, IMG_WIDE_TRACK, IMG_TALL_TRACK, IMG_CARD_ICON = 61000, 61100, 61200, 61300, 61400
 IMG_ARC_NEEDLE, IMG_WIDE_ARC_NEEDLE, IMG_ARC_FACE, IMG_WIDE_ARC_FACE = 62000, 62500, 63000, 63100
@@ -231,39 +222,28 @@ def car_card_png():
 
 
 def write_gauge_images(path):
-    """CarGauges_ALL_Images.zip: the entry icon and card, the bars in every colour, the shift light's bar."""
+    """CarGauges_ALL_Images.zip, iDrive's own archive: the entry icon and card, the shift light's bar."""
     with zipfile.ZipFile(path, "w") as archive:
         add(archive, "58001.png", car_icon_png())
         # The owner's own car on the card when present (.local/, never in git: it shows the number plate), made
         # from a photo on a white background; else the drawn car.
         own = Path(__file__).resolve().parents[1] / ".local" / "gauges_card_549x484.png"
         add(archive, "58002.png", own.read_bytes() if own.is_file() else car_card_png())
-        # No card tiles any more (the owner: no background is better): 58003..58005 are gone.
-        for colour, fill in enumerate(GAUGE_COLOURS):
-            for level in range(GAUGE_BAR_LEVELS):
-                add(
-                    archive,
-                    f"{56000 + colour * 32 + level}.png",
-                    gauge_art.whole_bar(gauge_art.CARD_BAR, level, GAUGE_BAR_LEVELS, fill),
-                )
         for level in range(SHIFT_LEVELS):
             for first, fill in ((57000, SHIFT_FILL), (57100, SHIFT_WARN)):
                 add(
                     archive, f"{first + level}.png", gauge_art.whole_bar(gauge_art.SHIFT_BAR, level, SHIFT_LEVELS, fill)
                 )
-        write_big_looks(archive)
 
 
-def write_big_looks(archive):
-    """The dials and the wide and tall bars: needles and bar values in every colour; per gauge its dial faces, bar
+def art_pictures():
+    """Every gauge picture as (id, PNG): card bars, the big looks' values and needles; per gauge its dial faces, bar
     tracks and card icon, each with the gauge's icon and scale."""
-    for colour, fill in enumerate(GAUGE_COLOURS):
-        for level in range(FINE_LEVELS):
-            n = colour * FINE_STRIDE + level
-            wide = gauge_art.WIDE_BAR.value(level, FINE_LEVELS, fill, gauge_art.WIDE_VALUE_BOX)
-            add(archive, f"{IMG_WIDE_BAR + n}.png", wide)
-            tall = gauge_art.TALL_BAR.value(level, FINE_LEVELS, fill, gauge_art.TALL_VALUE_BOX)
-            add(archive, f"{IMG_TALL_BAR + n}.png", tall)
+    for level in range(GAUGE_BAR_LEVELS):
+        yield 56000 + level, gauge_art.whole_bar(gauge_art.CARD_BAR, level, GAUGE_BAR_LEVELS, BAR)
+    for level in range(FINE_LEVELS):
+        yield IMG_WIDE_BAR + level, gauge_art.WIDE_BAR.value(level, FINE_LEVELS, BAR, gauge_art.WIDE_VALUE_BOX)
+        yield IMG_TALL_BAR + level, gauge_art.TALL_BAR.value(level, FINE_LEVELS, BAR, gauge_art.TALL_VALUE_BOX)
     dials = (
         (gauge_art.SMALL_DIAL, IMG_NEEDLE),
         (gauge_art.WIDE_DIAL, IMG_WIDE_NEEDLE),
@@ -271,22 +251,37 @@ def write_big_looks(archive):
         (gauge_art.WIDE_ARC, IMG_WIDE_ARC_NEEDLE),
     )
     for dial, first in dials:
-        # one colour: the archive must stay small (iDrive refuses a large image database: the app then never
-        # opens; 4.2 MB was refused on the car, 2026-11-20)
         for level, mask in enumerate(dial.needle_masks(FINE_LEVELS)):
-            add(archive, f"{first + level}.png", dial.needle(mask, gauge_art.NEEDLE))
+            yield first + level, dial.needle(mask, gauge_art.NEEDLE)
     entries = gauge_catalogue.entries()
     if len(entries) > 100:
         raise SystemExit("FAIL: more than 100 gauges: the image ranges of gauge_ids.hpp overlap")
     for n, e in enumerate(entries):
         scale, icon = gauge_catalogue.scale_key(e), e["icon"]
-        add(archive, f"{IMG_FACE + n}.png", gauge_art.SMALL_DIAL.face(scale, icon))
-        add(archive, f"{IMG_WIDE_FACE + n}.png", gauge_art.WIDE_DIAL.face(scale, icon))
-        add(archive, f"{IMG_WIDE_TRACK + n}.png", gauge_art.WIDE_BAR.track(scale, icon))
-        add(archive, f"{IMG_TALL_TRACK + n}.png", gauge_art.TALL_BAR.track(scale, icon))
-        add(archive, f"{IMG_CARD_ICON + n}.png", gauge_art.card_icon(icon))
-        add(archive, f"{IMG_ARC_FACE + n}.png", gauge_art.SMALL_ARC.face(scale, icon))
-        add(archive, f"{IMG_WIDE_ARC_FACE + n}.png", gauge_art.WIDE_ARC.face(scale, icon))
+        yield IMG_FACE + n, gauge_art.SMALL_DIAL.face(scale, icon)
+        yield IMG_WIDE_FACE + n, gauge_art.WIDE_DIAL.face(scale, icon)
+        yield IMG_WIDE_TRACK + n, gauge_art.WIDE_BAR.track(scale, icon)
+        yield IMG_TALL_TRACK + n, gauge_art.TALL_BAR.track(scale, icon)
+        yield IMG_CARD_ICON + n, gauge_art.card_icon(icon)
+        yield IMG_ARC_FACE + n, gauge_art.SMALL_ARC.face(scale, icon)
+        yield IMG_WIDE_ARC_FACE + n, gauge_art.WIDE_ARC.face(scale, icon)
+
+
+def write_art(path):
+    """CarGauges_Art.pack, read by gauge_app.cpp (openArt): "GART", the count, then (id, offset, length) per picture
+    (little-endian 32-bit), then the PNGs in that order."""
+    pictures = sorted(art_pictures())
+    ids = [i for i, _ in pictures]
+    if len(set(ids)) != len(ids) or not all(56000 <= i < 64000 for i in ids):
+        raise SystemExit("FAIL: picture ids repeat or leave 56000..63999 (gauge_ids.hpp kArtFirst, kArtIds)")
+    offset = 8 + 12 * len(pictures)
+    index, data = [], []
+    for i, png in pictures:
+        index.append(struct.pack("<III", i, offset, len(png)))
+        data.append(png)
+        offset += len(png)
+    Path(path).write_bytes(b"GART" + struct.pack("<I", len(pictures)) + b"".join(index) + b"".join(data))
+    return len(pictures)
 
 
 def main():
@@ -297,7 +292,11 @@ def main():
     write_texts(out / "EntryAad_ALL_Texts.zip")
     write_images(out / "EntryAad_ALL_Images.zip", res)
     write_gauge_images(out / "CarGauges_ALL_Images.zip")
-    print("wrote EntryAad_ALL_Texts.zip, EntryAad_ALL_Images.zip, CarGauges_ALL_Images.zip in", out)
+    n = write_art(out / "CarGauges_Art.pack")
+    print(
+        f"wrote EntryAad_ALL_Texts.zip, EntryAad_ALL_Images.zip, CarGauges_ALL_Images.zip, CarGauges_Art.pack ({n}) in",
+        out,
+    )
 
 
 if __name__ == "__main__":

@@ -7,6 +7,12 @@
       </properties>
     </entryButton>
     <actions>
+      <combinedAction id="11">
+        <actions>
+          <raAction id="19"/>
+          <hmiAction id="20" target="910"/>
+        </actions>
+      </combinedAction>
       <hmiAction id="10" target="910"/>
       <hmiAction id="21" target="911"/>
       <hmiAction id="22" target="912"/>
@@ -16,12 +22,10 @@
       <hmiAction id="27" target="903"/>
       <hmiAction id="24" target="960"/>
       <hmiAction id="28" target="961"/>
-      <hmiAction id="14" target="940"/>
       <hmiAction id="16" target="950"/>
       <hmiAction id="13" target="930"/>
       <hmiAction id="26" target="970"/>
       <hmiAction id="17" target="931"/>
-      <raAction id="11"/>
       <raAction id="18"/>
       <raAction id="30"/>
       <raAction id="31"/>
@@ -30,15 +34,6 @@
       <raAction id="35"/>
       <raAction id="36"/>
       <raAction id="37"/>
-      <raAction id="40"/>
-      <raAction id="41"/>
-      <raAction id="42"/>
-      <raAction id="43"/>
-      <raAction id="44"/>
-      <raAction id="45"/>
-      <raAction id="46"/>
-      <raAction id="47"/>
-      <raAction id="48"/>
       <raAction id="700"/>
       <raAction id="701"/>
       <raAction id="702"/>
@@ -160,8 +155,8 @@
       <raDataModel id="560" modelType="Richtext"/>
       <raDataModel id="785" modelType="Richtext"/>
       <raDataModel id="833" modelType="Richtext"/>
-      <imageIdModel id="360" imageId="56000"/>
-      <imageIdModel id="424" imageId="61000"/>
+      <raImageModel id="360"/>
+      <raImageModel id="424"/>
       <raDataModel id="400" modelType="Richtext"/>
       <raDataModel id="450" modelType="Richtext"/>
       <raDataModel id="301" modelType="Richtext"/>
@@ -178,8 +173,8 @@
       <raDataModel id="561" modelType="Richtext"/>
       <raDataModel id="786" modelType="Richtext"/>
       <raDataModel id="834" modelType="Richtext"/>
-      <imageIdModel id="361" imageId="56000"/>
-      <imageIdModel id="425" imageId="61000"/>
+      <raImageModel id="361"/>
+      <raImageModel id="425"/>
       <raDataModel id="401" modelType="Richtext"/>
       <raDataModel id="451" modelType="Richtext"/>
       <raDataModel id="302" modelType="Richtext"/>
@@ -196,8 +191,8 @@
       <raDataModel id="562" modelType="Richtext"/>
       <raDataModel id="787" modelType="Richtext"/>
       <raDataModel id="835" modelType="Richtext"/>
-      <imageIdModel id="362" imageId="56000"/>
-      <imageIdModel id="426" imageId="61000"/>
+      <raImageModel id="362"/>
+      <raImageModel id="426"/>
       <raDataModel id="402" modelType="Richtext"/>
       <raDataModel id="452" modelType="Richtext"/>
       <raDataModel id="303" modelType="Richtext"/>
@@ -214,8 +209,8 @@
       <raDataModel id="563" modelType="Richtext"/>
       <raDataModel id="788" modelType="Richtext"/>
       <raDataModel id="836" modelType="Richtext"/>
-      <imageIdModel id="363" imageId="56000"/>
-      <imageIdModel id="427" imageId="61000"/>
+      <raImageModel id="363"/>
+      <raImageModel id="427"/>
       <raDataModel id="403" modelType="Richtext"/>
       <raDataModel id="453" modelType="Richtext"/>
       <raDataModel id="304" modelType="Richtext"/>
@@ -232,8 +227,8 @@
       <raDataModel id="564" modelType="Richtext"/>
       <raDataModel id="789" modelType="Richtext"/>
       <raDataModel id="837" modelType="Richtext"/>
-      <imageIdModel id="364" imageId="56000"/>
-      <imageIdModel id="428" imageId="61000"/>
+      <raImageModel id="364"/>
+      <raImageModel id="428"/>
       <raDataModel id="404" modelType="Richtext"/>
       <raDataModel id="454" modelType="Richtext"/>
       <raDataModel id="305" modelType="Richtext"/>
@@ -250,8 +245,8 @@
       <raDataModel id="565" modelType="Richtext"/>
       <raDataModel id="790" modelType="Richtext"/>
       <raDataModel id="838" modelType="Richtext"/>
-      <imageIdModel id="365" imageId="56000"/>
-      <imageIdModel id="429" imageId="61000"/>
+      <raImageModel id="365"/>
+      <raImageModel id="429"/>
       <raDataModel id="405" modelType="Richtext"/>
       <raDataModel id="455" modelType="Richtext"/>
       <raDataModel id="306" modelType="Richtext"/>
@@ -268,8 +263,8 @@
       <raDataModel id="566" modelType="Richtext"/>
       <raDataModel id="791" modelType="Richtext"/>
       <raDataModel id="839" modelType="Richtext"/>
-      <imageIdModel id="366" imageId="56000"/>
-      <imageIdModel id="430" imageId="61000"/>
+      <raImageModel id="366"/>
+      <raImageModel id="430"/>
       <raDataModel id="406" modelType="Richtext"/>
       <raDataModel id="456" modelType="Richtext"/>
       <raDataModel id="307" modelType="Richtext"/>
@@ -286,8 +281,8 @@
       <raDataModel id="567" modelType="Richtext"/>
       <raDataModel id="792" modelType="Richtext"/>
       <raDataModel id="840" modelType="Richtext"/>
-      <imageIdModel id="367" imageId="56000"/>
-      <imageIdModel id="431" imageId="61000"/>
+      <raImageModel id="367"/>
+      <raImageModel id="431"/>
       <raDataModel id="407" modelType="Richtext"/>
       <raDataModel id="457" modelType="Richtext"/>
       <raDataModel id="308" modelType="Richtext"/>
@@ -304,8 +299,8 @@
       <raDataModel id="568" modelType="Richtext"/>
       <raDataModel id="793" modelType="Richtext"/>
       <raDataModel id="841" modelType="Richtext"/>
-      <imageIdModel id="368" imageId="56000"/>
-      <imageIdModel id="432" imageId="61000"/>
+      <raImageModel id="368"/>
+      <raImageModel id="432"/>
       <raDataModel id="408" modelType="Richtext"/>
       <raDataModel id="458" modelType="Richtext"/>
       <raDataModel id="309" modelType="Richtext"/>
@@ -322,8 +317,8 @@
       <raDataModel id="569" modelType="Richtext"/>
       <raDataModel id="794" modelType="Richtext"/>
       <raDataModel id="842" modelType="Richtext"/>
-      <imageIdModel id="369" imageId="56000"/>
-      <imageIdModel id="433" imageId="61000"/>
+      <raImageModel id="369"/>
+      <raImageModel id="433"/>
       <raDataModel id="409" modelType="Richtext"/>
       <raDataModel id="459" modelType="Richtext"/>
       <raDataModel id="310" modelType="Richtext"/>
@@ -340,8 +335,8 @@
       <raDataModel id="570" modelType="Richtext"/>
       <raDataModel id="795" modelType="Richtext"/>
       <raDataModel id="843" modelType="Richtext"/>
-      <imageIdModel id="370" imageId="56000"/>
-      <imageIdModel id="434" imageId="61000"/>
+      <raImageModel id="370"/>
+      <raImageModel id="434"/>
       <raDataModel id="410" modelType="Richtext"/>
       <raDataModel id="460" modelType="Richtext"/>
       <raDataModel id="311" modelType="Richtext"/>
@@ -358,8 +353,8 @@
       <raDataModel id="571" modelType="Richtext"/>
       <raDataModel id="796" modelType="Richtext"/>
       <raDataModel id="844" modelType="Richtext"/>
-      <imageIdModel id="371" imageId="56000"/>
-      <imageIdModel id="435" imageId="61000"/>
+      <raImageModel id="371"/>
+      <raImageModel id="435"/>
       <raDataModel id="411" modelType="Richtext"/>
       <raDataModel id="461" modelType="Richtext"/>
       <raDataModel id="312" modelType="Richtext"/>
@@ -376,8 +371,8 @@
       <raDataModel id="572" modelType="Richtext"/>
       <raDataModel id="797" modelType="Richtext"/>
       <raDataModel id="845" modelType="Richtext"/>
-      <imageIdModel id="372" imageId="56000"/>
-      <imageIdModel id="436" imageId="61000"/>
+      <raImageModel id="372"/>
+      <raImageModel id="436"/>
       <raDataModel id="412" modelType="Richtext"/>
       <raDataModel id="462" modelType="Richtext"/>
       <raDataModel id="313" modelType="Richtext"/>
@@ -394,8 +389,8 @@
       <raDataModel id="573" modelType="Richtext"/>
       <raDataModel id="798" modelType="Richtext"/>
       <raDataModel id="846" modelType="Richtext"/>
-      <imageIdModel id="373" imageId="56000"/>
-      <imageIdModel id="437" imageId="61000"/>
+      <raImageModel id="373"/>
+      <raImageModel id="437"/>
       <raDataModel id="413" modelType="Richtext"/>
       <raDataModel id="463" modelType="Richtext"/>
       <raDataModel id="314" modelType="Richtext"/>
@@ -412,8 +407,8 @@
       <raDataModel id="574" modelType="Richtext"/>
       <raDataModel id="799" modelType="Richtext"/>
       <raDataModel id="847" modelType="Richtext"/>
-      <imageIdModel id="374" imageId="56000"/>
-      <imageIdModel id="438" imageId="61000"/>
+      <raImageModel id="374"/>
+      <raImageModel id="438"/>
       <raDataModel id="414" modelType="Richtext"/>
       <raDataModel id="464" modelType="Richtext"/>
       <raDataModel id="315" modelType="Richtext"/>
@@ -430,8 +425,8 @@
       <raDataModel id="575" modelType="Richtext"/>
       <raDataModel id="800" modelType="Richtext"/>
       <raDataModel id="848" modelType="Richtext"/>
-      <imageIdModel id="375" imageId="56000"/>
-      <imageIdModel id="439" imageId="61000"/>
+      <raImageModel id="375"/>
+      <raImageModel id="439"/>
       <raDataModel id="415" modelType="Richtext"/>
       <raDataModel id="465" modelType="Richtext"/>
       <raDataModel id="316" modelType="Richtext"/>
@@ -448,8 +443,8 @@
       <raDataModel id="576" modelType="Richtext"/>
       <raDataModel id="801" modelType="Richtext"/>
       <raDataModel id="849" modelType="Richtext"/>
-      <imageIdModel id="376" imageId="56000"/>
-      <imageIdModel id="440" imageId="61000"/>
+      <raImageModel id="376"/>
+      <raImageModel id="440"/>
       <raDataModel id="416" modelType="Richtext"/>
       <raDataModel id="466" modelType="Richtext"/>
       <raDataModel id="317" modelType="Richtext"/>
@@ -466,8 +461,8 @@
       <raDataModel id="577" modelType="Richtext"/>
       <raDataModel id="802" modelType="Richtext"/>
       <raDataModel id="850" modelType="Richtext"/>
-      <imageIdModel id="377" imageId="56000"/>
-      <imageIdModel id="441" imageId="61000"/>
+      <raImageModel id="377"/>
+      <raImageModel id="441"/>
       <raDataModel id="417" modelType="Richtext"/>
       <raDataModel id="467" modelType="Richtext"/>
       <raDataModel id="318" modelType="Richtext"/>
@@ -484,8 +479,8 @@
       <raDataModel id="578" modelType="Richtext"/>
       <raDataModel id="803" modelType="Richtext"/>
       <raDataModel id="851" modelType="Richtext"/>
-      <imageIdModel id="378" imageId="56000"/>
-      <imageIdModel id="442" imageId="61000"/>
+      <raImageModel id="378"/>
+      <raImageModel id="442"/>
       <raDataModel id="418" modelType="Richtext"/>
       <raDataModel id="468" modelType="Richtext"/>
       <raDataModel id="319" modelType="Richtext"/>
@@ -502,8 +497,8 @@
       <raDataModel id="579" modelType="Richtext"/>
       <raDataModel id="804" modelType="Richtext"/>
       <raDataModel id="852" modelType="Richtext"/>
-      <imageIdModel id="379" imageId="56000"/>
-      <imageIdModel id="443" imageId="61000"/>
+      <raImageModel id="379"/>
+      <raImageModel id="443"/>
       <raDataModel id="419" modelType="Richtext"/>
       <raDataModel id="469" modelType="Richtext"/>
       <raDataModel id="320" modelType="Richtext"/>
@@ -520,8 +515,8 @@
       <raDataModel id="580" modelType="Richtext"/>
       <raDataModel id="805" modelType="Richtext"/>
       <raDataModel id="853" modelType="Richtext"/>
-      <imageIdModel id="380" imageId="56000"/>
-      <imageIdModel id="444" imageId="61000"/>
+      <raImageModel id="380"/>
+      <raImageModel id="444"/>
       <raDataModel id="420" modelType="Richtext"/>
       <raDataModel id="470" modelType="Richtext"/>
       <raDataModel id="321" modelType="Richtext"/>
@@ -538,8 +533,8 @@
       <raDataModel id="581" modelType="Richtext"/>
       <raDataModel id="806" modelType="Richtext"/>
       <raDataModel id="854" modelType="Richtext"/>
-      <imageIdModel id="381" imageId="56000"/>
-      <imageIdModel id="445" imageId="61000"/>
+      <raImageModel id="381"/>
+      <raImageModel id="445"/>
       <raDataModel id="421" modelType="Richtext"/>
       <raDataModel id="471" modelType="Richtext"/>
       <raDataModel id="322" modelType="Richtext"/>
@@ -556,8 +551,8 @@
       <raDataModel id="582" modelType="Richtext"/>
       <raDataModel id="807" modelType="Richtext"/>
       <raDataModel id="855" modelType="Richtext"/>
-      <imageIdModel id="382" imageId="56000"/>
-      <imageIdModel id="446" imageId="61000"/>
+      <raImageModel id="382"/>
+      <raImageModel id="446"/>
       <raDataModel id="422" modelType="Richtext"/>
       <raDataModel id="472" modelType="Richtext"/>
       <raDataModel id="323" modelType="Richtext"/>
@@ -574,8 +569,8 @@
       <raDataModel id="583" modelType="Richtext"/>
       <raDataModel id="808" modelType="Richtext"/>
       <raDataModel id="856" modelType="Richtext"/>
-      <imageIdModel id="383" imageId="56000"/>
-      <imageIdModel id="447" imageId="61000"/>
+      <raImageModel id="383"/>
+      <raImageModel id="447"/>
       <raDataModel id="423" modelType="Richtext"/>
       <raDataModel id="473" modelType="Richtext"/>
       <raDataModel id="474" modelType="Richtext"/>
@@ -583,7 +578,6 @@
       <raDataModel id="91" modelType="Richtext"/>
       <raDataModel id="92" modelType="Richtext"/>
       <raDataModel id="93" modelType="Richtext"/>
-      <raDataModel id="103" modelType="Richtext"/>
       <raDataModel id="104" modelType="Richtext"/>
       <raDataModel id="105" modelType="Richtext"/>
       <raDataModel id="106" modelType="Richtext"/>
@@ -676,7 +670,6 @@
     </models>
     <events>
       <focusEvent id="60" target="971"/>
-      <focusEvent id="87" target="910"/>
       <focusEvent id="88" target="930"/>
     </events>
     <hmiStates>
@@ -5530,8 +5523,7 @@
         <components>
           <button id="2750" action="24" text="Choose gauges"/>
           <button id="2751" action="28" text="Gauge styles"/>
-          <button id="2752" action="14" text="Gauge colour"/>
-          <button id="2753" action="16" text="Shift point"/>
+          <button id="2752" action="16" text="Shift point"/>
         </components>
       </hmiState>
       <hmiState id="903" parentId="910" text="Diagnostics">
@@ -5561,20 +5553,6 @@
           <label id="1443" model="127"/>
           <label id="1444" model="128"/>
           <button id="1445" action="18" text="Yes, clear the engine's codes"/>
-        </components>
-      </hmiState>
-      <hmiState id="940" parentId="902" text="Gauge colour">
-        <components>
-          <label id="190" model="103"/>
-          <button id="191" action="40" text="BMW Orange"/>
-          <button id="192" action="41" text="Blue"/>
-          <button id="193" action="42" text="Green"/>
-          <button id="194" action="43" text="White"/>
-          <button id="195" action="44" text="Purple"/>
-          <button id="196" action="45" text="Pink"/>
-          <button id="197" action="46" text="Cyan"/>
-          <button id="198" action="47" text="Red"/>
-          <button id="199" action="48" text="Multicolour"/>
         </components>
       </hmiState>
       <hmiState id="950" parentId="902" text="Shift point">

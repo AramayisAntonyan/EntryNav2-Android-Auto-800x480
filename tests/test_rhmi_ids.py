@@ -35,7 +35,9 @@ def check_app(name, path):
     ids = {}
     for section in ("models", "actions", "events"):
         node = app.find(section)
-        counted = Counter(e.get("id") for e in node) if node is not None else Counter()
+        # a combinedAction's own actions are in the same table: counted too
+        members = [e for e in node.iter() if e is not node and e.get("id")] if node is not None else []
+        counted = Counter(e.get("id") for e in members)
         dups = sorted(k for k, n in counted.items() if n > 1)
         check(not dups, f"{name}: {section} ids used twice: {dups}")
         ids[section] = set(counted)
@@ -60,7 +62,7 @@ def check_app(name, path):
             ref = c.get("action")
             check(not ref or ref in ids["actions"], f"{name}: component {c.get('id')} action {ref} missing")
     events = app.find("events")
-    for e in list(app.find("actions")) + (list(events) if events is not None else []):
+    for e in list(app.find("actions").iter()) + (list(events) if events is not None else []):
         ref = e.get("target")
         check(not ref or ref in states, f"{name}: {e.tag} {e.get('id')} target state {ref} missing")
 

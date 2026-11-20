@@ -25,7 +25,6 @@ TILE_Y = (8, 196)
 TILE_W, TILE_H = 189, 180
 WIDE_W = TILE_X[1] + TILE_W - TILE_X[0]  # 386: two cells across
 TALL_H = TILE_Y[1] + TILE_H - TILE_Y[0]  # 368: two cells high
-COLOURS = ("BMW Orange", "Blue", "Green", "White", "Purple", "Pink", "Cyan", "Red", "Multicolour")
 SHIFT_POINTS = (5000, 5500, 6000, 6500)
 # The Car tests page (hmiapp/gauge_app.cpp kCarTests, same order): one raAction each, from 50.
 CAR_TESTS = (
@@ -62,7 +61,7 @@ OPTIONS = (
     (27, 903, "Diagnostics"),
 )
 VIEWS = (910, 911, 912, 980, 920)
-SETTINGS = ((24, 960, "Choose gauges"), (28, 961, "Gauge styles"), (14, 940, "Gauge colour"), (16, 950, "Shift point"))
+SETTINGS = ((24, 960, "Choose gauges"), (28, 961, "Gauge styles"), (16, 950, "Shift point"))
 DIAGNOSTICS = ((13, 930, "Engine fault codes"), (26, 970, "Car tests"))
 
 # Each look's components at cell c (gauge_ids.hpp kLookImage0, kLookTitleComp0, kLookValueComp0) and label models
@@ -203,32 +202,35 @@ def main():
     for c in range(CELLS):
         models += [f'      <raDataModel id="{m + c}" modelType="Richtext"/>' for m in LOOK_TITLE + LOOK_VALUE]
         models += [
-            f'      <imageIdModel id="{FRONT + c}" imageId="56000"/>',
-            f'      <imageIdModel id="{BACK + c}" imageId="61000"/>',
+            # the gauge pictures come from the app (CarGauges_Art.pack), not from iDrive's image archive
+            f'      <raImageModel id="{FRONT + c}"/>',
+            f'      <raImageModel id="{BACK + c}"/>',
             f'      <raDataModel id="{400 + c}" modelType="Richtext"/>',
             f'      <raDataModel id="{STYLE_ROW_MODEL + c}" modelType="Richtext"/>',
         ]
     models.append(f'      <raDataModel id="{STYLE_NOTE}" modelType="Richtext"/>')
     models.append('      <imageIdModel id="90" imageId="57000"/>')
-    models += [
-        f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (91, 92, 93, 103, 104, 105, 106, 107, 108)
-    ]
+    models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (91, 92, 93, 104, 105, 106, 107, 108)]
     models += [f'      <raDataModel id="{95 + i}" modelType="Richtext"/>' for i in range(8)]
     models += [f'      <raBoolModel id="{600 + i}"/>' for i in range(len(entries))]
     models += [f'      <raDataModel id="{109 + i}" modelType="Richtext"/>' for i in range(1 + TEST_LINES)]
     models += ['      <raBoolModel id="125"/>', '      <raDataModel id="126" modelType="Richtext"/>']
     models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (127, 128)]  # the clear's page
 
-    # The entry is an raAction (11): the app notes the dashboard opens and opens it with focusEvent 87.
+    # The entry is a combinedAction (11): raAction 19 tells the app, hmiAction 20 opens the dashboard. An entry's
+    # plain raAction never reached the app on the car (My Vehicle, 2026-11-20).
     nav = [(a, t) for a, t, _ in OPTIONS + SETTINGS + DIAGNOSTICS] + [(17, 931)]  # 17: fault codes -> clear page
-    actions = [f'      <hmiAction id="{a}" target="{t}"/>' for a, t in nav]
-    actions += [f'      <raAction id="{a}"/>' for a in (11, 18, 30, 31, 32, 33, 35, 36, 37, *range(40, 49))]
+    actions = [
+        '      <combinedAction id="11">\n        <actions>\n          <raAction id="19"/>\n'
+        '          <hmiAction id="20" target="910"/>\n        </actions>\n      </combinedAction>'
+    ]
+    actions += [f'      <hmiAction id="{a}" target="{t}"/>' for a, t in nav]
+    actions += [f'      <raAction id="{a}"/>' for a in (18, 30, 31, 32, 33, 35, 36, 37)]
     actions += [f'      <raAction id="{700 + i}"/>' for i in range(len(entries))]
     actions += [f'      <raAction id="{50 + i}"/>' for i in range(len(CAR_TESTS))]
     actions += [f'      <raAction id="{STYLE_ROW_ACTION + i}"/>' for i in range(CELLS)]
     events = (
         '      <focusEvent id="60" target="971"/>\n'  # a car test started: its results page
-        '      <focusEvent id="87" target="910"/>\n'  # the entry: the dashboard
         '      <focusEvent id="88" target="930"/>'  # the clear started: the codes page shows its result
     )
 
@@ -269,8 +271,6 @@ def main():
     # The clear asks first: what it does, then the one button that sends it (iDrive's Back leaves without).
     clear = labelrow(1443, 127) + labelrow(1444, 128) + button(1445, 18, "Yes, clear the engine's codes")
     states += state(931, "Clear engine codes?", clear, parent=930)
-    colours = labelrow(190, 103) + "".join(button(191 + i, 40 + i, n) for i, n in enumerate(COLOURS))
-    states += state(940, "Gauge colour", colours, parent=902)
     points = labelrow(234, 104) + "".join(
         button(230 + i, 30 + i, f"Shift at {rpm} rpm") for i, rpm in enumerate(SHIFT_POINTS)
     )

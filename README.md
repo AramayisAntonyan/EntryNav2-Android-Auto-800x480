@@ -114,7 +114,7 @@ yet**. They pass the PC and QEMU tests only.
 - **The firewall rules for the diagnostic gateway** (`/etc/firewall/entry-aad.rules`): the head unit's own firewall
   drops connections to the gateway's diagnostic port, which is likely why the engine values never connected (below).
 - **Gauge looks and the new Gauges menus**: the entry opens the dashboard straight away; *OPTION* holds Dashboard 2
-  and 3, Live values, Shift light, *Gauge settings* (Choose gauges, Gauge styles, colour, shift point) and
+  and 3, Live values, Shift light, *Gauge settings* (Choose gauges, Gauge styles, shift point) and
   *Diagnostics* (engine values switch, fault codes, car tests). Dials, wide and tall bars and the icons are new.
 - **Clearing the engine's fault codes** (Gauges, *Diagnostics*, *Engine fault codes*, *Clear the codes...*, then *Yes*): clears the
   DME's fault memory (UDS `14 FF FF FF`, the extended session only if the DME asks for it), then reads the codes again.
@@ -246,8 +246,8 @@ This fork exists only because of the people below, who did the hard work and sha
   ported here with tom-pryor's guidance rules and junction view (#157, #162), *directions at any distance* (#205),
   and pstryju's fragment reassembly fix (#223).
 - **[inotbarnacle/ID6_apps_prerelease](https://github.com/inotbarnacle/ID6_apps_prerelease)** (ID6 apps) by
-  inotbarnacle: the Gauges app follows its BoostDeck and ShiftDeck (cards, the tall bar, colour palette, pre-drawn
-  bars switched by image id, a worker process for diagnostics), uses its DME identifiers, and the MOST diagnosis tunnel test follows
+  inotbarnacle: the Gauges app follows its BoostDeck and ShiftDeck (cards, the tall bar, pre-drawn bars switched
+  by image id, a worker process for diagnostics), uses its DME identifiers, and the MOST diagnosis tunnel test follows
   its MOST fallback's message format.
 - **[BimmerGestalt/AAIdrive](https://github.com/BimmerGestalt/AAIdrive)** by the BimmerGestalt team: the Gauges app
   reads the iDrive's car data (CDS) at the JSON paths its `CDSMetrics.kt` uses.

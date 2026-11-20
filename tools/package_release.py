@@ -33,6 +33,7 @@ GAUGES_FILES = (
     "CarGauges.manifest",
     "CarGauges.xml",
     "CarGauges_ALL_Images.zip",
+    "CarGauges_Art.pack",  # the gauge pictures the app sends itself (iDrive refuses a big image archive)
 )
 # The firewall rules that let the Gauges app reach the diagnostic gateway: BMW's iptables-firewall runs every
 # /etc/firewall/*.rules file at start-up (the unit's own rules drop the gateway's ports).

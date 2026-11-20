@@ -14,7 +14,6 @@
 //                    OBD values and BMW engine values from the DME (gauge-collector, through the diagnostic gateway);
 //                    OBD values the DME does not support (/var/local/data/AA/gauges-supported) are hidden
 //     Gauge styles   one row per ticked gauge: a press gives it the next look
-//     Gauge colour   8 colours or one per gauge
 //     Shift point
 //   Diagnostics:
 //     Engine values (DME) switch and its state line
@@ -22,7 +21,8 @@
 //                    opens a page that says what clearing does, whose one button clears the DME's fault memory
 //                    (gauge-collector --clear, the owner's choice 2026-11-19), then shows the codes left
 //     Car tests      a list of on-car tests; a press starts one and opens Test results
-// Kept in /var/local/data/AA: gauges-choice (the ticks), gauges-style (the looks), gauges-colour, gauges-shift. DME
+// Kept in /var/local/data/AA: gauges-choice (the ticks), gauges-style (the looks), gauges-shift. Red needles and white
+// bars (no colour setting). The gauge pictures come from CarGauges_Art.pack (see setArt). DME
 // values only once the owner created gauges-dme ("demo" in it: synthetic values) and the gateway's address is in
 // gateway-ip.
 //
@@ -73,7 +73,8 @@ const char kDmeFile[] = "/var/local/data/AA/gauges-dme";
 const char kGatewayFile[] = "/var/local/data/AA/gateway-ip";
 const char kChoiceFile[] = "/var/local/data/AA/gauges-choice";
 const char kSupportedFile[] = "/var/local/data/AA/gauges-supported";
-const char kColourFile[] = "/var/local/data/AA/gauges-colour";
+const char kArtPack[] = "/opt/hmi/data/ro/Plugins/CarGauges/CarGauges_Art.pack";
+const char kArtDir[] = "/tmp/gauge-art";  // pictures unpacked on first use (RAM), sent by path
 const char kShiftFile[] = "/var/local/data/AA/gauges-shift";
 const char kStyleFile[] = "/var/local/data/AA/gauges-style";
 const char kCollector[] = "/opt/hmi/data/ro/Plugins/CarGauges/gauge-collector";
@@ -84,7 +85,6 @@ const unsigned kModels = 1024;  // every text and image model id is below this
 
 bmw::PluginApp* g_app = nullptr;
 unsigned g_page = 0;  // the state shown, 0: none of ours
-unsigned g_colour = 0;
 unsigned g_shiftPoint = 2;
 
 // Every catalogue entry's latest value: CDS from the iDrive, DME from the collector's frames.
@@ -128,6 +128,89 @@ void setImage(unsigned model, unsigned image) {
     g_shownImage[model] = image;
 }
 
+// ---- the pictures of CarGauges_Art.pack
+// ------------------------------------------------------------------------------- iDrive refuses an image archive
+// of 1.5 MB or more (the app then never opens), so every gauge picture is in a pack of our own: "GART", a count, then
+// (id, offset, length) per picture, then the PNGs (hmiapp/make_db.py write_art). A picture is written to
+// /tmp/gauge-art/<id>.png the first time it is needed and sent through an raImageModel by its path, as Android Auto's
+// album cover is.
+int g_packFd = -1;
+struct ArtPlace {
+    uint32_t offset, length;
+};
+ArtPlace g_art[kArtIds];  // length 0: not in the pack
+bool g_artWritten[kArtIds];
+
+void openArt() {
+    g_packFd = open(kArtPack, O_RDONLY | O_CLOEXEC);
+    unsigned char head[8];
+    if (g_packFd < 0 || pread(g_packFd, head, 8, 0) != 8 || memcmp(head, "GART", 4) != 0) {
+        alog("gauges: no picture pack %s: the gauges show no pictures", kArtPack);
+        return;
+    }
+    uint32_t count = 0;
+    memcpy(&count, head + 4, 4);
+    unsigned found = 0;
+    for (uint32_t i = 0; i < count && i < 65536; ++i) {
+        uint32_t entry[3];
+        if (pread(g_packFd, entry, sizeof(entry), 8 + 12 * static_cast<off_t>(i)) != sizeof(entry)) {
+            break;
+        }
+        if (entry[0] >= kArtFirst && entry[0] < kArtFirst + kArtIds) {
+            g_art[entry[0] - kArtFirst] = ArtPlace{entry[1], entry[2]};
+            ++found;
+        }
+    }
+    mkdir(kArtDir, 0755);
+    alog("gauges: picture pack: %u pictures", found);
+}
+
+// The picture's file, unpacked if needed; false when the pack lacks it or the write failed.
+bool artPath(unsigned id, char* path, size_t cap) {
+    if (id < kArtFirst || id >= kArtFirst + kArtIds || g_packFd < 0) {
+        return false;
+    }
+    const ArtPlace& a = g_art[id - kArtFirst];
+    if (a.length == 0 || a.length > (1u << 20)) {
+        return false;
+    }
+    snprintf(path, cap, "%s/%u.png", kArtDir, id);
+    if (g_artWritten[id - kArtFirst]) {
+        return true;
+    }
+    char* data = static_cast<char*>(malloc(a.length));
+    bool ok = data && pread(g_packFd, data, a.length, a.offset) == static_cast<ssize_t>(a.length);
+    if (ok) {
+        char tmp[64];
+        snprintf(tmp, sizeof(tmp), "%s/%u.tmp", kArtDir, id);
+        FILE* f = fopen(tmp, "wb");
+        ok = f && fwrite(data, 1, a.length, f) == a.length;
+        if (f) {
+            ok = fclose(f) == 0 && ok;
+        }
+        ok = ok && rename(tmp, path) == 0;
+    }
+    free(data);
+    g_artWritten[id - kArtFirst] = ok;
+    return ok;
+}
+
+// An raImageModel shows the pack's picture `id` (sent only when it changes).
+void setArt(unsigned model, unsigned id) {
+    if (!g_app || model >= kModels || g_shownImage[model] == id) {
+        return;
+    }
+    char path[64];
+    if (!artPath(id, path, sizeof(path))) {
+        return;
+    }
+    bmw::Image image{bmw::BasicString<char>(path)};
+    if (image.isLoaded()) {
+        g_app->updateModel(model, image);
+        g_shownImage[model] = id;
+    }
+}
+
 // Visibility as last set: -1 unknown, 0 hidden, 1 shown.
 int g_lookShown[kLooks][kCards];  // a look's pictures at a cell
 int g_liveShown[kCards];          // the Live values rows
@@ -157,17 +240,8 @@ void showComponent(unsigned component, bool visible, int* shown) {
     }
 }
 
-unsigned colourOf(unsigned cell) {
-    return g_colour == kMulticolour ? cell % kColours : g_colour;
-}
-
-unsigned barImage(unsigned cell, unsigned level) {
-    return kImgBar0 + colourOf(cell) * kBarColourStride + (level < kBarLevels ? level : kBarLevels - 1);
-}
-
-// A big look's front picture (needle or bar) for a level of kFineLevels.
-unsigned fineImage(unsigned first, unsigned cell, unsigned level) {
-    return first + colourOf(cell) * kFineStride + (level < kFineLevels ? level : kFineLevels - 1);
+unsigned barImage(unsigned level) {
+    return kImgBar0 + (level < kBarLevels ? level : kBarLevels - 1);
 }
 
 // ---- small files
@@ -511,32 +585,32 @@ void showCell(unsigned c) {
     const unsigned fine = ok ? levelOf(entry, g_value[e], kFineLevels) : 0;
     switch (look) {
         case kLookDial:
-            setImage(kCardBack0 + c, kImgFace0 + e);
-            setImage(kCardBar0 + c, kImgNeedle0 + fine);
+            setArt(kCardBack0 + c, kImgFace0 + e);
+            setArt(kCardBar0 + c, kImgNeedle0 + fine);
             break;
         case kLookWide:
-            setImage(kCardBack0 + c, kImgWideTrack0 + e);
-            setImage(kCardBar0 + c, fineImage(kImgWideBar0, c, fine));
+            setArt(kCardBack0 + c, kImgWideTrack0 + e);
+            setArt(kCardBar0 + c, kImgWideBar0 + fine);
             break;
         case kLookWideDial:
-            setImage(kCardBack0 + c, kImgWideFace0 + e);
-            setImage(kCardBar0 + c, kImgWideNeedle0 + fine);
+            setArt(kCardBack0 + c, kImgWideFace0 + e);
+            setArt(kCardBar0 + c, kImgWideNeedle0 + fine);
             break;
         case kLookArc:
-            setImage(kCardBack0 + c, kImgArcFace0 + e);
-            setImage(kCardBar0 + c, kImgArcNeedle0 + fine);
+            setArt(kCardBack0 + c, kImgArcFace0 + e);
+            setArt(kCardBar0 + c, kImgArcNeedle0 + fine);
             break;
         case kLookWideArc:
-            setImage(kCardBack0 + c, kImgWideArcFace0 + e);
-            setImage(kCardBar0 + c, kImgWideArcNeedle0 + fine);
+            setArt(kCardBack0 + c, kImgWideArcFace0 + e);
+            setArt(kCardBar0 + c, kImgWideArcNeedle0 + fine);
             break;
         case kLookTall:
-            setImage(kCardBack0 + c, kImgTallTrack0 + e);
-            setImage(kCardBar0 + c, fineImage(kImgTallBar0, c, fine));
+            setArt(kCardBack0 + c, kImgTallTrack0 + e);
+            setArt(kCardBar0 + c, kImgTallBar0 + fine);
             break;
         default:
-            setImage(kCardBack0 + c, kImgCardIcon0 + e);
-            setImage(kCardBar0 + c, barImage(c, ok ? barLevel(entry, g_value[e]) : 0));
+            setArt(kCardBack0 + c, kImgCardIcon0 + e);
+            setArt(kCardBar0 + c, barImage(ok ? barLevel(entry, g_value[e]) : 0));
             break;
     }
 }
@@ -704,10 +778,6 @@ void refresh() {
         showShift();
     } else if (g_page == kChooseState) {
         showChoose();
-    } else if (g_page == kColourState) {
-        char text[48];
-        snprintf(text, sizeof(text), "Selected: %s", kColourNames[g_colour]);
-        setText(kColourSelected, text);
     } else if (g_page == kShiftPointState) {
         char text[48];
         snprintf(text, sizeof(text), "Selected: %u rpm", kShiftPoints[g_shiftPoint]);
@@ -1014,12 +1084,11 @@ void pageVisible(unsigned state, bool visible) {
     refresh();
 }
 
-// The entry: the dashboard is about to show (opened by the focusEvent below). Its own visibility notice may never
-// come (the old first page, opened by the entry, never sent one): it is treated as shown from here.
+// The entry: the combinedAction's raAction, its hmiAction opens the dashboard. The dashboard's own visibility notice
+// may never come (the old first page, opened by the entry, never sent one): it is treated as shown from here.
 bool onEntry(void*, const bmw::Parcel&) {
     alog("gauges: entry pressed: dashboard");
     pageVisible(kDashState0, true);
-    g_app->triggerEvent(kEvDash);
     return true;
 }
 
@@ -1052,17 +1121,6 @@ struct LookActions<0> {
 template <unsigned State>
 bool onVisible(void*, const bmw::Parcel& value) {
     pageVisible(State, parcelBool(value));
-    return true;
-}
-
-template <unsigned Colour>
-bool onColour(void*, const bmw::Parcel&) {
-    g_colour = Colour;
-    char text[8];
-    snprintf(text, sizeof(text), "%u", Colour);
-    writeLine(kColourFile, text);
-    alog("gauges: colour %s", kColourNames[Colour]);
-    refresh();
     return true;
 }
 
@@ -1258,14 +1316,8 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     }
     addStateHandler(self, kShiftState, kHandlerVisible, &onVisible<kShiftState>);
     addStateHandler(self, kCodesState, kHandlerVisible, &onVisible<kCodesState>);
-    addStateHandler(self, kColourState, kHandlerVisible, &onVisible<kColourState>);
     addStateHandler(self, kShiftPointState, kHandlerVisible, &onVisible<kShiftPointState>);
     addStateHandler(self, kChooseState, kHandlerVisible, &onVisible<kChooseState>);
-    static const ActionStub kColour[] = {&onColour<0>, &onColour<1>, &onColour<2>, &onColour<3>, &onColour<4>,
-                                         &onColour<5>, &onColour<6>, &onColour<7>, &onColour<8>};
-    for (unsigned i = 0; i < sizeof(kColour) / sizeof(kColour[0]); ++i) {
-        addAction(self, kActColour0 + i, kColour[i]);
-    }
     static const ActionStub kPoint[] = {&onShiftPoint<0>, &onShiftPoint<1>, &onShiftPoint<2>, &onShiftPoint<3>};
     for (unsigned i = 0; i < 4; ++i) {
         addAction(self, kActShiftPoint0 + i, kPoint[i]);
@@ -1285,17 +1337,16 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     addAction(self, kActDme, &onDmeToggle);
     ChoiceActions<kEntryCount>::add(self);
     LookActions<kLookRows>::add(self);
-    g_colour = readIndex(kColourFile, kColours + 1, 0);
     g_shiftPoint = readIndex(kShiftFile, sizeof(kShiftPoints) / sizeof(kShiftPoints[0]), 2);
     loadChoice();
     loadLooks();
     assignCards();
     collectProperties();
     openUdp();
+    openArt();
     const bool ok = self->onInit();
     showClearNotes();
-    alog("gauges: onInit -> %d, %u catalogue entries, colour %s", static_cast<int>(ok), kEntryCount,
-         kColourNames[g_colour]);
+    alog("gauges: onInit -> %d, %u catalogue entries", static_cast<int>(ok), kEntryCount);
     makeRunnable(g_pollRunnable, &pollRun);
     makeRunnable(g_subRunnable, &subscribeRun);
     postRunnable(self, g_subRunnable, 1500);  // as the Android Auto app: CDS once the app runs

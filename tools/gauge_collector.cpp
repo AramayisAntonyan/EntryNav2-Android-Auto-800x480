@@ -100,7 +100,9 @@ int readEntry(int fd, const Entry& e, double* value, bool trace) {
             printf(" %02X", reply[i]);
         }
         if (ok) {
-            printf(" -> %.3f %s\n", *value, e.unit);
+            // boost comes as absolute kPa; the gauge shows it minus the ambient pressure, in bar
+            const bool boost = e.source == catalogue::kDid && e.code == kBoostDid;
+            printf(" -> %.3f %s\n", *value, boost ? "kPa absolute" : e.unit);
         } else {
             printf(" -> not decoded (length, sentinel or out of range)\n");
         }
