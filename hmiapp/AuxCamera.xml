@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The Camera app (hmiapp/camera_app.cpp): an EasyCap grabber's picture under My Vehicle. Ids: camera_ids.hpp. -->
+<pluginApps>
+  <pluginApp applicationType="VehicleInformation" applicationWeight="2" text="Camera">
+    <entryButton id="1" action="11" imageModel="4" previewModel="5">
+      <properties>
+        <property id="23" value="2"/>
+      </properties>
+    </entryButton>
+    <actions>
+      <combinedAction id="11">
+        <actions>
+          <raAction id="19"/>
+          <hmiAction id="20" target="710"/>
+        </actions>
+      </combinedAction>
+      <raAction id="30"/>
+      <raAction id="31"/>
+      <raAction id="32"/>
+      <raAction id="33"/>
+    </actions>
+    <models>
+      <imageIdModel id="4" imageId="54001"/>
+      <raPreviewModel id="5" modelType="StatePreview" previewState="700"/>
+      <imageIdModel id="6" imageId="54002"/>
+      <raImageModel id="40"/>
+      <raImageModel id="41"/>
+      <raImageModel id="42"/>
+      <raDataModel id="50" modelType="Richtext"/>
+      <raDataModel id="51" modelType="Richtext"/>
+    </models>
+    <hmiStates>
+      <hmiState id="700" text="Camera">
+        <components>
+          <image id="89" model="6">
+            <properties>
+              <property id="20" value="0"/>
+              <property id="21" value="0"/>
+              <property id="9" value="549"/>
+              <property id="10" value="484"/>
+              <property id="3" value="true"/>
+            </properties>
+          </image>
+        </components>
+      </hmiState>
+      <hmiState id="710" text="Camera">
+        <optionComponents>
+          <button id="120" action="30" text="Picture 480 x 320"/>
+          <button id="121" action="31" text="Picture 640 x 480"/>
+          <button id="122" action="32" text="Picture 720 x 480"/>
+          <button id="123" action="33" text="Restart the capture"/>
+        </optionComponents>
+        <components>
+          <image id="100" model="40">
+            <properties>
+              <property id="20" value="160"/>
+              <property id="21" value="24"/>
+              <property id="9" value="480"/>
+              <property id="10" value="320"/>
+              <property id="3" value="false"/>
+            </properties>
+          </image>
+          <image id="101" model="41">
+            <properties>
+              <property id="20" value="155"/>
+              <property id="21" value="8"/>
+              <property id="9" value="491"/>
+              <property id="10" value="368"/>
+              <property id="3" value="false"/>
+            </properties>
+          </image>
+          <image id="102" model="42">
+            <properties>
+              <property id="20" value="124"/>
+              <property id="21" value="8"/>
+              <property id="9" value="552"/>
+              <property id="10" value="368"/>
+              <property id="3" value="false"/>
+            </properties>
+          </image>
+          <label id="110" model="50">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="160"/>
+              <property id="9" value="760"/>
+              <property id="10" value="55"/>
+            </properties>
+          </label>
+          <label id="111" model="51">
+            <properties>
+              <property id="20" value="20"/>
+              <property id="21" value="380"/>
+              <property id="9" value="760"/>
+              <property id="10" value="40"/>
+            </properties>
+          </label>
+        </components>
+      </hmiState>
+    </hmiStates>
+  </pluginApp>
+</pluginApps>

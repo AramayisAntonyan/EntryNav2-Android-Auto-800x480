@@ -52,6 +52,7 @@ CASES = [
     ("wireless-phone", "tests/test-wireless-phone-arm", [str(ROOT / "tests/fixtures/wireless_phone.golden")], None),
     ("hmi-load", "tests/test-hmiapp-load-arm", [str(ROOT / "hmiapp/libEntryAad.so")], None),
     ("hmi-load-gauges", "tests/test-hmiapp-load-arm", [str(ROOT / "hmiapp/libCarGauges.so"), "Gauges"], None),
+    ("hmi-load-camera", "tests/test-hmiapp-load-arm", [str(ROOT / "hmiapp/libAuxCamera.so"), "Camera"], None),
     ("car-test-selftest", "hmiapp/car-test", ["--selftest"], "calls, OK"),
     (
         "gauge-collector-demo",

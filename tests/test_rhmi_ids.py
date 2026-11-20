@@ -3,7 +3,8 @@
 """The iDrive apps' descriptions: no id used twice, every reference resolves, no image id shared between the apps.
 
 A duplicate model id (40, the NativeStateID model and a checkbox model) once reached the car; iDrive's parser does not
-complain, it just binds one of them. Checks hmiapp/EntryAad.xml and the Gauges description make_gauges_xml.py writes.
+complain, it just binds one of them. Checks hmiapp/EntryAad.xml, the Gauges description make_gauges_xml.py writes
+and hmiapp/AuxCamera.xml.
 """
 
 import subprocess
@@ -67,16 +68,37 @@ def check_app(name, path):
         check(not ref or ref in states, f"{name}: {e.tag} {e.get('id')} target state {ref} missing")
 
 
+def camera_image_ids():
+    """The image ids the Camera app's XML names (imageIdModel) and its archive holds: 54001 and up only."""
+    app = ET.parse(ROOT / "hmiapp/AuxCamera.xml").getroot().find("pluginApp")
+    return {e.get("imageId") for e in app.iter("imageIdModel")}
+
+
+def check_camera_images(archives):
+    named = camera_image_ids()
+    check(all(54001 <= int(i) < 55000 for i in named), f"AuxCamera: image ids outside 54001..54999: {sorted(named)}")
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run([sys.executable, "-I", str(ROOT / "hmiapp/make_camera_db.py"), tmp], check=True)
+        held = {n[:-4] for n in zipfile.ZipFile(Path(tmp) / "AuxCamera_ALL_Images.zip").namelist()}
+    check(named <= held, f"AuxCamera: images named but not in its archive: {sorted(named - held)}")
+    for a in archives:
+        if a.is_file():
+            shared = held & {n[:-4] for n in zipfile.ZipFile(a).namelist()}
+            check(not shared, f"image ids in AuxCamera and {a.name}: {sorted(shared)}")
+
+
 def main():
     check_app("EntryAad", ROOT / "hmiapp/EntryAad.xml")
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "CarGauges.xml"
         subprocess.run([sys.executable, "-I", str(ROOT / "hmiapp/make_gauges_xml.py"), str(out)], check=True)
         check_app("CarGauges", out)
+    check_app("AuxCamera", ROOT / "hmiapp/AuxCamera.xml")
     archives = [ROOT / "hmiapp/EntryAad_ALL_Images.zip", ROOT / "hmiapp/CarGauges_ALL_Images.zip"]
     if all(a.is_file() for a in archives):
         shared = set(zipfile.ZipFile(archives[0]).namelist()) & set(zipfile.ZipFile(archives[1]).namelist())
         check(not shared, f"image ids in both apps: {sorted(shared)}")
+    check_camera_images(archives)
     for f in failures:
         print("FAIL", f)
     print("PASS rhmi ids" if not failures else f"{len(failures)} failure(s)")

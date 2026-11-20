@@ -35,6 +35,9 @@ GAUGES_FILES = (
     "CarGauges_ALL_Images.zip",
     "CarGauges_Art.pack",  # the gauge pictures the app sends itself (iDrive refuses a big image archive)
 )
+# The Camera app under My Vehicle (hmiapp/camera_app.cpp): an EasyCap grabber's picture, a third iDrive app.
+CAMERA = "opt/hmi/data/ro/Plugins/AuxCamera"
+CAMERA_FILES = ("libAuxCamera.so", "AuxCamera.manifest", "AuxCamera.xml", "AuxCamera_ALL_Images.zip")
 # The firewall rules that let the Gauges app reach the diagnostic gateway: BMW's iptables-firewall runs every
 # /etc/firewall/*.rules file at start-up (the unit's own rules drop the gateway's ports).
 FIREWALL_RULES = "etc/firewall/entry-aad.rules"
@@ -44,6 +47,7 @@ EXECUTABLES = {f"opt/aa/{name}" for name in PROGRAMS} | {
     f"{GAUGES}/libCarGauges.so",
     f"{GAUGES}/gauge-collector",
     f"{GAUGES}/car-test",
+    f"{CAMERA}/libAuxCamera.so",
 }
 
 
@@ -70,7 +74,9 @@ def release_files() -> dict:
     subprocess.run(
         [sys.executable, "-I", str(ROOT / "hmiapp/make_gauges_xml.py"), str(ROOT / "hmiapp/CarGauges.xml")], check=True
     )
+    subprocess.run([sys.executable, "-I", str(ROOT / "hmiapp/make_camera_db.py"), str(ROOT / "hmiapp")], check=True)
     files = {f"{PLUGIN}/{name}": (ROOT / "hmiapp" / name).read_bytes() for name in PLUGIN_FILES}
+    files.update({f"{CAMERA}/{name}": (ROOT / "hmiapp" / name).read_bytes() for name in CAMERA_FILES})
     files.update({f"{GAUGES}/{name}": (ROOT / "hmiapp" / name).read_bytes() for name in GAUGES_FILES})
     files[FIREWALL_RULES] = (ROOT / "tools/entry-aad-firewall.rules").read_bytes()
     for lib in (
@@ -78,6 +84,7 @@ def release_files() -> dict:
         f"{GAUGES}/libCarGauges.so",
         f"{GAUGES}/gauge-collector",
         f"{GAUGES}/car-test",
+        f"{CAMERA}/libAuxCamera.so",
     ):
         if not files[lib].startswith(b"\x7fELF"):
             raise SystemExit(f"FAIL: {lib} is not an ARM build")

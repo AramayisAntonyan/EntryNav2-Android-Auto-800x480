@@ -51,7 +51,7 @@ SUPERVISOR_OBJ = tools/aa_supervisor.o platform/evo_spp_snapshot.o platform/alps
             platform/vmost_client.o platform/usb_accessory.o
 CHECK_OBJ = tools/evo_check.o platform/alps_spp.o platform/alps_spp_codec.o platform/evo_process.o
 CAPTURE_OBJ = tools/evo_capture.o
-UVC_OBJ = tools/uvc_probe.o
+UVC_OBJ = tools/uvc_probe.o platform/uvc_usbfs.o
 ARM_OBJ = $(sort $(DAEMON_OBJ) $(PLATFORM_OBJ) $(SUPERVISOR_OBJ) $(CHECK_OBJ) $(CAPTURE_OBJ) $(UVC_OBJ))
 # The service's modules tests/test_wireless_lifecycle.cpp links around its fake Alps link and handshake.
 LIFECYCLE_OBJ = $(PLATFORM_OBJ) platform/evo_touch.o platform/evo_knob.o platform/vmost_client.o platform/evo_control.o \
@@ -108,6 +108,20 @@ hmiapp/libCarGauges.so: $(GAUGE_OBJ)
 	$(CXX) $(CXXFLAGS) -fPIC -shared -Wl,-soname,libCarGauges.so $^ -o $@ \
 	    $(LDSHLIB) $(HMI_LIBDIRS) -l:libAppFramework.A.so -l:libCoreFramework.A.so -lpthread -ldl -lrt
 
+# The Camera app under My Vehicle (hmiapp/camera_app.cpp): a third iDrive app, an EasyCap grabber's picture through
+# usbfs (platform/uvc_usbfs.cpp, compiled position independent and hidden for it).
+CAMERA_OBJ = hmiapp/camera_app.o hmiapp/uvc_usbfs_pic.o hmiapp/bmw_framework.o hmiapp/app_log.o
+hmiapp: hmiapp/libAuxCamera.so
+hmiapp/camera_app.o: hmiapp/camera_app.cpp
+	$(CXX) $(CXXFLAGS) -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -MMD -MP -c $< -o $@
+hmiapp/uvc_usbfs_pic.o: platform/uvc_usbfs.cpp
+	$(CXX) $(CXXFLAGS) -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -MMD -MP -c $< -o $@
+hmiapp/libAuxCamera.so: $(CAMERA_OBJ)
+	$(CXX) $(CXXFLAGS) -fPIC -shared -Wl,-soname,libAuxCamera.so $^ -o $@ \
+	    $(LDSHLIB) $(HMI_LIBDIRS) -l:libAppFramework.A.so -l:libCoreFramework.A.so -lpthread -ldl -lrt
+test-hmiapp-arm-build: hmiapp/libAuxCamera.so
+-include hmiapp/camera_app.d hmiapp/uvc_usbfs_pic.d
+
 # Read-only diagnostics, run by hand on the car; neither is part of a release.
 dev-tools: evo-check evo-capture uvc-probe
 evo-check: $(CHECK_OBJ)
@@ -116,7 +130,7 @@ evo-check: $(CHECK_OBJ)
 evo-capture: $(CAPTURE_OBJ)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDSHLIB) -lrt
 uvc-probe: $(UVC_OBJ)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDSHLIB)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDSHLIB) -lrt
 
 # Checks run on the PC. verify_binary and verify_wireless need the ARM programs and the copy of the car's system.
 verify_repo:
@@ -197,6 +211,8 @@ test-host: test-parsers test-spp-host test-kombi-host test-gps-host test-capture
 	./tests/test-gauge-collector
 	$(HOST_CXX) $(HOST_FLAGS) tools/car_test.cpp $(KOMBI_SRC) platform/vmost_client.cpp -ldl -o tests/car-test-host
 	$(HOST_CXX) $(HOST_FLAGS) tests/test_pending_restart.cpp -o tests/test-pending-restart
+	$(HOST_CXX) $(HOST_FLAGS) tests/test_uvc_usbfs.cpp platform/uvc_usbfs.cpp -o tests/test-uvc-usbfs
+	./tests/test-uvc-usbfs
 	./tests/test-pending-restart
 	$(HOST_CXX) $(HOST_FLAGS) tests/test_log_profile.cpp -o tests/test-log-profile
 	./tests/test-log-profile
@@ -375,7 +391,8 @@ clean:
 	rm -f $(ARM_OBJ) $(ARM_OBJ:.o=.d) $(HMI_OBJ) $(HMI_OBJ:.o=.d) entry-aad aa-supervisor evo-check evo-capture \
 	    hmiapp/libEntryAad.so hmiapp/EntryAad_ALL_Texts.zip hmiapp/EntryAad_ALL_Images.zip \
 	    hmiapp/gauge_app.o hmiapp/gauge_app.d hmiapp/libCarGauges.so hmiapp/CarGauges_ALL_Images.zip \
-	    hmiapp/gauge-collector hmiapp/car-test \
+	    hmiapp/gauge-collector hmiapp/car-test hmiapp/camera_app.o hmiapp/camera_app.d hmiapp/uvc_usbfs_pic.o \
+	    hmiapp/uvc_usbfs_pic.d hmiapp/libAuxCamera.so hmiapp/AuxCamera_ALL_Images.zip \
 	    tests/test-* tests/evo-check-host tests/*.so
 
 -include $(ARM_OBJ:.o=.d) $(HMI_OBJ:.o=.d) hmiapp/gauge_app.d

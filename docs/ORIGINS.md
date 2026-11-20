@@ -79,6 +79,11 @@ phone silent for 2 s), so on this base the fork uses upstream's versions and kee
   it) or found by its announcement. The entry has a car icon and a preview card with the car and trip lines; the
   owner's own photo is used when `.local/gauges_card_549x484.png` exists (`tools/card_from_photo.py`, kept out of git).
 - **`uvc-probe`**, a read-only developer tool for a USB video adapter (a front camera), not part of a release.
+- **Camera app under My Vehicle** (`opt/hmi/data/ro/Plugins/AuxCamera`; `/var/local/data/AA/camera-off` turns it
+  off). An EasyCap grabber's picture (MacroSilicon 534d:0021, UVC MJPEG 480x320 / 640x480 / 720x480) on one page, a
+  few pictures a second while it shows, sent through an raImageModel by path as Android Auto's album cover; a line
+  when there is no adapter or no signal. No uvcvideo in the kernel: user-space UVC over usbfs
+  (`platform/uvc_usbfs.cpp`, shared with `uvc-probe --usbfs-grab`), only ever that vendor:product id.
 - **Arrows for the F-series 6WA cluster, log only** (`/var/local/data/AA/kombi-6wa`, off without the file). Upstream's
   arrows speak SOME/IP to a G-series KOMBI, which an F-series car does not have. With the file, the phone's next
   maneuver is worked out for the 6WA's MOST HUDTerminal instead (picture, street, distance and unit, NBT-AAD's driver
