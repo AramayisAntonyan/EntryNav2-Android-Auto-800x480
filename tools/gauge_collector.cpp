@@ -164,10 +164,39 @@ int discover(const char* writeFile) {
 }
 
 // 01 00, 01 20, 01 40, 01 60: four bitmaps of 32 PIDs each, the last bit saying whether the next range exists.
+// The head unit's own firewall drops the gateway's ports unless entry-aad.rules is in force: whether its three
+// rules are there now (read only: `iptables -S` lists them).
+void printFirewall() {
+    FILE* p = popen("iptables -S 2>/dev/null", "r");
+    if (!p) {
+        printf("firewall: rules not readable\n");
+        return;
+    }
+    bool out6801 = false, out6811 = false, in6811 = false, any = false;
+    char line[256];
+    while (fgets(line, sizeof(line), p)) {
+        any = true;
+        const bool accept = strstr(line, "-j ACCEPT") != nullptr;
+        out6801 = out6801 || (accept && strstr(line, "-A OUTPUT") && strstr(line, "--dport 6801"));
+        out6811 = out6811 || (accept && strstr(line, "-A OUTPUT") && strstr(line, "--dport 6811"));
+        in6811 = in6811 || (accept && strstr(line, "-A INPUT") && strstr(line, "--sport 6811"));
+    }
+    pclose(p);
+    if (!any) {
+        printf("firewall: rules not readable\n");
+    } else if (out6801 && out6811 && in6811) {
+        printf("firewall: the gateway's rules are in force\n");
+    } else {
+        printf("firewall: MISSING%s%s%s (entry-aad.rules not in force)\n", out6801 ? "" : " OUTPUT tcp 6801",
+               out6811 ? "" : " OUTPUT udp 6811", in6811 ? "" : " INPUT udp 6811");
+    }
+}
+
 int supported(const char* host, const char* writeFile) {
     const int fd = hsfz::connectGateway(host, hsfz::kPort, &g_running);
     if (fd < 0) {
-        printf("gateway %s: no connection\n", host);
+        printf("gateway %s: no connection: %s\n", host, hsfz::connectError());
+        printFirewall();
         return 1;
     }
     char line[512] = "";
@@ -206,7 +235,8 @@ int supported(const char* host, const char* writeFile) {
 int probe(const char* host) {
     const int fd = hsfz::connectGateway(host, hsfz::kPort, &g_running);
     if (fd < 0) {
-        printf("gateway %s:%u: no connection\n", host, hsfz::kPort);
+        printf("gateway %s:%u: no connection: %s\n", host, hsfz::kPort, hsfz::connectError());
+        printFirewall();
         return 1;
     }
     printf("gateway %s:%u: connected\n", host, hsfz::kPort);
@@ -252,7 +282,7 @@ int codes(const char* host, const char* outFile, bool clear) {
     const char* after = "";
     const int fd = hsfz::connectGateway(host, hsfz::kPort, &g_running);
     if (fd < 0) {
-        fprintf(out, "Diagnostic gateway unavailable (%s:%u)\n", host, hsfz::kPort);
+        fprintf(out, "Diagnostic gateway unavailable (%s:%u): %s\n", host, hsfz::kPort, hsfz::connectError());
     } else if (clear && !clearMemory(fd, out, &after)) {
         close(fd);
     } else {
@@ -334,7 +364,8 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
     // A gateway that closes the connection before answering anything (the car falling asleep, ignition off) is tried
     // again later each time, up to 10 s, instead of every second.
     unsigned quickDrops = 0, connectFails = 0;
-    bool answered = false;  // an answer since the last connect
+    char connectWhy[96] = "";  // why the last connect failed
+    bool answered = false;     // an answer since the last connect
     uint64_t statusAt = dme::monoMs() + 30000, cycleMs = 0, stateAt = 0;
     const unsigned kTickMs = 150;
     unsigned cycle = 0;
@@ -358,7 +389,15 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
                 answered = false;
                 if (gw < 0) {
                     retryAt = dme::monoMs() + 2000;
-                    connectFails += lock >= 0 ? 1 : 0;
+                    if (lock >= 0) {
+                        ++connectFails;
+                        if (strcmp(connectWhy, hsfz::connectError()) != 0) {  // logged when the reason changes
+                            snprintf(connectWhy, sizeof(connectWhy), "%s", hsfz::connectError());
+                            printf("[%llu s] session: no connection to %s: %s\n",
+                                   static_cast<unsigned long long>(start / 1000), host, connectWhy);
+                            fflush(stdout);
+                        }
+                    }
                 } else if (++connects <= 3 || connects % 20 == 0) {
                     printf("[%llu s] session: connected to %s (connection %u)\n",
                            static_cast<unsigned long long>(start / 1000), host, connects);
@@ -455,7 +494,7 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
                 snprintf(line, sizeof(line), "not connected to %s: it closed the connection %u times (car asleep?)",
                          host, drops);
             } else if (connectFails) {
-                snprintf(line, sizeof(line), "not connected: %s does not accept (%u tries)", host, connectFails);
+                snprintf(line, sizeof(line), "no connection to %s: %s (%u tries)", host, connectWhy, connectFails);
             } else {
                 snprintf(line, sizeof(line), "connecting to %s", host);
             }

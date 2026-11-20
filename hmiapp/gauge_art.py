@@ -497,8 +497,11 @@ class Bar:
         if self.icon_at:
             ix, iy = self.icon_at
             draw_icon(white, icon, ix, iy, 26)
-            if title:
-                white.text(title, ix + 20, iy, 15, anchor="left")
+            if title:  # (only without an icon) after the icon's place, or ending at the edge when it is right
+                if ix > w / 2:
+                    white.text(title, w - 11, iy, 15, anchor="right")
+                else:
+                    white.text(title, ix + 20, iy, 15, anchor="left")
             if unit:
                 white.text(unit_text(unit), self.unit_at[0], self.unit_at[1], 18, anchor="right")
         return picture(w, h, [(grey, TRACK), (white, WHITE), (reds, RED)])
@@ -539,7 +542,9 @@ WIDE_BAR = Bar(
     (22, 96),
     (372, 96),
 )
-# Tall (189 x 368): the wedge upwards from y 354, its straight edge at x 56 facing the notches and numbers right of it.
+# Tall (189 x 368): the wedge upwards from y 354, its straight edge at x 56 facing the notches and numbers right of it;
+# all its text on that side, as the wide bar has it on one side: the icon at the top right (level with the top
+# number), the unit at the bottom right (level with the bottom one) (the owner, 2026-11-20).
 TALL_BAR = Bar(
     (189, 368),
     240,
@@ -550,8 +555,8 @@ TALL_BAR = Bar(
     lambda u: ((58, 354 - u), (63, 354 - u + 1.5)),
     lambda u: (68, 354 - u),
     ("left", "left", "left"),
-    (22, 82),
-    (178, 82),
+    (164, 114),
+    (178, 354),
 )
 
 

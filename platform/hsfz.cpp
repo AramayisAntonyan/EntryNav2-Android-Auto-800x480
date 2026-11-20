@@ -109,7 +109,30 @@ int clearFaultMemory(int fd, unsigned ecu, unsigned* nrc, bool* usedSession, vol
     return n >= 1 ? 1 : n == -2 ? -2 : -1;
 }
 
+namespace {
+int g_connectErrno = 0;  // why the last connectGateway() failed: an errno, ETIMEDOUT for no answer in time
+}  // namespace
+
+const char* connectError() {
+    switch (g_connectErrno) {
+        case 0:
+            return "";
+        case ETIMEDOUT:
+            return "no answer (dropped by a firewall, or the gateway asleep)";
+        case ECONNREFUSED:
+            return "refused by the gateway";
+        case ENETUNREACH:
+        case EHOSTUNREACH:
+            return "unreachable (no route to the car's network)";
+        case EINVAL:
+            return "no valid address";
+        default:
+            return strerror(g_connectErrno);
+    }
+}
+
 int connectGateway(const char* host, unsigned port, volatile sig_atomic_t* running) {
+    g_connectErrno = EINVAL;
     struct sockaddr_in a;
     memset(&a, 0, sizeof(a));
     a.sin_family = AF_INET;
@@ -119,24 +142,34 @@ int connectGateway(const char* host, unsigned port, volatile sig_atomic_t* runni
     }
     const int fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
     if (fd < 0) {
+        g_connectErrno = errno;
         return -1;
     }
     int one = 1;
     setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
     if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
+        g_connectErrno = errno;
         close(fd);
         return -1;
     }
     if (connect(fd, reinterpret_cast<struct sockaddr*>(&a), sizeof(a)) < 0 && errno != EINPROGRESS) {
+        g_connectErrno = errno;
         close(fd);
         return -1;
     }
     int error = 0;
     socklen_t len = sizeof(error);
-    if (!ready(fd, POLLOUT, nowMs() + 1000, running) || getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len) || error) {
+    if (!ready(fd, POLLOUT, nowMs() + 2000, running)) {  // 2 s: the gateway answers in milliseconds when it is there
+        g_connectErrno = ETIMEDOUT;
         close(fd);
         return -1;
     }
+    if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len) || error) {
+        g_connectErrno = error ? error : errno;
+        close(fd);
+        return -1;
+    }
+    g_connectErrno = 0;
     return fd;
 }
 

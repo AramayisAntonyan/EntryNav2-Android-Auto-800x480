@@ -30,6 +30,8 @@ bool readOnlyService(unsigned char service);
 
 // A TCP connection to the gateway, 1 s to connect; -1 on failure. *running stops every wait early.
 int connectGateway(const char* host, unsigned port, volatile sig_atomic_t* running);
+// Why the last connectGateway() failed, in words with the likely cause ("" after a success).
+const char* connectError();
 
 // One request to `ecu` and its answer: the reply bytes after the HSFZ address bytes, starting with the positive
 // response service (e.g. 62 <DID> ...). Returns their count, -2 for a negative response (*nrc set), -3 when no answer
