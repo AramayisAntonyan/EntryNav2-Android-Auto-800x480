@@ -136,7 +136,7 @@ const unsigned kFineLevels = 41;
 const unsigned kFineStride = 64;
 const unsigned kImgWideBar0 = 59000;  // 372x17 at the cell's (12, 112): the value's segments over the track
 const unsigned kImgTallBar0 = 59500;  // 18x252 at (40, 104), filled from the bottom
-// Needles are one colour (BMW orange), + level only: iDrive refused the 4.2 MB image archive with every colour.
+// Needles are one colour (red, as the F87 M2), + level only: iDrive refused the 4.2 MB image archive with every colour.
 const unsigned kImgNeedle0 = 60000;      // 189x180, a dial's needle (transparent but the blade)
 const unsigned kImgWideNeedle0 = 60500;  // 386x180
 // One picture per gauge (+ catalogue entry): its icon, scale and numbers.

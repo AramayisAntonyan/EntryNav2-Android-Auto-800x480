@@ -513,7 +513,7 @@ def card_icon(name):
 # The bars' front pictures hold only the wedge (x, y, w, h in the cell): wide and tall.
 WIDE_VALUE_BOX = (12, 112, 372, 17)
 TALL_VALUE_BOX = (40, 104, 18, 252)
-NEEDLE = (240, 125, 0)  # every needle in BMW orange, as BMW's own: the colour setting is for the bars
+NEEDLE = (232, 40, 32)  # every needle red, as the F87 M2's: the colour setting is for the bars
 
 
 # A card's bar (165 x 12) and the shift light's (760 x 40): the wedge only, track and value in one picture per colour
