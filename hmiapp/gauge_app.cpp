@@ -1119,6 +1119,8 @@ const CarTest kCarTests[] = {
     // The head unit's own UDS tunnel over MOST (06.F0), as ID6 apps fall back to it: DME reads only (22, OBD 01)
     {"Engine via MOST tunnel (read only)", kTestCluster, {"--diag-read", "auto"}},
     {"Listen to the diagnosis block 20 s", kTestCluster, {"--diag-listen", "20"}},
+    // what a button sends over MOST: every block for 30 s, listen only (the 360 camera button)
+    {"Listen to all blocks 30 s (press a button)", kTestCluster, {"--listen-all", "30"}},
     {"Car data: show all values", kTestCarData, {}},
 };
 const unsigned kCarTestCount = sizeof(kCarTests) / sizeof(kCarTests[0]);

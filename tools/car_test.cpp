@@ -22,6 +22,9 @@
 //   --raw ADDR FKT OP HEX             one call to 82.00 as given (hex payload, "-" for none), then 3 s of answers:
 //                                     to try payload layouts (a StartResultAck's sender handle) on ImageGetSize
 //   --diag-listen SECONDS             listen-only shadows on the diagnosis block 06.F0 and 06.63; nothing sent
+//   --listen-all SECONDS              listen-only shadow on every block (FF.FF): each message with its time, then
+//                                     a count per block and function, to find what a button sends (the owner's
+//                                     360 camera button, 2026-11-21: the car has no 360 module). Nothing sent
 //   --diag-read ADDR [REQ...]         the head unit's UDS tunnel over MOST (ID6 apps' MOST fallback, MIT): each
 //                                     request wrapped as [63][F0] 31 01 0F 0B 12 <len:2> <req> to 06.F0 function
 //                                     0x050 (op Start), the DME's reply unwrapped from 71 01 0F 0B. Only reads go
@@ -192,6 +195,14 @@ void noteTunnelReply(const uint8_t* p, unsigned n) {
 
 VmostClient g_vmost;
 unsigned g_received = 0;
+// --listen-all: every block, each line with its time; per block.instance.function.op: count, first and last time.
+bool g_all = false;
+double g_allStart = 0;
+struct Seen {
+    unsigned count;
+    double first, last;
+};
+std::map<uint32_t, Seen> g_seen;
 
 double nowS() {
     struct timespec t;
@@ -213,7 +224,18 @@ void onMessage(void* msg, void*) {
     if (!parseVmostMsg(msg, v)) {
         return;
     }
-    if (v.fblock != 0x82 && v.fblock != 0xE0 && v.fblock != 0x52 && v.fblock != kDiagFblock) {
+    if (g_all) {
+        const double t = nowS() - g_allStart;
+        const uint32_t key = (static_cast<uint32_t>(v.fblock) << 24) | (static_cast<uint32_t>(v.inst) << 16) |
+                             (static_cast<uint32_t>(v.fkt & 0xFFF) << 4) | (v.op & 0xF);
+        Seen& s = g_seen[key];
+        if (!s.count) {
+            s.first = t;
+        }
+        ++s.count;
+        s.last = t;
+        printf("[%6.2f s] ", t);
+    } else if (v.fblock != 0x82 && v.fblock != 0xE0 && v.fblock != 0x52 && v.fblock != kDiagFblock) {
         return;
     }
     if (v.fblock == kDiagFblock && v.fkt == kTunnelFkt && v.data) {
@@ -564,6 +586,24 @@ int listen(double seconds) {
     return 0;
 }
 
+int listenAll(double seconds) {
+    const uint8_t all[][2] = {{0xFF, 0xFF}};
+    g_all = true;
+    g_allStart = nowS();
+    if (!open(all, 1)) {
+        return 1;
+    }
+    printf("listening %.0f s to every block, nothing sent: press the button now and then, note the seconds\n", seconds);
+    fflush(stdout);
+    pump(seconds);
+    printf("done: %u message(s); per block.instance.function op: count, first and last second\n", g_received);
+    for (std::map<uint32_t, Seen>::const_iterator i = g_seen.begin(); i != g_seen.end(); ++i) {
+        printf("%02X.%02X.%03X op %X: %u, %.2f .. %.2f s\n", i->first >> 24, (i->first >> 16) & 0xFF,
+               (i->first >> 4) & 0xFFF, i->first & 0xF, i->second.count, i->second.first, i->second.last);
+    }
+    return 0;
+}
+
 const uint8_t kDiagShadows[][2] = {{kDiagFblock, kTunnelInst}, {kDiagFblock, kDiagSource}};
 
 // "224300" -> 22 43 00; false on an odd length or a character that is not hex.
@@ -735,6 +775,9 @@ int main(int argc, char** argv) {
     }
     if (!strcmp(mode, "--diag-listen") && argc > 2) {
         return diagListen(atof(argv[2]));
+    }
+    if (!strcmp(mode, "--listen-all") && argc > 2) {
+        return listenAll(atof(argv[2]));
     }
     if (argc > 2 && !parseAddr(argv[2], &g_addr)) {
         printf("bad address %s\n", argv[2]);
