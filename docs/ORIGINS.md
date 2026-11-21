@@ -134,6 +134,8 @@ this car. Left out, and why:
 | [jpt/barlow](https://github.com/jpt/barlow) (Barlow) | SIL Open Font License 1.1 | The figures on the Gauges app's dials and bar scales: rendered once from Barlow Semi Condensed SemiBold (`tools/make_gauge_figures.py`) into `hmiapp/res/gauge_figures.png`. The font itself is not part of the project. |
 | [google/material-design-icons](https://github.com/google/material-design-icons) (Material Symbols) | Apache License 2.0 | The gauges' icons (thermometer, oil, turbo fan, ...): rendered once from Material Symbols Outlined into `hmiapp/res/gauge_icons.png`. |
 | [BimmerGestalt/AAIdrive](https://github.com/BimmerGestalt/AAIdrive) | MIT | The CDS JSON paths of the Gauges catalogue (`hmiapp/gauge_catalogue.py`), as its `cds/CDSMetrics.kt` reads them, e.g. `engine.temperature`. |
+| [JayJay3071/nbt-android-auto](https://github.com/JayJay3071/nbt-android-auto) | - | Read only: its `docs/CLUSTER-HUDTERMINAL.md` describes the HUDTerminal functions the on-car cluster tests call. No code taken. |
+| [NBT-AAD pull request #264](https://github.com/Sq00ky/Supra-iDrive6-Android-Auto/pull/264) (FreZZZeR) | - | Read only: how a 6WA answers the drawing calls (ImageGetSize 176x126, copies of its answers to 52.00). Not ported while it is open. |
 
 Required Notice from the origin project, kept as its licence asks:
 

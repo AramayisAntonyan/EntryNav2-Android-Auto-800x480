@@ -1,219 +1,141 @@
 <div align="center">
 
-# EntryNav2 Android Auto: F-series 800x480 fork
+# EntryNav2 Android Auto 800x480
 
-**Android Auto over the USB cable on BMW's EntryNav2 (EntryEvo) head unit with the 800x480 screen, in an F-series
-car.**
+**Android Auto, gauges and a camera view for BMW's EntryNav2 head unit with the 800x480 screen, in F-series cars.**
 
 [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)](LICENSE.md)
 
 </div>
 
-> [!NOTE]
-> **Forks.** This project is a fork of a fork:
->
-> 1. **[Sq00ky/Supra-iDrive6-Android-Auto](https://github.com/Sq00ky/Supra-iDrive6-Android-Auto)** (NBT-AAD), Android
->    Auto for iDrive 6 head units, and the F-series 6WA cluster driver;
-> 2. **[Jiraiya43/EntryNav2-Android-Auto](https://github.com/Jiraiya43/EntryNav2-Android-Auto)**, which brought it to the
->    EntryNav2 head unit: almost all of the code here is theirs;
-> 3. **this fork**, on upstream 0.13.0-rc.1, for one kind of car upstream does not cover yet (below).
->
-> It also uses parts of [ID6 apps](https://github.com/inotbarnacle/ID6_apps_prerelease) and
-> [AAIdrive](https://github.com/BimmerGestalt/AAIdrive). Every change made here and every licence notice:
-> [docs/ORIGINS.md](docs/ORIGINS.md).
-
 > [!WARNING]
-> Experimental software that writes to the car's head unit, tried on **one car**. It is not affiliated with BMW or
-> Google. Read [Status](#status) and the [disclaimer](#licence-and-disclaimer) first.
+> Experimental software that writes to the car's head unit, tried on **one car** (an F22, below). It is not affiliated
+> with BMW or Google. Read [Status](#status) and the [disclaimer](#licence-and-disclaimer) first.
 
-## Who this fork is for
+This project started as a fork of [Jiraiya43/EntryNav2-Android-Auto](https://github.com/Jiraiya43/EntryNav2-Android-Auto)
+and has grown into its own: three iDrive apps for an F-series car with the small screen and no navigation. Its Android
+Auto core is still upstream's work, and several other projects gave code or showed the way:
+[every one of them is listed below](#projects-this-one-builds-on), and file by file in
+[docs/ORIGINS.md](docs/ORIGINS.md).
 
-Upstream targets the EntryNav2 in G-series cars, wireless first. This fork is for the other end of the range:
+## What it does
 
-| | Upstream | This fork |
-|---|---|---|
-| Car | G-series (G20 reference), some F-series reported | **F-series** (F22, 2019) only |
-| Screen | 1280x480, 800x480 | **800x480** |
-| Phone link | wireless (the unit's CarPlay Wi-Fi), USB as an option | **USB cable** (wireless not tried yet) |
-| Head-up display | yes, where fitted | none (the F22 has none) |
-| Navigation in the car | any | **none** (EntryNav2 without navigation) |
-| Cluster arrows | G-series KOMBI over SOME/IP | **6WA cluster over MOST** (HUDTerminal), work in progress |
-| Controller | iDrive controller | also the **older 5-key controller** |
+**Android Auto** (iDrive app *EntryAad*)
 
-If your car is a G-series, use upstream: it is better tested and maintained.
+- Over the USB cable or wirelessly (the unit's own Wi-Fi, started over Bluetooth), on the 800x480 screen, with the
+  iDrive controller, its keys, the volume and the car's microphone.
+- Takes the phone back from the media player, which claims every phone in accessory mode on this car.
+- Album covers on the entry's preview card; OPTION opens Android Auto's own panel (*Show map buttons*, *Tap the map*:
+  this car has no touch screen).
+- Leaves the screen to the rear camera in reverse and comes back after it; driving mode changes do not stall it; a
+  session that drops while you are in another iDrive app reconnects without taking the screen back.
+- The older 5-key controller as well as the newer one.
 
-## The test car
+**Gauges** (iDrive app *CarGauges*, under My Vehicle)
 
-Everything in [Status](#status) was seen on one car; nothing else has been tried.
+- Three dashboards of 2 x 4 cells. Each gauge has a look: a card (number and bar), a dial, a fuel-gauge arc, a wide bar,
+  wide dial or wide arc over two cells, or a tall bar over two cells. Drawn as BMW's current M5 cluster: thin scales,
+  a red start mark and red end zone, red slotted needles, the icon and unit on the gauge.
+- 62 values: the iDrive's own car data (water and oil temperature, torque, rpm, speed, fuel, trip values...), standard
+  OBD values and BMW engine values from the DME (boost, rail pressure, lambda, the adapted fuel quality as RON
+  92 / 95 / 98...).
+- *Gauge settings*: choose the gauges (by source), their looks, **where each goes** on the dashboards, and **their
+  min and max**, set by hand; the dial or bar is redrawn on the head unit with the new scale. Needles move smoothly.
+- A shift light, the engine's fault codes with descriptions (and a clear that asks first), Live values, and a
+  *Car tests* page whose results show on screen, for checks at the car.
 
-| | |
-|---|---|
-| Car | BMW 230i Coupé (F22), 2019, manual gearbox, engine software as from the factory (no tune) |
-| Head unit | EntryNav2 (*EntryEvo*, Linux), 800x480 screen, **no navigation**, no CarPlay activation, no external Wi-Fi antenna, no touch screen |
-| Controller | the older iDrive controller (its keys read in the older protocol) |
-| Cluster | **6WA**: analog dials with a colour screen in between, which can show navigation arrows when a BMW navigation drives it |
-| Head-up display | none (the F22 has no head-up display) |
-| Cameras and sensors | factory rear camera and parking sensors; the windscreen driver-assistance camera |
-| Console | a retrofitted M3/M4-style centre console panel: every button works except its camera button (see *Front camera* below) |
-| Phone | Android, connected with a USB cable |
+**Camera** (iDrive app *AuxCamera*, under My Vehicle)
 
-## What this fork adds
+- The picture of an analog camera through a USB video grabber (EasyCap, MacroSilicon 534d:0021), full screen, up to
+  25 pictures a second. The kernel has no UVC driver: the app reads the grabber through usbfs itself.
 
-- **USB takeover from the media player.** On this car the media player claims every phone that switches to Android
-  Auto's accessory mode. The service takes the phone back from it (usbfs only, never from a kernel driver).
-- **Album covers** on the iDrive entry's preview card.
-- **OPTION opens Android Auto's own panel**: *Show map buttons* (Google Maps hides them during a route and this car has
-  no touch screen), *Tap the map*, *Android Auto menu*.
-- **Out of reverse, Android Auto waits for the camera to close** instead of flickering between the two.
-- **Driving mode changes leave Android Auto on screen.** Upstream steps the picture aside so that iDrive's driving
-  mode popup shows (G-series); on the F22 the mode shows in the cluster only, so that only stalled the picture.
-- **Gauges, a second iDrive app under My Vehicle.** The entry opens the dashboard: gauges as cards, BMW-style dials
-  and arcs, wide or tall bars (water and oil temperature, torque, rpm, trip values and more from the iDrive's car data), each
-  with its icon, the look picked per gauge in *OPTION*, *Gauge settings*, *Gauge styles*; a shift light, the engine's fault codes with a description and a
-  *Clear the codes* page that asks first, and a *Car tests* page with
-  on-screen results for checks at the car.
-- **6WA cluster arrows** (NBT-AAD's driver, ported with its guidance rules, junction view, lanes and *directions at any
-  distance*). They are worked out from the phone's guidance and logged; sending them to the cluster is off by default
-  until the cluster accepts them (see Status).
-- **Fragment fix** from NBT-AAD #223: an Android Auto message whose first part was lost is dropped, not joined cut.
+**6WA cluster arrows** (work in progress)
 
-The details, file by file: [docs/ORIGINS.md](docs/ORIGINS.md).
+- Android Auto's next maneuver worked out for the F-series 6WA cluster's MOST HUDTerminal (arrow, junction view,
+  street, distance), following NBT-AAD's driver and guidance rules. Logged only for now: the cluster does not draw
+  them yet (see Status).
 
 ## Status
 
-On [the test car](#the-test-car):
+On [the test car](#the-test-car), 2026-11-22:
 
 | Feature | State |
 |---|---|
-| Android Auto over USB: picture, sound, controller, keys, volume | **works** in the car |
-| Album covers | **works** in the car |
-| Gauges app (cards of the iDrive's car data) | **works** in the car |
-| OPTION panel, return from reverse | built and tested on a PC, car check pending |
-| Engine values and fault codes from the DME | **does not work yet** (below) |
-| Arrows in the 6WA cluster | **does not work yet** (below) |
+| Android Auto over USB: picture, sound, controller, keys, volume | **works** |
+| Android Auto wireless | **works**; the session dropped when the phone's Bluetooth link to the unit kept reconnecting |
+| Album covers | **works** |
+| Gauges: dashboards, looks, places, car data values | **works** |
+| Gauges: engine values (DME, OBD) | **works only at times** through the diagnostic gateway; the MOST tunnel answers (below) |
+| Gauges: hand-set ranges, smooth needles | installed, not yet checked in the car |
+| Engine fault codes, read and clear | built, car check pending |
+| Camera app | **works** (picture shown); the full-screen view not yet checked |
+| Arrows in the 6WA cluster | **does not work yet** |
 
-Every change is tested on a PC, and the ARM programs run under QEMU against the car's own libraries. Only a car test
-counts as proof.
+Every change is tested on a PC first, and the ARM programs run under QEMU against the car's own libraries; only a car
+test counts as proof.
 
-### New in this version, not yet tried in the car
+**Engine values.** The Gauges app reads the DME through the car's diagnostic gateway (HSFZ, read services only). On
+the test car this worked several times, then stopped answering although the head unit's firewall rules were in force;
+the gateway probably opens its Ethernet only while a diagnostic (ENET) cable is plugged into the OBD port. The head
+unit's own diagnosis tunnel over MOST answered the DME at the same time (coolant, rpm): reading the engine values that
+way is the next step.
 
-This version was installed on the test car once, but **none of the following has been used or checked in the car
-yet**. They pass the PC and QEMU tests only.
+**6WA arrows.** The cluster answers the head unit's read requests over MOST but has ignored every drawing call so far
+(any message layout or channel). The car has no navigation, and the cluster may wait for one; that is what is tried
+next.
 
-- **Upstream 0.13.0-rc.1 as the base**: a frozen picture recovered by asking the phone for a full frame, the volume pill
-  showing the right source and the mute, MAP opening Android Auto's navigation, Wi-Fi log fixes.
-- **Driving mode changes leave Android Auto on screen** (they used to stall the picture for a moment).
-- **The rest of NBT-AAD's 6WA guidance rules**: when a maneuver shows (by the phone's seconds: 50 s ahead, main prompt
-  at 20 s; off-ramps and forks from 2 km), renewed steps, no departure arrow at 0 m, lanes (off by default), short
-  distance text. Still log only, as the cluster draws nothing yet.
-- **Directions at any distance restarts a running Android Auto** so the change applies at once (as the USB cable
-  checkbox does).
-- **Android Auto fragment fix** (NBT-AAD #223): a message whose first part was lost is dropped instead of being shown
-  cut.
-- **Sending the 6WA calls to the cluster** (`kombi-6wa-live`, off by default; only parked, for tests).
-- **The firewall rules for the diagnostic gateway** (`/etc/firewall/entry-aad.rules`): the head unit's own firewall
-  drops connections to the gateway's diagnostic port, which is likely why the engine values never connected (below).
-- **Fuel quality gauge** (*Choose: engine (DME)*, *Fuel quality*): the octane the engine computer has adapted to from knock
-  control (DME identifier 0x5776, 0 = RON 98 to 1 = RON 91 on the B48), shown as Armenia's grades: Regular 92,
-  Premium 95, Super 98 ("Super+" at the top: the DME learns no higher, so racing fuel, 100, reads the same).
-- **Gauge looks and the new Gauges menus**: the entry opens the dashboard straight away; *OPTION* holds Dashboard 2
-  and 3, Live values, Shift light, *Gauge settings* (three Choose pages: car data, engine (DME), OBD values; Gauge
-  styles; shift point) and *Diagnostics* (engine values status, fault codes, car tests). Dials, arcs, wide and tall
-  bars and the icons are new, drawn as the current M5's gauges: a thin scale with a red start mark and a red end
-  zone, the value as a grey-to-white bar or a red needle, icon and unit on the gauge, no number beside it (only the
-  card writes its value).
-- **Clearing the engine's fault codes** (Gauges, *Diagnostics*, *Engine fault codes*, *Clear the codes...*, then *Yes*): clears the
-  DME's fault memory (UDS `14 FF FF FF`, the extended session only if the DME asks for it), then reads the codes again.
-  The codes now show with a short description (ID6 apps' list, made on a 340i: some codes of other engines have none).
-- **New Car tests** (Gauges, *OPTION*, *Diagnostics*, *Car tests*): *Cluster: settings read* (read only), *Engine via MOST tunnel*
-  (DME reads only), *Listen to the diagnosis block 20 s*; and over SSH only, `car-test --nav-draw` (the head unit
-  presented as the car's navigation, then a test drawing).
+**Not available on this car:** car GPS (no navigation: Android Auto uses the phone's GPS), a head-up display, touch.
+The retrofitted console's 360 camera button has no camera behind it; the plan is to open the Camera app with it.
 
-### What does not work
+## The test car
 
-**Not working yet (being worked on):**
-
-- **Arrows in the 6WA cluster.** The arrows are worked out from the phone's guidance and written to the log, but the
-  cluster shows nothing: it answers the head unit's read requests, and ignores every drawing call so far (any message
-  layout, any channel). Sending is off by default. Once, after a burst of test calls, the cluster's media line
-  disappeared until the next restart, so keep `kombi-6wa-live` off while driving. Next try: presenting the head unit
-  as the car's navigation first (this car has none, and the cluster may wait for one).
-- **Engine values while driving** (2026-11-20): the gateway connects since the firewall rules (engine values and
-  OBD read in the car, engine off), but after driving the engine gauges showed "--". A value that answered late made
-  the reader drop the connection and start over; it now skips that value and keeps the others current. Not yet
-  checked in the car.
-- **Knob centre press on Android Auto's media screen** acts on the button Android Auto has selected, which is often
-  "previous track": the track restarts or goes back. The head unit sends a plain "select"; which button gets it is
-  Android Auto's choice.
-- **Album covers** show only on this project's iDrive entry card, not on BMW's own media screen or its side panel.
-
-**Not tried in the car yet:**
-
-- **Wireless Android Auto.** Upstream's wireless mode is still in the code. Other owners report that it can work
-  without CarPlay activation and without the external antenna, as long as the phone is close enough to reach the
-  unit's Wi-Fi (an F20 with the 800x480 screen, upstream #45). To try it: untick USB in the Android Auto menu.
-- The OPTION panel and the return from reverse; the trip values' car data fields (average consumption and speed);
-  where the Gauges app lands in My Vehicle.
-
-**Not available on this car:**
-
-- **Car GPS**: with no navigation, the head unit has no position to give, so Android Auto uses the phone's own GPS
-  (upstream's fallback, automatic).
-- **Head-up display and upstream's cluster arrows**: the F22 has no head-up display, and upstream's arrows go over
-  SOME/IP to a G-series cluster, which F-series cars do not have (hence the 6WA work above).
-- **Touch**: no touch screen. Google Maps hides its map buttons once a route runs; the OPTION panel's *Show map
-  buttons* and *Tap the map* stand in for a touch.
-- **Front camera.** The retrofitted console has a camera button, but the car has no front camera, so the button does
-  nothing. The plan is an aftermarket front camera through a USB video adapter, shown by the head unit on that button
-  or as an entry next to BMW's own camera view. First step, not yet tried in the car: the **Camera app** under My
-  Vehicle shows an EasyCap grabber's picture (MacroSilicon 534d:0021, MJPEG, on the car's USB port in place of the
-  phone) a few times a second while its page shows; *OPTION* picks the picture size. The kernel has no UVC driver: the
-  app drives the adapter through usbfs as `uvc-probe --usbfs-grab` does (`platform/uvc_usbfs.cpp`).
-
-**Head unit limits worth knowing:** `reboot` over SSH does nothing on this unit. Restart it by holding the volume
-knob about 30 s; when that does not work, disconnecting the battery does.
+| | |
+|---|---|
+| Car | BMW 230i Coupé (F22), 2019, manual gearbox, engine software as from the factory |
+| Head unit | EntryNav2 (*EntryEvo*, Linux), 800x480 screen, **no navigation**, no touch screen |
+| Controller | the older iDrive controller |
+| Cluster | **6WA** (analog dials with a colour screen between them) |
+| Phone | Android |
 
 ## Requirements
 
-- An F-series BMW with an **EntryNav2** head unit (*EntryEVO* inside its system) and the **800x480** screen.
-- A USB cable from the car's USB port to the phone, and an Android phone with Android Auto.
-- A PC with an SSH client and an **ENET cable** (OBD to Ethernet), and the head unit's **root password** (not provided
+- An F-series BMW with an **EntryNav2** head unit (*EntryEvo* inside its system) and the **800x480** screen.
+- An Android phone with Android Auto, a USB cable (or the wireless mode).
+- A PC with an SSH client, an **ENET cable** (OBD to Ethernet) and the head unit's **root password** (not provided
   here).
 
-NBT, NBT Evo, ID7 and MGU head units run other systems: this project cannot run on them.
+NBT, NBT Evo, ID7 and MGU head units run other systems: this project cannot run on them. G-series cars are better
+served by upstream.
 
 ## Installing
 
-The installation is upstream's manual procedure over SSH: [docs/INSTALLATION.md](docs/INSTALLATION.md) (in French;
-the commands speak for themselves). In short: copy `entrynav2-android-auto-<version>-armhf.tar` to the unit's `/tmp`,
-run the read-only checks, install the two folders (`/opt/aa`, `/opt/hmi/data/ro/Plugins/EntryAad`) and, for this
-fork, the Gauges app (`/opt/hmi/data/ro/Plugins/CarGauges`), the Camera app
-(`/opt/hmi/data/ro/Plugins/AuxCamera`) and the Gauges' firewall rules (`etc/firewall/entry-aad.rules` to
-`/etc/firewall/`, read by BMW's firewall at start-up; check first that `/usr/local/bin/iptables-firewall` mentions
-`/etc/firewall`), then restart the unit. Build the archive yourself
-([Building](#building-from-source)).
+Build the archive ([Building](#building-from-source)), then follow upstream's manual procedure over SSH
+([docs/INSTALLATION.md](docs/INSTALLATION.md), in French; the commands speak for themselves): copy
+`entrynav2-android-auto-<version>-armhf.tar` to the unit's `/tmp`, run the read-only checks, install `/opt/aa` and the
+three plugin folders under `/opt/hmi/data/ro/Plugins` (`EntryAad`, `CarGauges`, `AuxCamera`), copy
+`etc/firewall/entry-aad.rules` to `/etc/firewall/` (BMW's firewall reads it at start-up), and restart the unit.
 
-### This fork's settings
+`reboot` does nothing on this unit; `systemctl --force reboot`, run in the foreground, restarts it. Holding the volume
+knob about 30 s, or disconnecting the battery, works too.
 
-Each is a file in `/var/local/data/AA`; without the file the feature is off (or at its default).
+### Settings
+
+Each is a file in `/var/local/data/AA`; the apps write most of them from their own menus.
 
 | File | Effect |
 |---|---|
-| `usb` | the USB port Android Auto uses (upstream's setting, e.g. `3-1`) |
+| `usb` | the USB port Android Auto uses (e.g. `3-1`) |
 | `usb-takeover` | take the phone back from the media player |
 | `option-key` | what *Show map buttons* does: `nudge` (default), `tap`, or a key code |
-| `kombi-6wa` | work out the 6WA arrows and log them |
-| `kombi-6wa-live` | also send them to the cluster (experimental: only parked, for tests) |
-| `kombi-6wa-approach` | when a maneuver shows: `time [warn s [main s]]` (default 50 s / 20 s), `distance`, `off` |
-| `kombi-6wa-lanes`, `kombi-6wa-junction-off` | lanes on; the junction view off |
-| `kombi-anydist` | show the next maneuver at any distance (also in the Android Auto menu) |
-| `gauges-off` | hide the Gauges app |
-| `camera-off`, `camera-size` | hide the Camera app; its picture size (0 480x320, 1 640x480, 2 720x480; set by *OPTION*) |
-| `gauges-dme-off`, `gateway-ip` | no engine values from the DME (they are read whenever an engine gauge shows), and the gateway's address (the installer writes this car's) |
+| `kombi-6wa`, `kombi-6wa-live` | work out the 6WA arrows and log them; also send them (experimental, parked only) |
+| `kombi-6wa-approach`, `kombi-6wa-lanes`, `kombi-6wa-junction-off`, `kombi-anydist` | the arrows' rules |
+| `gauges-off`, `camera-off` | hide the Gauges or the Camera app |
+| `gauges-choice`, `gauges-style`, `gauges-place`, `gauges-limits` | the gauges shown, their looks, places and ranges |
+| `gauges-dme-off`, `gateway-ip` | no engine values; the diagnostic gateway's address |
+| `camera-size`, `camera-view` | the camera's picture size and view |
 
-Logs: `/tmp/entry-aa-service.log` (service), `/var/local/data/AA/app.log` (iDrive apps),
-`/var/local/data/AA/car-tests.log` (Car tests page). More in [docs/MAINTENANCE.md](docs/MAINTENANCE.md) (upstream's,
-in French).
+Logs: `/tmp/entry-aa-service.log` (Android Auto service), `/var/local/data/AA/app.log` (iDrive apps),
+`/var/local/data/AA/car-tests.log` (Car tests), `/var/local/data/AA/gauge-collector.log` (engine values).
 
 ## Building from source
 
@@ -225,7 +147,6 @@ make check                                              # style, content checks,
 docker build -t entrynav2-tc:4.7 toolchain              # once: GCC 4.7 for ARMv7 hard-float
 bash toolchain/tc.sh make -j4 all hmiapp test-arm-all   # ARM programs, linked against the car's libraries
 python3 -I tests/run_qemu.py                            # ARM tests under QEMU with the car's libraries
-make verify_binary verify_wireless                      # record the programs that passed
 python3 tools/package_release.py                        # artifacts/entrynav2-android-auto-<version>-armhf.tar
 ```
 
@@ -233,43 +154,57 @@ python3 tools/package_release.py                        # artifacts/entrynav2-an
 
 ```text
 core/        Android Auto protocol: session, TLS, fragments, car description
-platform/    EntryNav2 specifics: video, layers, input, GPS, microphone, USB, cluster (hudterm*, hud6wa, kombi_*)
-hmiapp/      the iDrive apps loaded by HmiMain3D: EntryAad (Android Auto), CarGauges (Gauges), AuxCamera (Camera)
-tools/       supervisor, car-test, gauge-collector, release packaging and checks
+platform/    EntryNav2 specifics: video, input, USB, Wi-Fi, cluster (hudterm*, hud6wa, kombi_*), diagnostics (hsfz)
+hmiapp/      the iDrive apps: EntryAad (Android Auto), CarGauges (Gauges), AuxCamera (Camera), and their pictures
+tools/       supervisor, car-test, gauge-collector, uvc-probe, release packaging and checks
 tests/       PC tests and ARM tests under QEMU
 toolchain/   Docker image of the cross compiler
-docs/        upstream's documentation (French) and this fork's ORIGINS
+docs/        upstream's documentation (French) and ORIGINS (what comes from where)
 ```
 
-## Credits
+## Projects this one builds on
 
-This fork exists only because of the people below, who did the hard work and shared it. Thank you.
+This project exists because the people below did the hard work and shared it. Thank you.
 
-- **[Jiraiya43/EntryNav2-Android-Auto](https://github.com/Jiraiya43/EntryNav2-Android-Auto)** by Jiraiya43: the whole
-  base of this fork, from the Android Auto protocol to the iDrive app. Almost every line here is theirs. If you want
-  to support the work, the upstream author accepts [GitHub Sponsors](https://github.com/sponsors/Jiraiya43); this fork
-  asks for nothing.
-- **[Sq00ky/Supra-iDrive6-Android-Auto](https://github.com/Sq00ky/Supra-iDrive6-Android-Auto)** (NBT-AAD) by nanaisu
-  (Sq00ky), the project EntryNav2 Android Auto started from: its F-series 6WA cluster driver (MOST HUDTerminal) is
-  ported here with tom-pryor's guidance rules and junction view (#157, #162), *directions at any distance* (#205),
-  and pstryju's fragment reassembly fix (#223).
-- **[inotbarnacle/ID6_apps_prerelease](https://github.com/inotbarnacle/ID6_apps_prerelease)** (ID6 apps) by
-  inotbarnacle: the Gauges app follows its BoostDeck and ShiftDeck (cards, the tall bar, pre-drawn bars switched
-  by image id, a worker process for diagnostics), uses its DME identifiers, and the MOST diagnosis tunnel test follows
-  its MOST fallback's message format.
-- **[BimmerGestalt/AAIdrive](https://github.com/BimmerGestalt/AAIdrive)** by the BimmerGestalt team: the Gauges app
-  reads the iDrive's car data (CDS) at the JSON paths its `CDSMetrics.kt` uses.
+**Code taken or ported**
 
-Licences and Required Notices of each: [docs/ORIGINS.md](docs/ORIGINS.md).
+| Project | Licence | What this project has from it |
+|---|---|---|
+| [Jiraiya43/EntryNav2-Android-Auto](https://github.com/Jiraiya43/EntryNav2-Android-Auto) (formerly entry-aad), by Jiraiya43 | PolyForm Noncommercial 1.0.0 | The base: the Android Auto protocol and session, the service, the EntryAad iDrive app, USB and wireless modes, the build, packaging and tests. Most of the Android Auto code is theirs. They accept [GitHub Sponsors](https://github.com/sponsors/Jiraiya43); this project asks for nothing. |
+| [Sq00ky/Supra-iDrive6-Android-Auto](https://github.com/Sq00ky/Supra-iDrive6-Android-Auto) (NBT-AAD), by nanaisu | PolyForm Noncommercial 1.0.0 | The project upstream started from. Its F-series 6WA cluster driver (MOST HUDTerminal: protocol, maneuver pictures, layout), with tom-pryor's guidance rules and junction view (#157, #162), *directions at any distance* (#205) and pstryju's fragment fix (#223). |
+| [inotbarnacle/ID6_apps_prerelease](https://github.com/inotbarnacle/ID6_apps_prerelease) (ID6 apps), by inotbarnacle | MIT | The DME fault code descriptions (unchanged) and engine identifiers; the Gauges app's approach (BoostDeck's cards and tall bar, pre-drawn bars, a worker process for diagnostics); the MOST diagnosis tunnel's message format. |
+| [CallMeLewis/EntryNav-Apps](https://github.com/CallMeLewis/EntryNav-Apps), by CallMeLewis | MIT | The three firewall rules that open the diagnostic gateway's ports on EntryNav2, and the fault code clear's sequence. |
+| [BimmerGestalt/AAIdrive](https://github.com/BimmerGestalt/AAIdrive), by the BimmerGestalt team | MIT | The iDrive car data (CDS) paths the Gauges app reads, as its `CDSMetrics.kt` reads them. |
+| [jpt/barlow](https://github.com/jpt/barlow) (Barlow typeface) | SIL Open Font License 1.1 | The gauges' figures and names, rendered once from Barlow Semi Condensed SemiBold into a picture sheet (the font itself is not included). |
+| [google/material-design-icons](https://github.com/google/material-design-icons) (Material Symbols) | Apache License 2.0 | The gauges' icons, rendered once from Material Symbols Outlined into a picture sheet. |
+
+**Referenced** (read for how things work; no code taken)
+
+| Project | What it showed |
+|---|---|
+| [JayJay3071/nbt-android-auto](https://github.com/JayJay3071/nbt-android-auto), `docs/CLUSTER-HUDTERMINAL.md` | The cluster's HUDTerminal functions, used by the on-car cluster tests. |
+| [NBT-AAD pull request #264](https://github.com/Sq00ky/Supra-iDrive6-Android-Auto/pull/264) (FreZZZeR) | How a 6WA answers the drawing calls (its image sizes, the copies of its answers), for the cluster work. |
+| [gediz/bmw-unified-db](https://github.com/gediz/bmw-unified-db) | The source of ID6 apps' fault code summaries (DME8xx), used here through ID6 apps. |
+| NBT-AAD's open branches and ID6 apps' other apps | Reviewed for what fits this car; what was left out, and why, is in [docs/ORIGINS.md](docs/ORIGINS.md). |
+
+Required Notices, kept as the PolyForm licence asks:
+
+Required Notice: Copyright (c) 2026 Jiraiya43 - EntryNav2 (EntryEvo) Android Auto (formerly entry-aad)
+
+Required Notice: Copyright (c) 2026 nanaisu - NBT-AAD (https://github.com/Sq00ky/Supra-iDrive6-Android-Auto)
+
+The MIT notices are kept in the files taken from those projects (for example `platform/dme_gauges.hpp`,
+`platform/dme_codes.hpp`); [docs/ORIGINS.md](docs/ORIGINS.md) says which file comes from where.
 
 ## Licence and disclaimer
 
-© 2026 Jiraiya43, under the [PolyForm Noncommercial License 1.0.0](LICENSE.md): any noncommercial use, including
-modifying and sharing, as long as the licence goes with every copy. Commercial use is not allowed.
+Under the [PolyForm Noncommercial License 1.0.0](LICENSE.md), as the code it builds on: any noncommercial use,
+including modifying and sharing, as long as the licence goes with every copy. Commercial use is not allowed.
 
 The software comes as is, without any warranty. Installing it modifies the head unit's system and may affect your
 warranty. Use it only on a car you own or with its owner's consent, with the car parked during installation and
-tests, and never operate the head unit's shell while driving.
+tests, and never operate the head unit's shell while driving. Diagnostics only read, except the fault code clear you
+start yourself.
 
 BMW and iDrive are trademarks of BMW AG; Android and Android Auto are trademarks of Google LLC. This project is not
 affiliated with, endorsed or sponsored by either.
