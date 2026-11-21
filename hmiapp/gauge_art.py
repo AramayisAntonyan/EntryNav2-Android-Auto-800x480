@@ -247,6 +247,17 @@ def crop(data, box):
     return png(out, cw, ch)
 
 
+def pad(data, size, at):
+    """A picture placed at `at` (x, y) in a transparent one of `size`: each look's pictures fill their component."""
+    rgba, w, h = unpng(data)
+    cw, ch = size
+    x0, y0 = at
+    out = bytearray(cw * ch * 4)
+    for y in range(h):
+        out[((y0 + y) * cw + x0) * 4 : ((y0 + y) * cw + x0 + w) * 4] = rgba[y * w * 4 : (y + 1) * w * 4]
+    return png(out, cw, ch)
+
+
 def picture(w, h, layers):
     """A transparent picture with each (mask, colour) painted in order."""
     rgba = bytearray(w * h * 4)

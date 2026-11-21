@@ -968,8 +968,55 @@ void recallOverIdriveScreen() {
     }
 }
 
+// The phone's link dropped and came back (2026-11-21: Bluetooth flapping). Dropped while the driver was in another
+// iDrive app: the reconnect waits aside quietly until our menu is opened. Dropped while on screen: it comes back as
+// before.
+void quietReconnect() {
+    {
+        Car c;
+        connected(c);
+        c.overlay(2);
+        c.poll();
+        c.menu(true);
+        c.blankShown();
+        c.overlay(1);
+        c.polls(3);
+        c.blankLeft();  // the driver opens Gauges: Android Auto steps aside
+        c.overlay(0);
+        c.polls(3);
+        c.service("connecting", 42, 0);  // the session drops
+        c.polls(2);
+        c.service("connected", 42, 2);  // and the phone is back, waiting aside
+        c.take();
+        c.polls(5);
+        const std::string out = c.take();
+        CHECK(out.find("event 51") == std::string::npos);
+        CHECK(c.logged("reconnected while Android Auto was aside"));
+        c.menu(true);  // the driver opens Android Auto from iDrive's menu
+        CHECK(c.take().find("show") != std::string::npos);
+    }
+    {
+        Car c;
+        connected(c);
+        c.overlay(2);
+        c.poll();
+        c.menu(true);
+        c.blankShown();
+        c.overlay(1);
+        c.polls(3);
+        c.service("connecting", 42, 0);  // dropped while on screen
+        c.polls(2);
+        c.service("connected", 42, 2);
+        c.take();
+        c.poll();
+        CHECK(c.take().find("show") != std::string::npos);  // brought up again, as before
+        CHECK(!c.logged("reconnected while Android Auto was aside"));
+    }
+}
+
 int main() {
     shortlyAfterStart();
+    quietReconnect();
     manualOpen();
     openButNeverCame();
     automaticStartOverIdriveScreen();
@@ -996,6 +1043,6 @@ int main() {
     puts(
         "PASS hold machine: manual open, automatic start through the menu, refusals, waiting aside, recall over an "
         "iDrive screen, BACK, popups, "
-        "reverse, calls, app keys, hard keys, stepping aside, service restart");
+        "reverse, calls, app keys, hard keys, stepping aside, service restart, quiet reconnect");
     return 0;
 }

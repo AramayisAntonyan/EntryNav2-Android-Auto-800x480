@@ -77,7 +77,7 @@ CHOOSE = (
 )
 DIAGNOSTICS = ((13, 930, "Engine fault codes"), (26, 970, "Car tests"))
 
-# Each look's picture components at cell c (gauge_ids.hpp kLookImage0). Only the card writes its value as text
+# Each look's picture components at cell c (gauge_ids.hpp kGroupImage0). Only the card writes its value as text
 # (component 1160 + c, model kCardValue0 330 + c): the other looks are pictures alone, as the M5's gauges (the owner,
 # 2026-11-20: the number should not always show).
 CARD_VALUE, CARD_VALUE_COMP = 330, 1160
@@ -141,28 +141,19 @@ def cell(c):
     """Every look's components at cell c: pictures first (drawn below), then the labels."""
     slot = c % PER_PAGE
     x, y = TILE_X[slot % COLS], TILE_Y[slot // COLS]
-    out = (  # card: its head (icon and name, one picture), the value, the bar (no tile: iDrive's own background)
-        image(1100 + c, LOOK_BACK[CARD] + c, x + 12, y + 10, 165, 24)  # gauge_art.card_label
-        + label(CARD_VALUE_COMP + c, CARD_VALUE + c, x + 10, y + 44, TILE_W - 20, 55)
-        + image(1190 + c, LOOK_FRONT[CARD] + c, x + 12, y + 140, 165, 12)
-    )
-    # dial and arc: face and needle over the whole cell (the face carries icon, unit and figures)
-    out += image(2000 + c, LOOK_BACK[DIAL] + c, x, y, TILE_W, TILE_H, False)
-    out += image(2030 + c, LOOK_FRONT[DIAL] + c, x, y, TILE_W, TILE_H, False)
-    out += image(2800 + c, LOOK_BACK[ARC] + c, x, y, TILE_W, TILE_H, False)
-    out += image(2830 + c, LOOK_FRONT[ARC] + c, x, y, TILE_W, TILE_H, False)
-    if fits(WIDE_ARC, c):
-        out += image(2920 + c, LOOK_BACK[WIDE_ARC] + c, x, y, WIDE_W, TILE_H, False)
-        out += image(2950 + c, LOOK_FRONT[WIDE_ARC] + c, x, y, WIDE_W, TILE_H, False)
-    if fits(WIDE, c):  # the track over both cells; the value's gradient over it (gauge_art.WIDE_VALUE_BOX)
+    # iDrive draws only about the first 64 components of a page (2026-11-21: with a pair per look, the cells past the
+    # 57th component stayed empty): the looks of one size share a pair of pictures that fill their cells (gauge_ids.hpp
+    # kGroupImage0), 44 components a page. Small looks (card, dial, arc): back and front over the cell, the card's
+    # value as text over them.
+    out = image(1100 + c, LOOK_BACK[CARD] + c, x, y, TILE_W, TILE_H, False)
+    out += image(1190 + c, LOOK_FRONT[CARD] + c, x, y, TILE_W, TILE_H, False)
+    out += label(CARD_VALUE_COMP + c, CARD_VALUE + c, x + 10, y + 44, TILE_W - 20, 55)
+    if fits(WIDE, c):  # wide bar, wide dial, wide arc: over both cells across
         out += image(2150 + c, LOOK_BACK[WIDE] + c, x, y, WIDE_W, TILE_H, False)
-        out += image(2180 + c, LOOK_FRONT[WIDE] + c, x + 12, y + 112, 372, 17, False)
-    if fits(WIDE_DIAL, c):
-        out += image(2270 + c, LOOK_BACK[WIDE_DIAL] + c, x, y, WIDE_W, TILE_H, False)
-        out += image(2300 + c, LOOK_FRONT[WIDE_DIAL] + c, x, y, WIDE_W, TILE_H, False)
-    if fits(TALL, c):  # gauge_art.TALL_VALUE_BOX
+        out += image(2180 + c, LOOK_FRONT[WIDE] + c, x, y, WIDE_W, TILE_H, False)
+    if fits(TALL, c):  # the tall bar: over both cells high
         out += image(2420 + c, LOOK_BACK[TALL] + c, x, y, TILE_W, TALL_H, False)
-        out += image(2450 + c, LOOK_FRONT[TALL] + c, x + 40, y + 104, 18, 252, False)
+        out += image(2450 + c, LOOK_FRONT[TALL] + c, x, y, TILE_W, TALL_H, False)
     return out
 
 
@@ -198,7 +189,14 @@ def main():
             f'      <raDataModel id="{400 + c}" modelType="Richtext"/>',
             f'      <raDataModel id="{STYLE_ROW_MODEL + c}" modelType="Richtext"/>',
         ]
-    for first in LOOK_FRONT + LOOK_BACK:  # each look's own picture models
+    for first in (
+        LOOK_FRONT[CARD],
+        LOOK_BACK[CARD],
+        LOOK_FRONT[WIDE],
+        LOOK_BACK[WIDE],
+        LOOK_FRONT[TALL],
+        LOOK_BACK[TALL],
+    ):
         models += [f'      <raImageModel id="{first + c}"/>' for c in range(CELLS)]
     models.append(f'      <raDataModel id="{STYLE_NOTE}" modelType="Richtext"/>')
     models += [

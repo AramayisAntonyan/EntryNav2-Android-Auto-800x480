@@ -20,19 +20,14 @@
       <raAction id="33"/>
       <raAction id="34"/>
       <raAction id="35"/>
-      <raAction id="36"/>
     </actions>
     <models>
       <imageIdModel id="4" imageId="54001"/>
       <raPreviewModel id="5" modelType="StatePreview" previewState="700"/>
       <imageIdModel id="6" imageId="54002"/>
-      <raImageModel id="40"/>
-      <raImageModel id="41"/>
-      <raImageModel id="42"/>
       <raImageModel id="43"/>
       <raImageModel id="44"/>
       <raDataModel id="50" modelType="Richtext"/>
-      <raDataModel id="51" modelType="Richtext"/>
     </models>
     <hmiStates>
       <hmiState id="700" text="Camera">
@@ -52,40 +47,12 @@
         <optionComponents>
           <button id="124" action="34" text="View: fill the screen"/>
           <button id="125" action="35" text="View: keep proportions"/>
-          <button id="126" action="36" text="View: actual size"/>
           <button id="120" action="30" text="Picture 480 x 320"/>
           <button id="121" action="31" text="Picture 640 x 480"/>
           <button id="122" action="32" text="Picture 720 x 480"/>
           <button id="123" action="33" text="Restart the capture"/>
         </optionComponents>
         <components>
-          <image id="100" model="40">
-            <properties>
-              <property id="20" value="160"/>
-              <property id="21" value="24"/>
-              <property id="9" value="480"/>
-              <property id="10" value="320"/>
-              <property id="3" value="false"/>
-            </properties>
-          </image>
-          <image id="101" model="41">
-            <properties>
-              <property id="20" value="155"/>
-              <property id="21" value="8"/>
-              <property id="9" value="491"/>
-              <property id="10" value="368"/>
-              <property id="3" value="false"/>
-            </properties>
-          </image>
-          <image id="102" model="42">
-            <properties>
-              <property id="20" value="124"/>
-              <property id="21" value="8"/>
-              <property id="9" value="552"/>
-              <property id="10" value="368"/>
-              <property id="3" value="false"/>
-            </properties>
-          </image>
           <image id="103" model="43">
             <properties>
               <property id="20" value="0"/>
@@ -110,14 +77,6 @@
               <property id="21" value="160"/>
               <property id="9" value="760"/>
               <property id="10" value="55"/>
-            </properties>
-          </label>
-          <label id="111" model="51">
-            <properties>
-              <property id="20" value="20"/>
-              <property id="21" value="380"/>
-              <property id="9" value="760"/>
-              <property id="10" value="40"/>
             </properties>
           </label>
         </components>

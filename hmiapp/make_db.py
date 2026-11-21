@@ -239,11 +239,15 @@ def write_gauge_images(path):
 def art_pictures():
     """Every gauge picture as (id, PNG): card bars, the big looks' values and needles; per gauge its dial faces, bar
     tracks and card icon, each with the gauge's icon and scale."""
+    # Every picture fills the component its look shares with the looks of its size (gauge_ids.hpp kGroupImage0):
+    # the card's bar and head are placed in the cell, the wide and tall values cover their two cells.
+    cell = (189, 180)
     for level in range(GAUGE_BAR_LEVELS):
-        yield 56000 + level, gauge_art.whole_bar(gauge_art.CARD_BAR, level, GAUGE_BAR_LEVELS)
+        bar = gauge_art.whole_bar(gauge_art.CARD_BAR, level, GAUGE_BAR_LEVELS)
+        yield 56000 + level, gauge_art.pad(bar, cell, (12, 140))
     for level in range(FINE_LEVELS):
-        yield IMG_WIDE_BAR + level, gauge_art.WIDE_BAR.value(level, FINE_LEVELS, BAR, gauge_art.WIDE_VALUE_BOX)
-        yield IMG_TALL_BAR + level, gauge_art.TALL_BAR.value(level, FINE_LEVELS, BAR, gauge_art.TALL_VALUE_BOX)
+        yield IMG_WIDE_BAR + level, gauge_art.WIDE_BAR.value(level, FINE_LEVELS, BAR)
+        yield IMG_TALL_BAR + level, gauge_art.TALL_BAR.value(level, FINE_LEVELS, BAR)
     dials = (
         (gauge_art.SMALL_DIAL, IMG_NEEDLE),
         (gauge_art.WIDE_DIAL, IMG_WIDE_NEEDLE),
@@ -264,7 +268,7 @@ def art_pictures():
         yield IMG_WIDE_FACE + n, gauge_art.WIDE_DIAL.face(scale, icon, title, unit)
         yield IMG_WIDE_TRACK + n, gauge_art.WIDE_BAR.track(scale, icon, title, unit)
         yield IMG_TALL_TRACK + n, gauge_art.TALL_BAR.track(scale, icon, title, unit)
-        yield IMG_CARD_ICON + n, gauge_art.card_label(icon, e["title"])
+        yield IMG_CARD_ICON + n, gauge_art.pad(gauge_art.card_label(icon, e["title"]), cell, (12, 10))
         yield IMG_ARC_FACE + n, gauge_art.SMALL_ARC.face(scale, icon, title, unit)
         yield IMG_WIDE_ARC_FACE + n, gauge_art.WIDE_ARC.face(scale, icon, title, unit)
 

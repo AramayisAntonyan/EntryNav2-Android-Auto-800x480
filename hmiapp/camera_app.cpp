@@ -4,7 +4,7 @@
 // analog camera through a USB "EasyCap" grabber (MacroSilicon 534d:0021, UVC with MJPEG), on the car's USB port.
 //   Camera   the newest picture, a few times a second, while the page shows; a line over it when there is none
 //            (no adapter, no signal); a status line under it (size, pictures per second, what iDrive did with them)
-//   OPTION   the view (fill the screen, keep proportions, actual size), the picture size (480 x 320, 640 x 480,
+//   OPTION   the view (fill the screen, keep proportions), the picture size (480 x 320, 640 x 480,
 //            720 x 480: the adapter's MJPEG sizes; 720 x 480 by default, the sharpest), restart the capture
 // The adapter has one input (composite: its descriptors have no selector unit), so there is no input choice.
 //
@@ -15,7 +15,7 @@
 // album cover is sent. Whether iDrive draws a JPEG there is the first thing to check on the car: the status line says
 // "sent" when bmw::Image read the file, app.log has the first pictures' results.
 //
-// Kept in /var/local/data/AA: camera-size (0..2), camera-view (0 fill, 1 proportions, 2 actual size).
+// Kept in /var/local/data/AA: camera-size (0..2), camera-view (0 fill, 1 proportions).
 // /var/local/data/AA/camera-off keeps the app from being created.
 #include <errno.h>
 #include <pthread.h>
@@ -56,13 +56,13 @@ const unsigned kSizes[kSizeCount][2] = {{480, 320}, {640, 480}, {720, 480}};
 
 bmw::PluginApp* g_app = nullptr;
 unsigned g_size = kSizeCount - 1;  // kSizes index: 720 x 480 unless chosen otherwise
-unsigned g_view = 0;               // 0 fill the screen, 1 keep proportions, 2 actual size
+unsigned g_view = 0;               // 0 fill the screen, 1 keep proportions
 bool g_shown = false;              // the camera page shows
 int g_imageShown[kSlotCount];
 
-// The box the picture goes to: the view's, or at actual size the size's own.
+// The box the picture goes to: the view's.
 unsigned slot() {
-    return g_view == 0 ? kSizeCount : g_view == 1 ? kSizeCount + 1 : g_size;
+    return g_view < kSlotCount ? g_view : 0;
 }
 char g_shownText[2][128];
 
@@ -224,7 +224,7 @@ void setText(unsigned which, const char* text) {
     if (!g_app || !strcmp(g_shownText[which], text)) {
         return;
     }
-    g_app->updateModel(which == 0 ? kMessageModel : kStatusModel, bmw::BasicString<char>(text));
+    g_app->updateModel(kMessageModel, bmw::BasicString<char>(text));
     snprintf(g_shownText[which], sizeof(g_shownText[which]), "%s", text);
 }
 
@@ -310,10 +310,12 @@ void showPage() {
         }
     }
     setText(0, message);
-    char status[128];
-    snprintf(status, sizeof(status), "%u x %u, composite input   %.1f pictures/s   sent %u, not read %u",
-             kSizes[g_size][0], kSizes[g_size][1], g_rate, g_sent, g_notLoaded);
-    setText(1, live && g_view != 2 ? "" : status);  // over a filled page the line would cover the picture
+    static uint64_t loggedAt = 0;  // no status line on the page (the owner): the rate goes to app.log every 30 s
+    if (live && now - loggedAt >= 30000) {
+        loggedAt = now;
+        alog("camera: %u x %u, %.1f pictures/s to iDrive, sent %u, not read %u", kSizes[g_size][0], kSizes[g_size][1],
+             g_rate, g_sent, g_notLoaded);
+    }
 }
 
 AppRunnable g_refreshRunnable;
@@ -441,7 +443,7 @@ bool onView(void*, const bmw::Parcel&) {
         g_view = View;
         saveView();
         g_sentSeq = 0;  // the next picture goes to the new box
-        static const char* const kNames[kViewCount] = {"fill the screen", "keep proportions", "actual size"};
+        static const char* const kNames[kViewCount] = {"fill the screen", "keep proportions"};
         alog("camera: view %s", kNames[View]);
     }
     if (g_shown) {
@@ -471,7 +473,6 @@ bool cameraOnInit(bmw::PluginApp* self) {
     addAction(self, kActRestart, &onRestart);
     addAction(self, kActView0, &onView<0>);
     addAction(self, kActView0 + 1, &onView<1>);
-    addAction(self, kActView0 + 2, &onView<2>);
     loadSize();
     loadView();
     makeRunnable(g_refreshRunnable, &refreshRun);

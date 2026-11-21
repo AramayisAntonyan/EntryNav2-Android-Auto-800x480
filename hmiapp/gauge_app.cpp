@@ -217,7 +217,7 @@ void setArt(unsigned model, unsigned id) {
 
 // Visibility as last set: -1 unknown, 0 hidden, 1 shown.
 // Each of a look's pictures at a cell has its own flag: one shared flag left the needles hidden (2026-11-20).
-int g_lookShown[kLooks][kLookImages][kCards];
+int g_groupShown[kGroups][kLookImages][kCards];
 int g_liveShown[kCards];         // the Live values rows
 int g_lookRowShown[kLookRows];   // the Gauge styles rows
 int g_placeRowShown[kCards];     // the Gauge places rows
@@ -232,7 +232,7 @@ void forgetShown() {
         g_shownText[m][1] = 0;
     }
     memset(g_shownImage, 0, sizeof(g_shownImage));
-    memset(g_lookShown, 0xff, sizeof(g_lookShown));  // -1
+    memset(g_groupShown, 0xff, sizeof(g_groupShown));  // -1
     memset(g_liveShown, 0xff, sizeof(g_liveShown));
     memset(g_lookRowShown, 0xff, sizeof(g_lookRowShown));
     memset(g_placeRowShown, 0xff, sizeof(g_placeRowShown));
@@ -631,14 +631,13 @@ bool fresh(unsigned e) {
 void showCell(unsigned c) {
     const unsigned e = g_layout.entry[c];
     const unsigned look = e < kEntryCount ? g_layout.look[c] : static_cast<unsigned>(kLooks);
-    for (unsigned l = 0; l < kLooks; ++l) {
-        if (!lookFits(l, c)) {
-            continue;  // the look has no components at this cell
+    const unsigned group = look < kLooks ? lookGroup(look) : static_cast<unsigned>(kGroups);
+    for (unsigned g = 0; g < kGroups; ++g) {
+        if (!lookFits(kGroupLook[g], c)) {
+            continue;  // the group has no components at this cell
         }
         for (unsigned p = 0; p < kLookImages; ++p) {
-            if (kLookImage0[l][p]) {
-                showComponent(kLookImage0[l][p] + c, l == look, &g_lookShown[l][p][c]);
-            }
+            showComponent(kGroupImage0[g][p] + c, g == group, &g_groupShown[g][p][c]);
         }
     }
     if (look != kLookCard) {

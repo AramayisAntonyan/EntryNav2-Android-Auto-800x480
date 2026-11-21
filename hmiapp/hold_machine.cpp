@@ -37,6 +37,11 @@ HoldMachine::HoldMachine(HoldIo& io)
       waitSince_(0),
       askedAt_(0),
       asks_(0),
+      quiet_(false),
+      wasConnected_(false),
+      lastShown_(false),
+      everShown_(false),
+      quietUntil_(0),
       inCall_(false),
       callEnd_(0),
       optionPanel_(false),
@@ -305,6 +310,7 @@ void HoldMachine::updatePopupPeek(bool covered) {
 // answer never reaches the app (CLocalCommAdapter::sendEvent drops it) and nothing tells an app when it ends, so the
 // only way to know is to ask: our menu (event 51) once a second. Its focus is the answer (menuFocus).
 void HoldMachine::beginWait(long now) {
+    quiet_ = false;
     waiting_ = true;
     waitSince_ = now;
     askedAt_ = 0;
@@ -328,6 +334,9 @@ void HoldMachine::bringIdrive(const ServiceState& service, long now) {
         say("hold: one of our pages has the focus: Android Auto comes up");
         showAndHold("Android Auto was waiting aside", now);
         return;
+    }
+    if (quiet_) {
+        return;  // a reconnect while the driver is elsewhere: no event pulls iDrive to our menu
     }
     if (askedAt_ && now - askedAt_ < 1) {
         return;
@@ -385,6 +394,14 @@ void HoldMachine::askWithoutHold(long now) {
 // Status poll (1 s). service.onScreen(): Android Auto is on screen (knob and touch go to the phone).
 void HoldMachine::poll(const ServiceState& service, long now) {
     const bool overlay = service.onScreen();
+    const bool connectedNow = service.pid > 0 && service.is("connected");
+    if (connectedNow) {
+        lastShown_ = overlay;
+        everShown_ = everShown_ || overlay;
+    } else if (wasConnected_) {
+        quietUntil_ = everShown_ && !lastShown_ ? now + kQuietReconnectS : 0;
+    }
+    wasConnected_ = connectedNow;
     const bool rose = overlay && !prevOverlay_, fell = !overlay && prevOverlay_;
     prevOverlay_ = overlay;
     const bool blank = blankShown();
@@ -471,6 +488,11 @@ void HoldMachine::poll(const ServiceState& service, long now) {
     }
     if (service.asks() && !waiting_) {
         beginWait(now);
+        if (quietUntil_ && now < quietUntil_) {
+            quiet_ = true;
+            say("hold: the phone reconnected while Android Auto was aside: it waits there until our menu is opened");
+        }
+        quietUntil_ = 0;
     }
     if (waiting_) {
         bringIdrive(service, now);

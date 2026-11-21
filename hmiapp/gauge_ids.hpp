@@ -53,23 +53,24 @@ const unsigned kCards = kCardsPerPage * kPages;
 // never hidden). The other looks are pictures alone, as the M5's gauges. A look's pictures are hidden (property 3, as
 // Android Auto's album cover) while it is not at the cell.
 const unsigned kCardValue0 = 330;
-// Each look has its own picture models too (raImageModels, cell c: + c): the front picture (a bar, a needle) and the
-// back one (a face, a bar's track, a card's icon). Shared between the looks, a model's picture went to another look's
-// component than the shown one (seen on the car 2026-11-20: no needles, a red speck at the card bar's place).
-const unsigned kLookFront0[kLooks] = {1100, 1160, 1220, 1280, 1340, 1400, 1460};
-const unsigned kLookBack0[kLooks] = {1130, 1190, 1250, 1310, 1370, 1430, 1490};
+// iDrive draws only about the first 64 components of a page (2026-11-21: with one pair of pictures per look and
+// cell, the cells past the 57th component stayed empty). So the looks of one size share their picture components:
+// the small looks (card, dial, arc) one pair over the cell, the wide looks one pair over two cells across, the tall
+// bar one pair over two cells high; every picture fills its component, and only the pictures change with the look.
+// 44 components a page. Each component has its own raImageModel (cell c: + c): shared between components, a picture
+// went to the wrong one (2026-11-20).
+enum LookGroup { kGroupSmall, kGroupWide, kGroupTall, kGroups };
+inline unsigned lookGroup(unsigned look) {
+    return lookHeight(look) > 1 ? kGroupTall : lookWidth(look) > 1 ? kGroupWide : kGroupSmall;
+}
 const unsigned kLookImages = 2;
-// The picture components of each look at cell c: base + c, the back picture (per gauge: its icon, dial face or bar
-// track) then the front one (a bar's value, a needle). No tiles: the owner prefers iDrive's own background.
-const unsigned kLookImage0[kLooks][kLookImages] = {
-    {1100, 1190},  // card: icon, bar
-    {2000, 2030},  // dial: face, needle
-    {2150, 2180},  // wide bar: track, value
-    {2270, 2300},  // wide dial: face, needle
-    {2420, 2450},  // tall bar: track, value
-    {2800, 2830},  // arc: face, needle
-    {2920, 2950},  // wide arc: face, needle
-};
+// The components of each group at cell c: base + c, the back picture (a face, a bar's track, a card's head) then the
+// front one (a needle, a bar's value). No tiles: the owner prefers iDrive's own background.
+const unsigned kGroupImage0[kGroups][kLookImages] = {{1100, 1190}, {2150, 2180}, {2420, 2450}};
+const unsigned kGroupLook[kGroups] = {kLookCard, kLookWide, kLookTall};  // a look of the group (where it fits)
+// Their models, by look (the looks of a group share them): front (a needle, a bar) and back (a face, a track).
+const unsigned kLookFront0[kLooks] = {1100, 1100, 1220, 1220, 1340, 1100, 1220};
+const unsigned kLookBack0[kLooks] = {1130, 1130, 1250, 1250, 1370, 1130, 1250};
 inline bool lookFits(unsigned look, unsigned cell) {
     return cell % kCols + lookWidth(look) <= kCols && cell % kCellsPerPage / kCols + lookHeight(look) <= kRows;
 }
@@ -145,9 +146,9 @@ const unsigned kShiftLevels = 33;       // 250 rpm a step, 0..8000
 // Every other picture is in CarGauges_Art.pack, sent through raImageModels (as Android Auto's album cover), under the
 // same kind of ids. The big looks move in finer steps: + level, levels 0..kFineLevels - 1.
 const unsigned kFineLevels = 41;
-const unsigned kImgBar0 = 56000;         // + level: 165x12 card bars, levels 0..kBarLevels - 1
-const unsigned kImgWideBar0 = 59000;     // 372x17 at the cell's (12, 112): the value's segments over the track
-const unsigned kImgTallBar0 = 59500;     // 18x252 at (40, 104), filled from the bottom
+const unsigned kImgBar0 = 56000;         // + level: a card's bar in its cell (189x180), 0..kBarLevels - 1
+const unsigned kImgWideBar0 = 59000;     // 386x180: the value's segments over the track
+const unsigned kImgTallBar0 = 59500;     // 189x368, filled from the bottom
 const unsigned kImgNeedle0 = 60000;      // 189x180, a dial's needle (transparent but the blade)
 const unsigned kImgWideNeedle0 = 60500;  // 386x180
 // One picture per gauge (+ catalogue entry): its icon, scale and numbers.
@@ -155,7 +156,7 @@ const unsigned kImgFace0 = 61000;       // 189x180, a dial's face
 const unsigned kImgWideFace0 = 61100;   // 386x180
 const unsigned kImgWideTrack0 = 61200;  // 386x180, a wide bar's track, notches, numbers and icon
 const unsigned kImgTallTrack0 = 61300;  // 189x368
-const unsigned kImgCardIcon0 = 61400;   // 22x22, a card's icon
+const unsigned kImgCardIcon0 = 61400;   // a card's head (icon and name) in its cell (189x180)
 // The arcs (the fuel gauge's shape): needles + level, faces + catalogue entry.
 const unsigned kImgArcNeedle0 = 62000;      // 189x180
 const unsigned kImgWideArcNeedle0 = 62500;  // 386x180

@@ -85,6 +85,9 @@ protected:
     ~HoldIo() = default;
 };
 
+// A session that ends while Android Auto is aside and comes back within this many seconds waits aside quietly.
+const long kQuietReconnectS = 600;
+
 class HoldMachine {
 public:
     static const int kMaxHoldTries = 8;     // events 52 until the blank state shows again
@@ -169,6 +172,15 @@ private:
     long waitSince_;   // when the wait began (a call or the reverse gear start it again)
     long askedAt_;     // last event 51 fired for it, 0: none yet
     int asks_;         // events 51 fired for it
+    // A session that ended while Android Auto was aside (the driver in another iDrive app) and comes back within
+    // kQuietReconnectS waits aside quietly: no event 51 pulls iDrive to our menu; our menu, when the driver opens it,
+    // brings it up (2026-11-21: the phone's Bluetooth link flapped, every reconnect took the screen from Gauges).
+    bool quiet_;         // the current wait is such a quiet one
+    bool wasConnected_;  // the previous poll saw a connected session
+    bool lastShown_;     // Android Auto was on screen at the last poll of the connected session
+    bool everShown_;     // Android Auto was on screen in this session's run (a start-up that never showed it is not
+                         // the driver leaving it: that reconnect still brings it up)
+    long quietUntil_;    // a reconnect before then waits quietly, 0: none
 
     // The car
     bool inCall_;
