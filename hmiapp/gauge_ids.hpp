@@ -99,6 +99,16 @@ const unsigned kRangeNote = 305;      // Richtext above the rows
 const unsigned kRangeRow0 = 155;      // Richtext models: + row
 const unsigned kRangeRowComp0 = 191;  // button rows: + row
 const unsigned kActRangeRow0 = 245;   // raActions: + row
+// The range of one gauge, set by hand: its min and max a step at a time (kRangeSteps buttons), or back to the
+// catalogue's; a press on a Gauge ranges row opens it (focusEvent kEvRange).
+const unsigned kRangeEditState = 967;
+const unsigned kEvRange = 326;
+const unsigned kRangeEditNote = 307;      // Richtext: the gauge and its range
+const unsigned kRangeStepText0 = 308;     // Richtext models of the buttons: + button
+const unsigned kActRangeStep0 = 317;      // raActions: + button
+const unsigned kRangeEditNoteComp = 263;  // the label
+const unsigned kRangeStepComp0 = 264;     // the buttons: + button
+const unsigned kRangeSteps = 9;           // max +big, +small, -small, -big; min the same; the catalogue's range
 
 // ---- Gauge places: one row per ticked gauge; a press opens its places (gauges-place) --------------------------------
 const unsigned kPlacesState = 964;       // the gauges with their places
@@ -169,12 +179,11 @@ const unsigned kImgArcNeedle0 = 62000;      // 189x180
 const unsigned kImgWideArcNeedle0 = 62500;  // 386x180
 const unsigned kImgArcFace0 = 63000;        // 189x180
 const unsigned kImgWideArcFace0 = 63100;    // 386x180
-// The faces and tracks of a gauge's other scales (Gauge ranges): + (scale - 1) * 1000 + kind * 100 + gauge, kind as
-// kRangeKind below.
-const unsigned kImgRange0 = 64000;
-enum RangeKind { kKindFace, kKindWideFace, kKindWideTrack, kKindTallTrack, kKindArcFace, kKindWideArcFace };
-const unsigned kArtFirst = 56000;  // the pack's ids: kArtFirst .. kArtFirst + kArtIds - 1
-const unsigned kArtIds = 11000;
+const unsigned kArtFirst = 56000;           // the pack's ids: kArtFirst .. kArtFirst + kArtIds - 1
+const unsigned kArtIds = 8000;
+// A scale the owner set by hand (Gauge ranges) is drawn on the unit (hmiapp/gauge_draw.cpp) and sent by path; its
+// pictures have ids from here (never in the pack): + ((generation * kEntryCount + entry) * 8 + kind)
+const unsigned kDrawnArt0 = 1u << 24;
 
 const unsigned kShiftPoints[] = {5000, 5500, 6000, 6500};
 

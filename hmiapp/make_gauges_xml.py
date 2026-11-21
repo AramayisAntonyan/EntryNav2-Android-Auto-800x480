@@ -96,6 +96,18 @@ PLACES_NOTE, PLACE_NOTE, RESET_PLACES, PLACE_EVENT = 355, 356, 357, 359
 # Gauge ranges (gauge_ids.hpp kRange*): rows of the ticked gauges (components 191 + i, models 155 + i, raActions
 # 245 + i), the note above them (label 239, model 305); a press gives the gauge its next scale.
 RANGE_ROW_COMP, RANGE_ROW_MODEL, RANGE_ROW_ACTION, RANGE_NOTE = 191, 155, 245, 305
+# The range of one gauge set by hand (gauge_ids.hpp kRangeEdit*): state 967, opened by focusEvent 326; its label 263
+# (model 307), nine buttons 264 + i (texts 308 + i, raActions 317 + i).
+EDIT_STATE, EDIT_EVENT, EDIT_NOTE, EDIT_TEXT, EDIT_ACTION, EDIT_NOTE_COMP, EDIT_COMP, EDIT_STEPS = (
+    967,
+    326,
+    307,
+    308,
+    317,
+    263,
+    264,
+    9,
+)
 
 
 def props(x, y, w, h, extra=""):
@@ -211,6 +223,8 @@ def main():
     models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (PLACES_NOTE, PLACE_NOTE)]
     models += [f'      <raDataModel id="{RANGE_ROW_MODEL + c}" modelType="Richtext"/>' for c in range(CELLS)]
     models.append(f'      <raDataModel id="{RANGE_NOTE}" modelType="Richtext"/>')
+    models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in [EDIT_NOTE]]
+    models += [f'      <raDataModel id="{EDIT_TEXT + i}" modelType="Richtext"/>' for i in range(EDIT_STEPS)]
     models.append('      <imageIdModel id="90" imageId="57000"/>')
     models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (91, 92, 93, 104, 105, 106, 107, 108)]
     models += [f'      <raDataModel id="{95 + i}" modelType="Richtext"/>' for i in range(8)]
@@ -235,10 +249,12 @@ def main():
     actions += [f'      <raAction id="{a + c}"/>' for a in (PLACE_ROW_ACTION, PLACE_ACTION) for c in range(CELLS)]
     actions.append(f'      <raAction id="{RESET_PLACES}"/>')
     actions += [f'      <raAction id="{RANGE_ROW_ACTION + c}"/>' for c in range(CELLS)]
+    actions += [f'      <raAction id="{EDIT_ACTION + i}"/>' for i in range(EDIT_STEPS)]
     events = (
         '      <focusEvent id="358" target="971"/>\n'  # a car test started: its results page
         '      <focusEvent id="88" target="930"/>\n'  # the clear started: the codes page shows its result
-        f'      <focusEvent id="{PLACE_EVENT}" target="965"/>'  # a gauge pressed on Gauge places: its places
+        f'      <focusEvent id="{PLACE_EVENT}" target="965"/>\n'  # a gauge pressed on Gauge places: its places
+        f'      <focusEvent id="{EDIT_EVENT}" target="{EDIT_STATE}"/>'  # a gauge pressed on Gauge ranges: its range
     )
 
     preview = image(89, 6, 0, 0, 549, 484) + "".join(
@@ -311,6 +327,10 @@ def main():
         modelbutton(RANGE_ROW_COMP + i, RANGE_ROW_ACTION + i, RANGE_ROW_MODEL + i) for i in range(CELLS)
     )
     states += state(966, "Gauge ranges", scales, parent=902)
+    edit = labelrow(EDIT_NOTE_COMP, EDIT_NOTE) + "".join(
+        modelbutton(EDIT_COMP + i, EDIT_ACTION + i, EDIT_TEXT + i) for i in range(EDIT_STEPS)
+    )
+    states += state(EDIT_STATE, "Set the range", edit, parent=966)
     tests = "".join(button(1510 + i, 50 + i, t) for i, t in enumerate(CAR_TESTS))
     states += state(970, "Car tests", tests, parent=903)
     # The results: the test and its state, then the output's last lines, placed so the whole page is one photo.

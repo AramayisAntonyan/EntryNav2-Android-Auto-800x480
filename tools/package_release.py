@@ -34,6 +34,7 @@ GAUGES_FILES = (
     "CarGauges.xml",
     "CarGauges_ALL_Images.zip",
     "CarGauges_Art.pack",  # the gauge pictures the app sends itself (iDrive refuses a big image archive)
+    "CarGauges_Glyphs.bin",  # figures and icons, to draw the scales the owner sets by hand (gauge_draw.cpp)
 )
 # The Camera app under My Vehicle (hmiapp/camera_app.cpp): an EasyCap grabber's picture, a third iDrive app.
 CAMERA = "opt/hmi/data/ro/Plugins/AuxCamera"

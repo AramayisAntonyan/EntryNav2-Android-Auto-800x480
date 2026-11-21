@@ -117,9 +117,6 @@ int main() {
     }
     CHECK(levelOf(*find("Water"), 40, 41) == 0 && levelOf(*find("Water"), 130, 41) == 40);
     CHECK(levelOf(*find("Water"), 85, 41) == 20 && levelOf(*find("Water"), 500, 41) == 40);
-    // Gauge ranges: the catalogue's scale first, round ends below and above; graded scales keep one
-    CHECK(find("Boost")->ranges == 4 && find("Boost")->range[0][1] == 2.5 && find("Boost")->range[2][1] == 1.5);
-    CHECK(find("Fuel quality")->ranges == 1);
 
     // Layout: 4 x 2 cells a page, first free place in order.
     {

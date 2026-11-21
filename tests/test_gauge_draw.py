@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026 Jiraiya43
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+"""The head unit draws the scales the owner sets by hand (hmiapp/gauge_draw.cpp): its faces and tracks must match
+what hmiapp/gauge_art.py draws on the PC for the same scale. Draws a set of them both ways and compares the pixels.
+
+Usage: test_gauge_draw.py <gauge_draw_dump binary>   (writes its own CarGauges_Glyphs.bin)
+"""
+
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "hmiapp"))
+import gauge_art  # noqa: E402
+import gauge_catalogue  # noqa: E402
+import make_db  # noqa: E402
+
+KINDS = (  # gauge_draw.hpp Kind order
+    lambda sk, i, t, u: gauge_art.SMALL_DIAL.face(sk, i, t, u),
+    lambda sk, i, t, u: gauge_art.WIDE_DIAL.face(sk, i, t, u),
+    lambda sk, i, t, u: gauge_art.WIDE_BAR.track(sk, i, t, u),
+    lambda sk, i, t, u: gauge_art.TALL_BAR.track(sk, i, t, u),
+    lambda sk, i, t, u: gauge_art.SMALL_ARC.face(sk, i, t, u),
+    lambda sk, i, t, u: gauge_art.WIDE_ARC.face(sk, i, t, u),
+)
+
+
+def main():
+    dump = sys.argv[1]
+    entries = gauge_catalogue.entries()
+    by_title = {e["title"]: n for n, e in enumerate(entries)}
+    cases = [  # (kind, title, lo, hi): the catalogue's scales and hand-set ones
+        (0, "Water", 40, 130),
+        (4, "Oil", 40, 150),
+        (1, "RPM", 0, 7000),
+        (5, "RPM", 0, 6500),
+        (2, "Boost", 0, 2.5),
+        (3, "Boost", 0, 1.6),
+        (3, "Oil pressure", 0, 8),
+        (0, "Steering angle", -540, 540),
+        (2, "Speed", 0, 260),
+        (0, "Boost", -0.8, 1.6),
+    ]
+    failures = 0
+    with tempfile.TemporaryDirectory() as tmp:
+        glyphs = str(Path(tmp) / "glyphs.bin")
+        make_db.write_glyphs(glyphs)
+        for k, (kind, title, lo, hi) in enumerate(cases):
+            e = entries[by_title[title]]
+            red = gauge_catalogue.red_from(e, lo, hi)
+            icon, unit = e["icon"], e["unit"]
+            name_title = None if icon else e["title"]
+            subprocess.run(
+                [dump, glyphs, tmp, str(kind), str(by_title[title]), repr(float(lo)), repr(float(hi)),
+                 "1" if red is not None else "0", repr(float(red or 0)), e["title"], unit, f"c{k}"],
+                check=True,
+            )  # fmt: skip
+            ours, w, h = gauge_art.unpng((Path(tmp) / f"c{k}.png").read_bytes())
+            ref, rw, rh = gauge_art.unpng(KINDS[kind]((lo, hi, red, None), icon, name_title, unit))
+            if (w, h) != (rw, rh):
+                print(f"FAIL {title} kind {kind}: size {w}x{h}, expected {rw}x{rh}")
+                failures += 1
+                continue
+            diff = [abs(a - b) for a, b in zip(ours, ref)]
+            big = sum(1 for d in diff if d > 24)
+            if big > len(diff) // 2000:  # a few edge pixels may round the other way
+                print(f"FAIL {title} {lo}..{hi} kind {kind}: {big} channel values differ by more than 24")
+                failures += 1
+    print("PASS gauge draw: the unit draws hand-set scales as the PC does" if not failures else f"{failures} failed")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

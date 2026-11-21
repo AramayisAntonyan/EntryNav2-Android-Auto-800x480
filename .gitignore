@@ -34,6 +34,7 @@ __pycache__/
 /hmiapp/EntryAad_ALL_*.zip
 /hmiapp/CarGauges_ALL_*.zip
 /hmiapp/CarGauges_Art.pack
+/hmiapp/CarGauges_Glyphs.bin
 /hmiapp/AuxCamera_ALL_*.zip
 /hmiapp/gauge-collector
 /hmiapp/car-test

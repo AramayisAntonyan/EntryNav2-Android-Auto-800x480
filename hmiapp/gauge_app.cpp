@@ -36,6 +36,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <netinet/in.h>
 #include <signal.h>
 #include <spawn.h>
@@ -53,6 +54,7 @@
 #include "../platform/service_contract.hpp"
 #include "app_log.hpp"
 #include "bmw_framework.hpp"
+#include "gauge_draw.hpp"
 #include "gauge_ids.hpp"
 #include "gauge_values.hpp"
 #include "rhmi_ids.hpp"
@@ -77,7 +79,8 @@ const char kArtPack[] = "/opt/hmi/data/ro/Plugins/CarGauges/CarGauges_Art.pack";
 const char kArtDir[] = "/tmp/gauge-art";  // pictures unpacked on first use (RAM), sent by path
 const char kShiftFile[] = "/var/local/data/AA/gauges-shift";
 const char kStyleFile[] = "/var/local/data/AA/gauges-style";
-const char kRangeFile[] = "/var/local/data/AA/gauges-range";  // Gauge ranges: the scale's digit per entry
+const char kLimitFile[] = "/var/local/data/AA/gauges-limits";  // Gauge ranges: "entry lo hi" per line
+const char kGlyphs[] = "/opt/hmi/data/ro/Plugins/CarGauges/CarGauges_Glyphs.bin";  // to draw hand-set scales
 const char kPlaceFile[] = "/var/local/data/AA/gauges-place";  // Gauge places: '-' or 'A' + cell per entry
 const char kCollector[] = "/opt/hmi/data/ro/Plugins/CarGauges/gauge-collector";
 // Kept across restarts (the owner restarts the car between a drive and the next connection): moved to .old at 256 KB.
@@ -100,8 +103,12 @@ double g_value[kEntryCount];
 // instead of jumping (the owner, 2026-11-21: smoother). The card's number shows the value itself.
 double g_display[kEntryCount];
 bool g_displaySet[kEntryCount];
-unsigned g_range[kEntryCount];   // each entry's scale (Gauge ranges): Entry::range index
-uint64_t g_seenAt[kEntryCount];  // DME values: when the frame carrying it arrived (they go stale)
+// The ranges the owner set by hand (Gauge ranges); g_rangeGen changes with each, so its pictures are drawn anew.
+bool g_limitSet[kEntryCount];
+double g_limitLo[kEntryCount], g_limitHi[kEntryCount];
+unsigned g_rangeGen[kEntryCount];
+unsigned g_editing = kEntryCount;  // the gauge whose range Set the range shows
+uint64_t g_seenAt[kEntryCount];    // DME values: when the frame carrying it arrived (they go stale)
 bool g_logged[kEntryCount];
 unsigned g_look[kEntryCount];  // each entry's look (gauges-style)
 unsigned g_list[kCards];       // the ticked, offered entries in order (Live values, Gauge styles)
@@ -205,13 +212,15 @@ bool artPath(unsigned id, char* path, size_t cap) {
     return ok;
 }
 
+bool drawnPath(unsigned id, char* path, size_t cap);  // a hand-set range's picture, below
+
 // An raImageModel shows the pack's picture `id` (sent only when it changes).
 void setArt(unsigned model, unsigned id) {
     if (!g_app || model >= kModels || g_shownImage[model] == id) {
         return;
     }
     char path[64];
-    if (!artPath(id, path, sizeof(path))) {
+    if (id >= kDrawnArt0 ? !drawnPath(id, path, sizeof(path)) : !artPath(id, path, sizeof(path))) {
         return;
     }
     bmw::Image image{bmw::BasicString<char>(path)};
@@ -320,37 +329,98 @@ void saveChoice() {
     writeLine(kChoiceFile, line);
 }
 
-// The entry with the owner's scale (Gauge ranges) as its lo, hi.
+// The entry with the owner's range (Gauge ranges) as its lo, hi.
 Entry ranged(unsigned e) {
     Entry x = kEntries[e];
-    if (g_range[e] > 0 && g_range[e] < x.ranges) {
-        x.lo = x.range[g_range[e]][0];
-        x.hi = x.range[g_range[e]][1];
+    if (g_limitSet[e]) {
+        x.lo = g_limitLo[e];
+        x.hi = g_limitHi[e];
     }
     return x;
 }
 
-// A face's or track's picture for the entry's scale: the catalogue's own (base + e) or another scale's.
-unsigned faceArt(unsigned base, unsigned kind, unsigned e) {
-    return g_range[e] == 0 ? base + e : kImgRange0 + (g_range[e] - 1) * 1000 + kind * 100 + e;
+// Fuel quality's grades (92 95 98) are fixed: no hand-set range.
+bool rangeFixed(unsigned e) {
+    return !strcmp(kEntries[e].unit, "RON");
 }
 
-void loadRanges() {
-    char line[kEntryCount + 8] = "";
-    const bool got = readLine(kRangeFile, line, sizeof(line));
-    for (unsigned e = 0; e < kEntryCount; ++e) {
-        const unsigned r = got && e < strlen(line) && line[e] >= '0' && line[e] <= '9' ? line[e] - '0' : 0;
-        g_range[e] = r < kEntries[e].ranges ? r : 0;
+// A face's or track's picture: the pack's (base + e) for the catalogue's range, else one drawn on the unit.
+unsigned faceArt(unsigned base, gauges::draw::Kind kind, unsigned e) {
+    if (!g_limitSet[e]) {
+        return base + e;
     }
+    return kDrawnArt0 + ((g_rangeGen[e] & 0xFFFF) * kEntryCount + e) * 8 + kind;
 }
 
-void saveRanges() {
-    char line[kEntryCount + 8];
-    for (unsigned e = 0; e < kEntryCount; ++e) {
-        line[e] = static_cast<char>('0' + g_range[e]);
+// The red end as the PC draws it (hmiapp/gauge_catalogue.py red_from): engine speed's last 1000 rpm, the top 15 % of
+// the engine's temperatures.
+gauges::draw::Scale scaleOf(unsigned e) {
+    static const char* const kHot[] = {"Water", "Oil", "Coolant (OBD)", "Coolant (DME)", "Oil temp. (OBD)"};
+    const Entry x = ranged(e);
+    gauges::draw::Scale s = {x.lo, x.hi, false, 0};
+    if (!strcmp(x.unit, "rpm")) {
+        s.red = true;
+        s.redFrom = x.hi - 1000;
     }
-    line[kEntryCount] = 0;
-    writeLine(kRangeFile, line);
+    for (unsigned i = 0; i < sizeof(kHot) / sizeof(kHot[0]); ++i) {
+        if (!strcmp(x.title, kHot[i])) {
+            s.red = true;
+            s.redFrom = x.lo + 0.85 * (x.hi - x.lo);
+        }
+    }
+    return s;
+}
+
+// A picture drawn on the unit for a hand-set range: /tmp/gauge-art/d<id>.png, drawn the first time it is needed.
+bool drawnPath(unsigned id, char* path, size_t cap) {
+    const unsigned kind = (id - kDrawnArt0) % 8, e = (id - kDrawnArt0) / 8 % kEntryCount;
+    snprintf(path, cap, "%s/d%u.png", kArtDir, id);
+    if (access(path, F_OK) == 0) {
+        return true;
+    }
+    if (!gauges::draw::sheetsLoaded() && !gauges::draw::loadSheets(kGlyphs)) {
+        alog("gauges: %s not readable: hand-set ranges cannot be drawn", kGlyphs);
+        return false;
+    }
+    gauges::draw::Picture p;
+    if (!gauges::draw::render(static_cast<gauges::draw::Kind>(kind), scaleOf(e), e, kEntries[e].title, kEntries[e].unit,
+                              &p)) {
+        return false;
+    }
+    char tmp[72];
+    snprintf(tmp, sizeof(tmp), "%s/d%u.tmp", kArtDir, id);
+    mkdir(kArtDir, 0755);
+    return gauges::draw::writePng(p, tmp) && rename(tmp, path) == 0;
+}
+
+void loadLimits() {
+    FILE* f = fopen(kLimitFile, "r");
+    if (!f) {
+        return;
+    }
+    unsigned e;
+    double lo, hi;
+    while (fscanf(f, "%u %lf %lf", &e, &lo, &hi) == 3) {
+        if (e < kEntryCount && hi > lo && !rangeFixed(e)) {
+            g_limitSet[e] = true;
+            g_limitLo[e] = lo;
+            g_limitHi[e] = hi;
+        }
+    }
+    fclose(f);
+}
+
+void saveLimits() {
+    FILE* f = fopen(kLimitFile, "w");
+    if (!f) {
+        return;
+    }
+    for (unsigned e = 0; e < kEntryCount; ++e) {
+        if (g_limitSet[e]) {
+            fprintf(f, "%u %.6g %.6g\n", e, g_limitLo[e], g_limitHi[e]);
+        }
+    }
+    fclose(f);
 }
 
 // Each needle and bar a step towards its value; true while one still moves.
@@ -726,27 +796,27 @@ void showCell(unsigned c) {
     const unsigned fine = ok ? levelOf(scaled, shown, kFineLevels) : 0;
     switch (look) {
         case kLookDial:
-            setArt(kLookBack0[look] + c, faceArt(kImgFace0, kKindFace, e));
+            setArt(kLookBack0[look] + c, faceArt(kImgFace0, gauges::draw::kFace, e));
             setArt(kLookFront0[look] + c, kImgNeedle0 + fine);
             break;
         case kLookWide:
-            setArt(kLookBack0[look] + c, faceArt(kImgWideTrack0, kKindWideTrack, e));
+            setArt(kLookBack0[look] + c, faceArt(kImgWideTrack0, gauges::draw::kWideTrack, e));
             setArt(kLookFront0[look] + c, kImgWideBar0 + fine);
             break;
         case kLookWideDial:
-            setArt(kLookBack0[look] + c, faceArt(kImgWideFace0, kKindWideFace, e));
+            setArt(kLookBack0[look] + c, faceArt(kImgWideFace0, gauges::draw::kWideFace, e));
             setArt(kLookFront0[look] + c, kImgWideNeedle0 + fine);
             break;
         case kLookArc:
-            setArt(kLookBack0[look] + c, faceArt(kImgArcFace0, kKindArcFace, e));
+            setArt(kLookBack0[look] + c, faceArt(kImgArcFace0, gauges::draw::kArcFace, e));
             setArt(kLookFront0[look] + c, kImgArcNeedle0 + fine);
             break;
         case kLookWideArc:
-            setArt(kLookBack0[look] + c, faceArt(kImgWideArcFace0, kKindWideArcFace, e));
+            setArt(kLookBack0[look] + c, faceArt(kImgWideArcFace0, gauges::draw::kWideArcFace, e));
             setArt(kLookFront0[look] + c, kImgWideArcNeedle0 + fine);
             break;
         case kLookTall:
-            setArt(kLookBack0[look] + c, faceArt(kImgTallTrack0, kKindTallTrack, e));
+            setArt(kLookBack0[look] + c, faceArt(kImgTallTrack0, gauges::draw::kTallTrack, e));
             setArt(kLookFront0[look] + c, kImgTallBar0 + fine);
             break;
         default:
@@ -986,6 +1056,7 @@ void showTrip() {
 }
 
 void showRanges();  // Gauge ranges, below the Gauge styles' actions
+void showRangeEdit();
 
 void refresh() {
     if (dashPage()) {
@@ -996,6 +1067,8 @@ void refresh() {
         showDiag();
     } else if (g_page == kRangeState) {
         showRanges();
+    } else if (g_page == kRangeEditState) {
+        showRangeEdit();
     } else if (g_page == kLookState) {
         showLooks();
     } else if (g_page == kPlacesState) {
@@ -1455,7 +1528,7 @@ struct LookActions<0> {
     static void add(bmw::PluginApp*) {}
 };
 
-// Gauge ranges: each ticked gauge with its scale; a press gives it the next one.
+// Gauge ranges: each ticked gauge with its range; a press opens Set the range for it.
 void showRanges() {
     for (unsigned r = 0; r < kCards; ++r) {
         const bool shown = r < g_listCount;
@@ -1467,11 +1540,44 @@ void showRanges() {
         const Entry x = ranged(e);
         char row[96];
         snprintf(row, sizeof(row), "%s: %g to %g %s%s", x.title, x.lo, x.hi, x.unit,
-                 kEntries[e].ranges > 1 ? "" : " (fixed)");
+                 rangeFixed(e)   ? " (fixed)"
+                 : g_limitSet[e] ? " (set)"
+                                 : "");
         setText(kRangeRow0 + r, row);
     }
-    setText(kRangeNote, g_listCount ? "Press a gauge for its next scale: its dial or bar is drawn with it."
+    setText(kRangeNote, g_listCount ? "Press a gauge to set its min and max: its dial or bar is drawn with them."
                                     : "No gauge ticked: Choose gauges first");
+}
+
+// The steps for a gauge: a tenth and one of the catalogue range's order (Boost 2.5 bar: 0.1 and 1).
+void rangeSteps(unsigned e, double* small, double* big) {
+    const double span = kEntries[e].hi - kEntries[e].lo;
+    *small = pow(10.0, floor(log10(span > 0 ? span : 1)) - 1);
+    *big = *small * 10;
+}
+
+// Set the range: the gauge, its range and the buttons' texts.
+void showRangeEdit() {
+    const unsigned e = g_editing;
+    if (e >= kEntryCount) {
+        setText(kRangeEditNote, "Press a gauge on Gauge ranges first");
+        return;
+    }
+    const Entry x = ranged(e);
+    double small, big;
+    rangeSteps(e, &small, &big);
+    char text[96];
+    snprintf(text, sizeof(text), "%s: %g to %g %s%s", x.title, x.lo, x.hi, x.unit,
+             rangeFixed(e) ? " (fixed: its grades)" : "");
+    setText(kRangeEditNote, text);
+    const char* const kWhat[8] = {"Max", "Max", "Max", "Max", "Min", "Min", "Min", "Min"};
+    const double kBy[8] = {big, small, -small, -big, big, small, -small, -big};
+    for (unsigned i = 0; i < 8; ++i) {
+        snprintf(text, sizeof(text), "%s %s %g %s", kWhat[i], kBy[i] > 0 ? "+" : "-", fabs(kBy[i]), x.unit);
+        setText(kRangeStepText0 + i, text);
+    }
+    snprintf(text, sizeof(text), "The usual range: %g to %g %s", kEntries[e].lo, kEntries[e].hi, kEntries[e].unit);
+    setText(kRangeStepText0 + 8, text);
 }
 
 template <unsigned Row>
@@ -1479,12 +1585,43 @@ bool onRangeRow(void*, const bmw::Parcel&) {
     if (Row >= g_listCount) {
         return true;
     }
-    const unsigned e = g_list[Row];
-    g_range[e] = kEntries[e].ranges > 1 ? (g_range[e] + 1) % kEntries[e].ranges : 0;
-    saveRanges();
+    g_editing = g_list[Row];
+    showRangeEdit();
+    g_app->triggerEvent(kEvRange);  // Set the range opens on the press
+    return true;
+}
+
+// A step of the min or max (buttons 0..7), or back to the catalogue's range (8). The min stays a small step under
+// the max; the dashboard draws the gauge anew with it.
+template <unsigned Step>
+bool onRangeStep(void*, const bmw::Parcel&) {
+    const unsigned e = g_editing;
+    if (e >= kEntryCount || rangeFixed(e)) {
+        return true;
+    }
+    if (Step == 8) {
+        g_limitSet[e] = false;
+    } else {
+        double small, big;
+        rangeSteps(e, &small, &big);
+        const double by = Step % 4 == 0 ? big : Step % 4 == 1 ? small : Step % 4 == 2 ? -small : -big;
+        const Entry x = ranged(e);
+        double lo = x.lo, hi = x.hi;
+        (Step < 4 ? hi : lo) += by;
+        lo = nearbyint(lo / small) * small;  // no 0.30000000000000004
+        hi = nearbyint(hi / small) * small;
+        if (hi - lo < small - 1e-9) {
+            return true;  // the min would reach the max
+        }
+        g_limitSet[e] = true;
+        g_limitLo[e] = lo;
+        g_limitHi[e] = hi;
+    }
+    ++g_rangeGen[e];
+    saveLimits();
     const Entry x = ranged(e);
-    alog("gauges: %s scale %g to %g %s", x.title, x.lo, x.hi, x.unit);
-    showRanges();
+    alog("gauges: %s range %g to %g %s%s", x.title, x.lo, x.hi, x.unit, g_limitSet[e] ? "" : " (the usual)");
+    showRangeEdit();
     return true;
 }
 
@@ -1493,6 +1630,9 @@ struct RangeActions {
     static void add(bmw::PluginApp* self) {
         RangeActions<N - 1>::add(self);
         addAction(self, kActRangeRow0 + N - 1, &onRangeRow<N - 1>);
+        if (N - 1 < kRangeSteps) {
+            addAction(self, kActRangeStep0 + N - 1, &onRangeStep<(N - 1 < kRangeSteps ? N - 1 : 0)>);
+        }
     }
 };
 template <>
@@ -1712,6 +1852,7 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     LookActions<kLookRows>::add(self);
     RangeActions<kCards>::add(self);
     addStateHandler(self, kRangeState, kHandlerVisible, &onVisible<kRangeState>);
+    addStateHandler(self, kRangeEditState, kHandlerVisible, &onVisible<kRangeEditState>);
     PlaceActions<kCards>::add(self);
     addAction(self, kActResetPlaces, &onResetPlaces);
     addStateHandler(self, kPlacesState, kHandlerVisible, &onVisible<kPlacesState>);
@@ -1719,7 +1860,7 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     g_shiftPoint = readIndex(kShiftFile, sizeof(kShiftPoints) / sizeof(kShiftPoints[0]), 2);
     loadChoice();
     loadLooks();
-    loadRanges();
+    loadLimits();
     loadPlaces();
     assignCards();
     collectProperties();

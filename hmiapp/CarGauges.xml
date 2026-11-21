@@ -213,6 +213,15 @@
       <raAction id="266"/>
       <raAction id="267"/>
       <raAction id="268"/>
+      <raAction id="317"/>
+      <raAction id="318"/>
+      <raAction id="319"/>
+      <raAction id="320"/>
+      <raAction id="321"/>
+      <raAction id="322"/>
+      <raAction id="323"/>
+      <raAction id="324"/>
+      <raAction id="325"/>
     </actions>
     <models>
       <imageIdModel id="4" imageId="58001"/>
@@ -510,6 +519,16 @@
       <raDataModel id="177" modelType="Richtext"/>
       <raDataModel id="178" modelType="Richtext"/>
       <raDataModel id="305" modelType="Richtext"/>
+      <raDataModel id="307" modelType="Richtext"/>
+      <raDataModel id="308" modelType="Richtext"/>
+      <raDataModel id="309" modelType="Richtext"/>
+      <raDataModel id="310" modelType="Richtext"/>
+      <raDataModel id="311" modelType="Richtext"/>
+      <raDataModel id="312" modelType="Richtext"/>
+      <raDataModel id="313" modelType="Richtext"/>
+      <raDataModel id="314" modelType="Richtext"/>
+      <raDataModel id="315" modelType="Richtext"/>
+      <raDataModel id="316" modelType="Richtext"/>
       <imageIdModel id="90" imageId="57000"/>
       <raDataModel id="91" modelType="Richtext"/>
       <raDataModel id="92" modelType="Richtext"/>
@@ -610,6 +629,7 @@
       <focusEvent id="358" target="971"/>
       <focusEvent id="88" target="930"/>
       <focusEvent id="359" target="965"/>
+      <focusEvent id="326" target="967"/>
     </events>
     <hmiStates>
       <hmiState id="900" text="Gauges">
@@ -2170,6 +2190,20 @@
           <button id="212" action="266" model="176"/>
           <button id="213" action="267" model="177"/>
           <button id="214" action="268" model="178"/>
+        </components>
+      </hmiState>
+      <hmiState id="967" parentId="966" text="Set the range">
+        <components>
+          <label id="263" model="307"/>
+          <button id="264" action="317" model="308"/>
+          <button id="265" action="318" model="309"/>
+          <button id="266" action="319" model="310"/>
+          <button id="267" action="320" model="311"/>
+          <button id="268" action="321" model="312"/>
+          <button id="269" action="322" model="313"/>
+          <button id="270" action="323" model="314"/>
+          <button id="271" action="324" model="315"/>
+          <button id="272" action="325" model="316"/>
         </components>
       </hmiState>
       <hmiState id="970" parentId="903" text="Car tests">

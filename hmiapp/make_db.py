@@ -161,7 +161,6 @@ SHIFT_FILL, SHIFT_WARN = BAR, (229, 57, 53)
 FINE_LEVELS = 121  # gauge_ids.hpp kFineLevels: the big looks' images + level (finer: the needles move smoother)
 IMG_WIDE_BAR, IMG_TALL_BAR, IMG_NEEDLE, IMG_WIDE_NEEDLE = 59000, 59500, 60000, 60500
 IMG_FACE, IMG_WIDE_FACE, IMG_WIDE_TRACK, IMG_TALL_TRACK, IMG_CARD_ICON = 61000, 61100, 61200, 61300, 61400
-IMG_RANGE = 64000  # gauge_ids.hpp kImgRange0: the faces and tracks of the other scales
 IMG_ARC_NEEDLE, IMG_WIDE_ARC_NEEDLE, IMG_ARC_FACE, IMG_WIDE_ARC_FACE = 62000, 62500, 63000, 63100
 
 
@@ -272,16 +271,6 @@ def art_pictures():
         yield IMG_CARD_ICON + n, gauge_art.pad(gauge_art.card_label(icon, e["title"]), cell, (12, 10))
         yield IMG_ARC_FACE + n, gauge_art.SMALL_ARC.face(scale, icon, title, unit)
         yield IMG_WIDE_ARC_FACE + n, gauge_art.WIDE_ARC.face(scale, icon, title, unit)
-        # the other scales (Gauge ranges): gauge_ids.hpp kImgRange0 + (scale - 1) * 1000 + kind * 100 + gauge
-        for r, rng in enumerate(gauge_catalogue.ranges(e)[1:], start=1):
-            sk = gauge_catalogue.scale_key(e, rng)
-            base = IMG_RANGE + (r - 1) * 1000 + n
-            yield base, gauge_art.SMALL_DIAL.face(sk, icon, title, unit)
-            yield base + 100, gauge_art.WIDE_DIAL.face(sk, icon, title, unit)
-            yield base + 200, gauge_art.WIDE_BAR.track(sk, icon, title, unit)
-            yield base + 300, gauge_art.TALL_BAR.track(sk, icon, title, unit)
-            yield base + 400, gauge_art.SMALL_ARC.face(sk, icon, title, unit)
-            yield base + 500, gauge_art.WIDE_ARC.face(sk, icon, title, unit)
 
 
 def write_art(path):
@@ -289,8 +278,8 @@ def write_art(path):
     (little-endian 32-bit), then the PNGs in that order."""
     pictures = sorted(art_pictures())
     ids = [i for i, _ in pictures]
-    if len(set(ids)) != len(ids) or not all(56000 <= i < 67000 for i in ids):
-        raise SystemExit("FAIL: picture ids repeat or leave 56000..66999 (gauge_ids.hpp kArtFirst, kArtIds)")
+    if len(set(ids)) != len(ids) or not all(56000 <= i < 64000 for i in ids):
+        raise SystemExit("FAIL: picture ids repeat or leave 56000..63999 (gauge_ids.hpp kArtFirst, kArtIds)")
     offset = 8 + 12 * len(pictures)
     index, data = [], []
     for i, png in pictures:
@@ -299,6 +288,40 @@ def write_art(path):
         offset += len(png)
     Path(path).write_bytes(b"GART" + struct.pack("<I", len(pictures)) + b"".join(index) + b"".join(data))
     return len(pictures)
+
+
+def write_glyphs(path):
+    """CarGauges_Glyphs.bin, read by hmiapp/gauge_draw.cpp (loadSheets) to draw the scales the owner sets by hand
+    (little-endian): "GGLY", version 1; the figures' sheet (width, height, one alpha byte per pixel), their count and
+    per figure size u16, code u32, x, y, w, h u16, ink i16, advance f32; the icons' sheet the same way, their count and
+    per icon index, size, x, y u16; then per catalogue entry its icon's index (0xFFFF: none)."""
+    out = bytearray(b"GGLY") + struct.pack("<I", 1)
+    rgba, fw, fh = gauge_art.unpng(gauge_art.FIGURES.with_suffix(".png").read_bytes())
+    out += struct.pack("<II", fw, fh) + bytes(rgba[3::4])
+    glyphs = []
+    for line in gauge_art.FIGURES.with_suffix(".txt").read_text(encoding="utf-8").splitlines():
+        if line.strip() and not line.startswith("#"):
+            size, code, x, y, w, h, left, advance = line.split()
+            glyphs.append(
+                struct.pack(
+                    "<HIHHHHhf", int(size), int(code), int(x), int(y), int(w), int(h), int(left), float(advance)
+                )
+            )
+    out += struct.pack("<I", len(glyphs)) + b"".join(glyphs)
+    rgba, iw, ih = gauge_art.unpng(gauge_art.ICONS.with_suffix(".png").read_bytes())
+    out += struct.pack("<II", iw, ih) + bytes(rgba[3::4])
+    names, icons = [], []
+    for line in gauge_art.ICONS.with_suffix(".txt").read_text(encoding="ascii").splitlines():
+        if line.strip() and not line.startswith("#"):
+            name, size, x, y = line.split()
+            if name not in names:
+                names.append(name)
+            icons.append(struct.pack("<HHHH", names.index(name), int(size), int(x), int(y)))
+    out += struct.pack("<I", len(icons)) + b"".join(icons)
+    entries = gauge_catalogue.entries()
+    out += struct.pack("<I", len(entries))
+    out += b"".join(struct.pack("<H", names.index(e["icon"]) if e["icon"] in names else 0xFFFF) for e in entries)
+    Path(path).write_bytes(bytes(out))
 
 
 def main():
@@ -310,6 +333,7 @@ def main():
     write_images(out / "EntryAad_ALL_Images.zip", res)
     write_gauge_images(out / "CarGauges_ALL_Images.zip")
     n = write_art(out / "CarGauges_Art.pack")
+    write_glyphs(out / "CarGauges_Glyphs.bin")
     print(
         f"wrote EntryAad_ALL_Texts.zip, EntryAad_ALL_Images.zip, CarGauges_ALL_Images.zip, CarGauges_Art.pack ({n}) in",
         out,

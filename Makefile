@@ -89,7 +89,7 @@ HMI_SRC = hmiapp/entry_aa_app.cpp hmiapp/bmw_framework.cpp hmiapp/app_log.cpp hm
           hmiapp/service_link.cpp hmiapp/car_signals.cpp hmiapp/hold_machine.cpp hmiapp/idrive_coding.cpp
 HMI_OBJ = $(HMI_SRC:.cpp=.o)
 # The Gauges app under My Vehicle (hmiapp/gauge_app.cpp): a second iDrive app, sharing the framework glue and the log.
-GAUGE_SRC = hmiapp/gauge_app.cpp hmiapp/bmw_framework.cpp hmiapp/app_log.cpp
+GAUGE_SRC = hmiapp/gauge_app.cpp hmiapp/gauge_draw.cpp hmiapp/bmw_framework.cpp hmiapp/app_log.cpp
 GAUGE_OBJ = $(GAUGE_SRC:.cpp=.o)
 HMI_LIBDIRS = -L$(SYSROOT)/opt/hmi/lib -Wl,-rpath-link,$(SYSROOT)/opt/hmi/lib
 hmiapp: hmiapp/libEntryAad.so hmiapp/libCarGauges.so hmiapp/gauge-collector hmiapp/car-test
@@ -99,7 +99,7 @@ hmiapp/car-test: tools/car_test.cpp $(KOMBI_OBJ) platform/vmost_client.o
 # The Gauges app's diagnostic worker (tools/gauge_collector.cpp), installed next to it in the plugin folder.
 hmiapp/gauge-collector: tools/gauge_collector.cpp platform/hsfz.cpp platform/hsfz.hpp platform/dme_gauges.hpp
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) tools/gauge_collector.cpp platform/hsfz.cpp -o $@ $(LDSHLIB) -lm -lrt
-$(HMI_OBJ) hmiapp/gauge_app.o: hmiapp/%.o: hmiapp/%.cpp
+$(HMI_OBJ) hmiapp/gauge_app.o hmiapp/gauge_draw.o: hmiapp/%.o: hmiapp/%.cpp
 	$(CXX) $(CXXFLAGS) -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -MMD -MP -c $< -o $@
 hmiapp/libEntryAad.so: $(HMI_OBJ)
 	$(CXX) $(CXXFLAGS) -fPIC -shared -Wl,-soname,libEntryAad.so $^ -o $@ \
@@ -207,6 +207,8 @@ test-host: test-parsers test-spp-host test-kombi-host test-gps-host test-capture
 	./tests/test-option-key
 	$(HOST_CXX) $(HOST_FLAGS) -Ihmiapp tests/test_gauge_values.cpp -o tests/test-gauge-values
 	./tests/test-gauge-values
+	$(HOST_CXX) $(HOST_FLAGS) tests/gauge_draw_dump.cpp hmiapp/gauge_draw.cpp -o tests/gauge-draw-dump
+	python3 -I tests/test_gauge_draw.py tests/gauge-draw-dump
 	$(HOST_CXX) $(HOST_FLAGS) tests/test_gauge_collector.cpp platform/hsfz.cpp -o tests/test-gauge-collector
 	./tests/test-gauge-collector
 	$(HOST_CXX) $(HOST_FLAGS) tools/car_test.cpp $(KOMBI_SRC) platform/vmost_client.cpp -ldl -o tests/car-test-host
