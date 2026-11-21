@@ -117,6 +117,7 @@
       <raAction id="65"/>
       <raAction id="66"/>
       <raAction id="67"/>
+      <raAction id="68"/>
       <raAction id="480"/>
       <raAction id="481"/>
       <raAction id="482"/>
@@ -2227,6 +2228,7 @@
           <button id="1525" action="65" text="Listen to the diagnosis block 20 s"/>
           <button id="1526" action="66" text="Listen to all blocks 30 s (press a button)"/>
           <button id="1527" action="67" text="Car data: show all values"/>
+          <button id="1528" action="68" text="Watch buttons 30 s (car data and MOST)"/>
         </components>
       </hmiState>
       <hmiState id="971" parentId="970" text="Test results">

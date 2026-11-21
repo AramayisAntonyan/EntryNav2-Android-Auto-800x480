@@ -1093,7 +1093,7 @@ void refresh() {
 const char kCarTest[] = "/opt/hmi/data/ro/Plugins/CarGauges/car-test";
 const char kTestOut[] = "/tmp/car-test.txt";
 const char kTestLog[] = "/var/local/data/AA/car-tests.log";
-enum TestKind { kTestCluster, kTestGateway, kTestFindGateway, kTestCarData };
+enum TestKind { kTestCluster, kTestGateway, kTestFindGateway, kTestCarData, kTestWatch };
 struct CarTest {
     const char* name;  // as the page's button (make_gauges_xml.py CAR_TESTS)
     TestKind kind;
@@ -1122,6 +1122,9 @@ const CarTest kCarTests[] = {
     // what a button sends over MOST: every block for 30 s, listen only (the 360 camera button)
     {"Listen to all blocks 30 s (press a button)", kTestCluster, {"--listen-all", "30"}},
     {"Car data: show all values", kTestCarData, {}},
+    // what a button press changes: the car data below and every MOST block, 30 s (the 360 camera button, which has no
+    // module behind it, and the drive mode buttons, which open an empty card)
+    {"Watch buttons 30 s (car data and MOST)", kTestWatch, {"--listen-all", "30"}},
 };
 const unsigned kCarTestCount = sizeof(kCarTests) / sizeof(kCarTests[0]);
 
@@ -1231,7 +1234,243 @@ void runTest(unsigned test) {
     g_app->triggerEvent(kEvTestResults);  // Test results opens on the press
 }
 
+// ---- Watch buttons: the car data a press changes ------------------------------------------------------------------
+// The CDS properties of this unit (research: libhmiremoting's list) but the fast ones (speed, rpm, time, GPS) and the
+// VIN (private). Subscribed the first time the test runs; their values then are kept as the start, every change after
+// it is a line of the test's output with its second.
+const char* const kWatchProps[] = {
+    "climate.ACCompressor",
+    "climate.ACMode",
+    "climate.ACSystemTemperatures",
+    "climate.airConditionerCompressor",
+    "climate.armRestHeating",
+    "climate.driverSettings",
+    "climate.fondSettings",
+    "climate.passengerSettings",
+    "climate.residualHeat",
+    "climate.seatAutoClimateDR",
+    "climate.seatAutoClimateDRR",
+    "climate.seatAutoClimatePS",
+    "climate.seatAutoClimatePSR",
+    "climate.seatClimate",
+    "climate.seatClimateDRR",
+    "climate.seatClimatePSR",
+    "climate.seatClimatePassenger",
+    "climate.seatHeatDRR",
+    "climate.seatHeatDriver",
+    "climate.seatHeatPSR",
+    "climate.seatHeatPassenger",
+    "climate.ventilation",
+    "comfort.ambientColour",
+    "comfort.ambientLight",
+    "comfort.bodyTraining",
+    "comfort.bodyTrainingStatus",
+    "comfort.scentGenerator",
+    "comfort.seatControlDRR",
+    "comfort.seatControlPS",
+    "comfort.seatControlPSR",
+    "comfort.seatLumbarRL",
+    "comfort.seatLumbarRR",
+    "comfort.seatMassageRL",
+    "comfort.seatMassageRR",
+    "comfort.seatMemory",
+    "communication.atmId",
+    "communication.call",
+    "communication.callAvailability",
+    "communication.callDuration0",
+    "communication.callDuration1",
+    "communication.callInfo0",
+    "communication.callInfo1",
+    "communication.callStatus0",
+    "communication.callStatus1",
+    "communication.contactDetail",
+    "communication.contactList",
+    "communication.contactPicture",
+    "communication.contactServiceProvider",
+    "communication.controlCall",
+    "communication.controlPhone",
+    "communication.currentCallInfo",
+    "communication.gsmSIAStatus",
+    "communication.infoPlus",
+    "communication.lastCallInfo",
+    "communication.phone",
+    "communication.phoneStatus",
+    "controls.convertibleTop",
+    "controls.cruiseControl",
+    "controls.defrostRear",
+    "controls.headlights",
+    "controls.lights",
+    "controls.shadowingRoof",
+    "controls.startStopLEDs",
+    "controls.startStopStatus",
+    "controls.sunblind",
+    "controls.sunroof",
+    "controls.sunroof2",
+    "controls.tcProxy",
+    "controls.turnSignal",
+    "controls.windowDriverFront",
+    "controls.windowDriverRear",
+    "controls.windowPassengerFront",
+    "controls.windowPassengerRear",
+    "controls.windshieldWiper",
+    "driving.DSCActive",
+    "driving.FDRControl",
+    "driving.drivingStyle",
+    "driving.ecoRangeWon",
+    "driving.ecoTip",
+    "driving.electricalPowerDistribution",
+    "driving.envLearning",
+    "driving.gear",
+    "driving.keyNumber",
+    "driving.keyPosition",
+    "driving.laneBoundaries",
+    "driving.laneBoundariesLoFrq",
+    "driving.laneChange",
+    "driving.mode",
+    "driving.mode35up",
+    "driving.orInfo",
+    "driving.orNPITextMessage",
+    "driving.parkingBrake",
+    "driving.rsConfigStatus",
+    "driving.shiftIndicator",
+    "driving.signRecognitionFrontCamera",
+    "driving.sliActualSpeedLimitInfo",
+    "driving.sliNextSpeedLimitRecognition",
+    "driving.sliTextMessage",
+    "driving.trafficSignInfo1",
+    "driving.trafficSignInfo2",
+    "driving.trafficSignInfo3",
+    "driving.trafficSignInfo4",
+    "driving.trafficSignInfoVisibility",
+    "engine.consumption",
+    "engine.electricVehicleMode",
+    "engine.rangeCalc",
+    "engine.status",
+    "entertainment.descriptionCurrentSource",
+    "entertainment.mediabrowsing",
+    "entertainment.multimedia",
+    "entertainment.radioFrequency",
+    "entertainment.radioStation",
+    "entertainment.statusAllowedSources",
+    "entertainment.statusAvailableSources",
+    "hmi.displayControl",
+    "hmi.graphicalContext",
+    "hmi.iDrive",
+    "hmi.seeAllInfo",
+    "hmi.speedlock",
+    "hmi.spellerInput",
+    "hmi.videolock",
+    "sensors.PDCRangeFront",
+    "sensors.PDCRangeFront2",
+    "sensors.PDCRangeRear",
+    "sensors.PDCRangeRear2",
+    "sensors.PDCStatus",
+    "sensors.SOCBatteryHybrid",
+    "sensors.battery",
+    "sensors.batteryTemp",
+    "sensors.childSafetyLock",
+    "sensors.doors",
+    "sensors.lid",
+    "sensors.seatOccupiedDriver",
+    "sensors.seatOccupiedPassenger",
+    "sensors.seatOccupiedRearLeft",
+    "sensors.seatOccupiedRearRight",
+    "sensors.seatbelt",
+    "sensors.temperatureExterior",
+    "sensors.temperatureInterior",
+    "sensors.tirePressureWarning",
+    "sensors.trunk",
+    "vehicle.country",
+    "vehicle.dayNightChangeOver",
+    "vehicle.fasStatus",
+    "vehicle.fastCharging",
+    "vehicle.interactionDetection",
+    "vehicle.language",
+    "vehicle.partType",
+    "vehicle.partialNetworkRequest",
+    "vehicle.powerStateHeadUnit",
+    "vehicle.statePWF",
+    "vehicle.type",
+    "vehicle.unitSpeed",
+    "vehicle.units",
+    "vehicle.userTimeZone",
+};
+const unsigned kWatchCount = sizeof(kWatchProps) / sizeof(kWatchProps[0]);
+const char kTestMostOut[] = "/tmp/car-test-most.txt";
+char g_watchLast[kWatchCount][96];
+bool g_watchSubscribed = false;
+uint64_t g_watchStart = 0, g_watchFrom = 0, g_watchUntil = 0;
+unsigned g_watchChanges = 0;
+
+bool onWatched(unsigned i, const bmw::BasicString<unsigned short>& value) {
+    char text[256];
+    narrow(value, text, sizeof(text));
+    char brief[96];
+    snprintf(brief, sizeof(brief), "%s", text);
+    if (!strcmp(g_watchLast[i], brief)) {
+        return true;
+    }
+    snprintf(g_watchLast[i], sizeof(g_watchLast[i]), "%s", brief);
+    const uint64_t now = dme::monoMs();
+    if (now < g_watchFrom || now > g_watchUntil) {
+        return true;  // its value at the start, or after the test
+    }
+    ++g_watchChanges;
+    FILE* f = fopen(kTestOut, "a");
+    if (f) {
+        fprintf(f, "[%5.1f s] %s = %s\n", (now - g_watchStart) / 1000.0, kWatchProps[i], text);
+        fclose(f);
+    }
+    return true;
+}
+
+template <unsigned N>
+bool onWatch(void*, const bmw::BasicString<unsigned short>& value) {
+    return onWatched(N, value);
+}
+template <unsigned N>
+struct WatchStubs {
+    static CdsStub at(unsigned i) { return i == N - 1 ? &onWatch<N - 1> : WatchStubs<N - 1>::at(i); }
+};
+template <>
+struct WatchStubs<0> {
+    static CdsStub at(unsigned) { return nullptr; }
+};
+
+void startWatch() {
+    if (!g_watchSubscribed) {
+        for (unsigned i = 0; i < kWatchCount; ++i) {
+            addCdsHandler(g_app, kWatchProps[i], WatchStubs<kWatchCount>::at(i));
+        }
+        g_watchSubscribed = true;
+        alog("gauges: watch: %u CDS properties subscribed", kWatchCount);
+    }
+    g_watchStart = dme::monoMs();
+    g_watchFrom = g_watchStart + 1500;  // the subscriptions' first values come in now: the start, not a change
+    g_watchUntil = g_watchStart + 30000;
+    g_watchChanges = 0;
+}
+
+void appendFile(const char* from, FILE* to) {
+    FILE* in = fopen(from, "r");
+    char line[256];
+    while (in && fgets(line, sizeof(line), in)) {
+        fputs(line, to);
+    }
+    if (in) {
+        fclose(in);
+    }
+}
+
 void runTestProgram(const CarTest& t) {
+    if (t.kind == kTestWatch) {
+        writeTestNote("Watching car data and MOST for 30 s:", "press the button now and then, note the seconds");
+        startWatch();
+        const char* argv[] = {kCarTest, t.args[0], t.args[1], nullptr};
+        g_testPid = spawnProgram(kCarTest, argv, kTestMostOut, true);
+        alog("gauges: watch: car-test pid %d for MOST", static_cast<int>(g_testPid));
+        return;
+    }
     if (t.kind == kTestCarData) {
         writeCarData();
         archiveTest(g_testRunning);
@@ -1336,6 +1575,15 @@ void pollRun(void*) {
         showTestStatus();
         showTestLines();
         if (g_testPid <= 0) {
+            if (g_testRunning >= 0 && kCarTests[g_testRunning].kind == kTestWatch) {
+                FILE* f = fopen(kTestOut, "a");  // the MOST side after the car data
+                if (f) {
+                    fprintf(f, "car data: %u change(s) in 30 s; MOST:\n", g_watchChanges);
+                    appendFile(kTestMostOut, f);
+                    fclose(f);
+                }
+                showTestLines();
+            }
             archiveTest(g_testRunning);
             alog("gauges: car test ended, results in %s", kTestLog);
         }

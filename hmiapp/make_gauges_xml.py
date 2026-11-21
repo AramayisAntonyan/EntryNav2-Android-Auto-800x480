@@ -46,6 +46,7 @@ CAR_TESTS = (
     "Listen to the diagnosis block 20 s",
     "Listen to all blocks 30 s (press a button)",
     "Car data: show all values",
+    "Watch buttons 30 s (car data and MOST)",
 )
 TEST_LINES = 10  # the results page's output lines, models 110..119 (109: the test and its state)
 
