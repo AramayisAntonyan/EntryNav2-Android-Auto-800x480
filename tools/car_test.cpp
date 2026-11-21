@@ -19,7 +19,7 @@
 //                                     clear, guidance off, and 0x52 deregistered. Sends: only with the owner's OK
 //   --serve ADDR                      the Android Auto service's cluster sender (kombi-6wa-live): reads "FKT HEX"
 //                                     lines on stdin, sends each as StartResultAck, prints every answer
-//   --raw ADDR FKT OP HEX             one call to 82.00 as given (hex payload, "-" for none), then 3 s of answers:
+//   --raw ADDR FKT OP HEX             one call to 82.00 as given (hex payload, "-" for none), then 12 s of answers:
 //                                     to try payload layouts (a StartResultAck's sender handle) on ImageGetSize
 //   --diag-listen SECONDS             listen-only shadows on the diagnosis block 06.F0 and 06.63; nothing sent
 //   --listen-all SECONDS              listen-only shadow on every block (FF.FF): each message with its time, then
@@ -371,7 +371,7 @@ int clusterSize(uint16_t handle) {
         return 1;
     }
     sendCall(kOpStartResultAck, hudterm::kGetSize, hudterm::getSize(handle));
-    pump(3);
+    pump(12);  // a cold 6WA answered ImageGetSize only after 1.5 s, drawing calls 1.5 to 5 s late (NBT-AAD #264)
     printf("done: %u answer(s)\n", g_received);
     return 0;
 }
@@ -439,7 +439,7 @@ int raw(const char* fktText, const char* opText, const char* hex) {
         return 1;
     }
     sendCall(static_cast<uint32_t>(op), static_cast<uint16_t>(fkt), payload);
-    pump(3);
+    pump(12);  // late answers too (NBT-AAD #264: 1.5 to 5 s)
     printf("done: %u answer(s)\n", g_received);
     return 0;
 }
