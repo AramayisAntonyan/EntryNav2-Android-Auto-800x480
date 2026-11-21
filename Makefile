@@ -97,8 +97,10 @@ hmiapp: hmiapp/libEntryAad.so hmiapp/libCarGauges.so hmiapp/gauge-collector hmia
 hmiapp/car-test: tools/car_test.cpp $(KOMBI_OBJ) platform/vmost_client.o
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) tools/car_test.cpp $(KOMBI_OBJ) platform/vmost_client.o -o $@ $(LDSHLIB) -ldl -lpthread -lrt
 # The Gauges app's diagnostic worker (tools/gauge_collector.cpp), installed next to it in the plugin folder.
-hmiapp/gauge-collector: tools/gauge_collector.cpp platform/hsfz.cpp platform/hsfz.hpp platform/dme_gauges.hpp
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) tools/gauge_collector.cpp platform/hsfz.cpp -o $@ $(LDSHLIB) -lm -lrt
+hmiapp/gauge-collector: tools/gauge_collector.cpp platform/hsfz.cpp platform/hsfz.hpp platform/dme_gauges.hpp \
+		platform/most_diag.cpp platform/most_diag.hpp platform/vmost_client.o
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) tools/gauge_collector.cpp platform/hsfz.cpp platform/most_diag.cpp \
+		platform/vmost_client.o -o $@ $(LDSHLIB) -lm -lrt -ldl
 $(HMI_OBJ) hmiapp/gauge_app.o hmiapp/gauge_draw.o: hmiapp/%.o: hmiapp/%.cpp
 	$(CXX) $(CXXFLAGS) -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -MMD -MP -c $< -o $@
 hmiapp/libEntryAad.so: $(HMI_OBJ)
@@ -209,7 +211,8 @@ test-host: test-parsers test-spp-host test-kombi-host test-gps-host test-capture
 	./tests/test-gauge-values
 	$(HOST_CXX) $(HOST_FLAGS) tests/gauge_draw_dump.cpp hmiapp/gauge_draw.cpp -o tests/gauge-draw-dump
 	python3 -I tests/test_gauge_draw.py tests/gauge-draw-dump
-	$(HOST_CXX) $(HOST_FLAGS) tests/test_gauge_collector.cpp platform/hsfz.cpp -o tests/test-gauge-collector
+	$(HOST_CXX) $(HOST_FLAGS) tests/test_gauge_collector.cpp platform/hsfz.cpp platform/most_diag.cpp \
+		platform/vmost_client.cpp -ldl -o tests/test-gauge-collector
 	./tests/test-gauge-collector
 	$(HOST_CXX) $(HOST_FLAGS) tools/car_test.cpp $(KOMBI_SRC) platform/vmost_client.cpp -ldl -o tests/car-test-host
 	$(HOST_CXX) $(HOST_FLAGS) tests/test_pending_restart.cpp -o tests/test-pending-restart

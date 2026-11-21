@@ -65,7 +65,7 @@ On [the test car](#the-test-car), 2026-11-22:
 | Android Auto wireless | **works**; the session dropped when the phone's Bluetooth link to the unit kept reconnecting |
 | Album covers | **works** |
 | Gauges: dashboards, looks, places, car data values | **works** |
-| Gauges: engine values (DME, OBD) | **works only at times** through the diagnostic gateway; the MOST tunnel answers (below) |
+| Gauges: engine values (DME, OBD) | through the gateway **works only at times**; through the MOST tunnel: installed, not yet checked (below) |
 | Gauges: hand-set ranges, smooth needles | installed, not yet checked in the car |
 | Engine fault codes, read and clear | built, car check pending |
 | Camera app | **works** (picture shown); the full-screen view not yet checked |
@@ -77,8 +77,8 @@ test counts as proof.
 **Engine values.** The Gauges app reads the DME through the car's diagnostic gateway (HSFZ, read services only). On
 the test car this worked several times, then stopped answering although the head unit's firewall rules were in force;
 the gateway probably opens its Ethernet only while a diagnostic (ENET) cable is plugged into the OBD port. The head
-unit's own diagnosis tunnel over MOST answered the DME at the same time (coolant, rpm): reading the engine values that
-way is the next step.
+unit's own diagnosis tunnel over MOST answered the DME at the same time (coolant, rpm), so the app now reads the
+engine through that tunnel whenever the gateway does not answer (clearing the fault codes still needs the gateway).
 
 **6WA arrows.** The cluster answers the head unit's read requests over MOST but has ignored every drawing call so far
 (any message layout or channel). The car has no navigation, and the cluster may wait for one; that is what is tried

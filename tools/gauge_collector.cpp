@@ -38,6 +38,7 @@
 #include "dme_gauges.hpp"
 #include "gauge_catalogue.hpp"
 #include "hsfz.hpp"
+#include "most_diag.hpp"
 
 namespace {
 
@@ -59,6 +60,52 @@ void pauseMs(int ms) {
 const unsigned kAmbientDid = 0x4201;  // ambient pressure: boost is the absolute pressure minus this
 const unsigned kBoostDid = 0x4205;
 
+// The DME is reached through the diagnostic gateway (HSFZ) or, when the gateway does not answer, through the head
+// unit's diagnosis tunnel over MOST (platform/most_diag.hpp): the gateway opens its Ethernet only while a diagnostic
+// cable is in the OBD port (the F22, 2026-11-21: "--" on every engine gauge once the cable was out, while the tunnel
+// answered). kViaMost stands for the tunnel where a gateway socket would be.
+mostdiag::Tunnel g_tunnel;
+const int kViaMost = 1 << 20;
+
+int dmeExchange(int fd, const unsigned char* req, unsigned n, unsigned char* reply, unsigned cap, unsigned timeoutMs,
+                unsigned* nrc, volatile sig_atomic_t* running) {
+    if (fd == kViaMost) {
+        return g_tunnel.exchange(hsfz::kDme, req, n, reply, cap, timeoutMs, nrc, running);
+    }
+    return hsfz::exchange(fd, hsfz::kDme, req, n, reply, cap, timeoutMs, nrc, running);
+}
+
+void closeLink(int fd) {
+    if (fd >= 0 && fd != kViaMost) {
+        close(fd);
+    }
+}
+
+// The gateway, else the MOST tunnel; -1 when neither. Says which when `say`.
+int openLink(const char* host, bool say) {
+    const int fd = hsfz::connectGateway(host, hsfz::kPort, &g_running);
+    if (fd >= 0) {
+        if (say) {
+            printf("gateway %s:%u: connected\n", host, hsfz::kPort);
+        }
+        return fd;
+    }
+    const char* why = "";
+    if (say) {
+        printf("gateway %s:%u: no connection: %s\n", host, hsfz::kPort, hsfz::connectError());
+    }
+    if (g_tunnel.open(&why)) {
+        if (say) {
+            printf("reading through the head unit's MOST tunnel instead\n");
+        }
+        return kViaMost;
+    }
+    if (say) {
+        printf("MOST tunnel: %s\n", why);
+    }
+    return -1;
+}
+
 // One DME value: 1 decoded, 0 refused or not plausible, -3 no answer in time (the connection is kept), -1 the
 // connection failed. Raw answer printed when trace.
 int readEntry(int fd, const Entry& e, double* value, bool trace) {
@@ -78,7 +125,7 @@ int readEntry(int fd, const Entry& e, double* value, bool trace) {
     }
     unsigned char reply[64];
     unsigned nrc = 0;
-    const int n = hsfz::exchange(fd, hsfz::kDme, req, size, reply, sizeof(reply), 500, &nrc, &g_running);
+    const int n = dmeExchange(fd, req, size, reply, sizeof(reply), 500, &nrc, &g_running);
     if (n == -2) {
         if (trace) {
             printf("%-22s refused, NRC %02X\n", e.title, nrc);
@@ -115,7 +162,7 @@ bool readAmbient(int fd, double* kpa) {
     const unsigned char req[3] = {0x22, kAmbientDid >> 8, kAmbientDid & 0xff};
     unsigned char reply[16];
     unsigned nrc = 0;
-    const int n = hsfz::exchange(fd, hsfz::kDme, req, 3, reply, sizeof(reply), 500, &nrc, &g_running);
+    const int n = dmeExchange(fd, req, 3, reply, sizeof(reply), 500, &nrc, &g_running);
     return n >= 3 && dme::decodeDid(kAmbientDid, reply + 3, static_cast<size_t>(n - 3), kpa);
 }
 
@@ -193,9 +240,11 @@ void printFirewall() {
 }
 
 int supported(const char* host, const char* writeFile) {
-    const int fd = hsfz::connectGateway(host, hsfz::kPort, &g_running);
+    const int fd = openLink(host, true);
+    if (fd == kViaMost) {
+        printFirewall();
+    }
     if (fd < 0) {
-        printf("gateway %s: no connection: %s\n", host, hsfz::connectError());
         printFirewall();
         return 1;
     }
@@ -205,7 +254,7 @@ int supported(const char* host, const char* writeFile) {
         const unsigned char req[2] = {0x01, static_cast<unsigned char>(base)};
         unsigned char reply[16];
         unsigned nrc = 0;
-        const int n = hsfz::exchange(fd, hsfz::kDme, req, 2, reply, sizeof(reply), 500, &nrc, &g_running);
+        const int n = dmeExchange(fd, req, 2, reply, sizeof(reply), 500, &nrc, &g_running);
         if (n < 6) {
             break;
         }
@@ -220,7 +269,7 @@ int supported(const char* host, const char* writeFile) {
             break;  // no further range
         }
     }
-    close(fd);
+    closeLink(fd);
     printf("supported OBD PIDs: %s\n", line[0] ? line : "(none)");
     if (writeFile && line[0]) {
         FILE* f = fopen(writeFile, "w");
@@ -233,13 +282,14 @@ int supported(const char* host, const char* writeFile) {
 }
 
 int probe(const char* host) {
-    const int fd = hsfz::connectGateway(host, hsfz::kPort, &g_running);
+    const int fd = openLink(host, true);
+    if (fd == kViaMost) {
+        printFirewall();
+    }
     if (fd < 0) {
-        printf("gateway %s:%u: no connection: %s\n", host, hsfz::kPort, hsfz::connectError());
         printFirewall();
         return 1;
     }
-    printf("gateway %s:%u: connected\n", host, hsfz::kPort);
     double amb = 0;
     printf("%-22s %s\n", "Ambient pressure", readAmbient(fd, &amb) ? "read" : "not read");
     for (unsigned i = 0; i < kEntryCount && g_running; ++i) {
@@ -249,7 +299,7 @@ int probe(const char* host) {
         }
         pauseMs(30);
     }
-    close(fd);
+    closeLink(fd);
     return 0;
 }
 
@@ -280,18 +330,21 @@ int codes(const char* host, const char* outFile, bool clear) {
         return 1;
     }
     const char* after = "";
-    const int fd = hsfz::connectGateway(host, hsfz::kPort, &g_running);
+    const int fd = openLink(host, false);
     if (fd < 0) {
         fprintf(out, "Diagnostic gateway unavailable (%s:%u): %s\n", host, hsfz::kPort, hsfz::connectError());
+    } else if (clear && fd == kViaMost) {
+        // the tunnel lets reads through only: the clear needs the gateway
+        fprintf(out, "Clearing needs the gateway: plug a diagnostic (ENET) cable into the OBD port, then again\n");
     } else if (clear && !clearMemory(fd, out, &after)) {
-        close(fd);
+        closeLink(fd);
     } else {
         // Fault, pending, confirmed, failed since clear or warning requested (BoostDeck's status mask).
         const unsigned kMask = 0xaf;
         const unsigned char req[3] = {0x19, 0x02, static_cast<unsigned char>(kMask)};
         unsigned char reply[4094];
         unsigned nrc = 0;
-        const int n = hsfz::exchange(fd, hsfz::kDme, req, 3, reply, sizeof(reply), 1800, &nrc, &g_running);
+        const int n = dmeExchange(fd, req, 3, reply, sizeof(reply), 1800, &nrc, &g_running);
         if (n == -2) {
             fprintf(out, "%sRead refused (NRC %02X)\n", clear ? "Cleared. " : "", nrc);
         } else if (n < 3 || (n - 3) % 4 != 0) {
@@ -310,7 +363,7 @@ int codes(const char* host, const char* outFile, bool clear) {
                 }
             }
         }
-        close(fd);
+        closeLink(fd);
     }
     if (out != stdout) {
         fclose(out);
@@ -387,6 +440,13 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
                 }
                 gw = lock >= 0 ? hsfz::connectGateway(host, hsfz::kPort, &g_running) : -1;
                 answered = false;
+                const char* tunnelWhy = "";
+                if (gw < 0 && lock >= 0 && g_tunnel.open(&tunnelWhy)) {
+                    gw = kViaMost;  // the gateway does not answer: the head unit's own tunnel over MOST
+                    printf("[%llu s] session: the gateway %s: %s; through the MOST tunnel\n",
+                           static_cast<unsigned long long>(start / 1000), host, hsfz::connectError());
+                    fflush(stdout);
+                }
                 if (gw < 0) {
                     retryAt = dme::monoMs() + 2000;
                     if (lock >= 0) {
@@ -400,7 +460,8 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
                     }
                 } else if (++connects <= 3 || connects % 20 == 0) {
                     printf("[%llu s] session: connected to %s (connection %u)\n",
-                           static_cast<unsigned long long>(start / 1000), host, connects);
+                           static_cast<unsigned long long>(start / 1000), gw == kViaMost ? "the MOST tunnel" : host,
+                           connects);
                     fflush(stdout);
                 }
             }
@@ -419,7 +480,7 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
                 double v = 0;
                 const int rc = readEntry(gw, e, &v, false);
                 if (rc == -1) {
-                    close(gw);
+                    closeLink(gw);
                     gw = -1;
                     quickDrops = answered ? 0 : quickDrops + 1;
                     const unsigned shift = quickDrops < 4 ? quickDrops : 4;
@@ -487,7 +548,11 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
         if (!demo && now >= stateAt) {  // about once a second: the state in words, for Gauges' Diagnostics
             char line[160];
             if (gw >= 0) {
-                snprintf(line, sizeof(line), "connected to %s: %u of %u values current", host, f.count, count);
+                if (gw == kViaMost) {
+                    snprintf(line, sizeof(line), "through the MOST tunnel: %u of %u values current", f.count, count);
+                } else {
+                    snprintf(line, sizeof(line), "connected to %s: %u of %u values current", host, f.count, count);
+                }
             } else if (lock < 0) {
                 snprintf(line, sizeof(line), "waiting: another engine reader holds the gateway");
             } else if (drops) {
@@ -517,9 +582,7 @@ int session(const char* host, bool demo, const unsigned* want, unsigned count, u
         }
         pauseMs(elapsed < kTickMs ? static_cast<int>(kTickMs - elapsed) : 10);
     }
-    if (gw >= 0) {
-        close(gw);
-    }
+    closeLink(gw);
     if (lock >= 0) {
         close(lock);
     }

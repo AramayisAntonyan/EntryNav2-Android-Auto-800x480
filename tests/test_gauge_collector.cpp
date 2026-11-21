@@ -12,6 +12,7 @@
 #include "dme_codes.hpp"
 #include "dme_gauges.hpp"
 #include "hsfz.hpp"
+#include "most_diag.hpp"
 
 static int g_failures = 0;
 #define CHECK(cond)                                                \
@@ -241,8 +242,34 @@ static void clearing() {
     CHECK(hsfz::clearFaultMemory(-1, hsfz::kEgs, &nrc, &session, nullptr) == -1);
 }
 
+// The MOST tunnel's framing (as car-test's, which answered on the car) and its read-only gate.
+void tunnel() {
+    using namespace evo::mostdiag;
+    const uint8_t req[3] = {0x22, 0x43, 0x00};
+    uint8_t out[32];
+    const uint8_t want[] = {0x63, 0xF0, 0x31, 0x01, 0x0F, 0x0B, 0x12, 0x00, 0x03, 0x22, 0x43, 0x00};
+    CHECK(frame(0x12, req, 3, out, sizeof(out)) == sizeof(want) && !memcmp(out, want, sizeof(want)));
+    CHECK(frame(0x12, req, 3, out, 8) == 0);
+    const uint8_t reply[] = {0xF0, 0x63, 0x71, 0x01, 0x0F, 0x0B, 0x12, 0x00, 0x05, 0x62, 0x43, 0x00, 0x0B, 0x9A};
+    const uint8_t* inner = nullptr;
+    unsigned len = 0, nrc = 0;
+    CHECK(parse(reply, sizeof(reply), &inner, &len, &nrc) == 1 && len == 5 && inner[0] == 0x62 && inner[4] == 0x9A);
+    const uint8_t refused[] = {0xF0, 0x63, 0x7F, 0x31, 0x22};
+    CHECK(parse(refused, sizeof(refused), &inner, &len, &nrc) == -2 && nrc == 0x22);
+    const uint8_t other[] = {0xF0, 0x63, 0x50, 0x01};
+    CHECK(parse(other, sizeof(other), &inner, &len, &nrc) == 0);
+    const uint8_t obd[2] = {0x01, 0x0C}, codes[3] = {0x19, 0x02, 0xAF};
+    const uint8_t write[4] = {0x2E, 0x43, 0x00, 0x01}, clear[4] = {0x14, 0xFF, 0xFF, 0xFF}, session[2] = {0x10, 0x03};
+    CHECK(readOnly(req, 3) && readOnly(obd, 2) && readOnly(codes, 3));
+    CHECK(!readOnly(write, 4) && !readOnly(clear, 4) && !readOnly(session, 2) && !readOnly(req, 2));
+    Tunnel t;
+    uint8_t answer[16];
+    CHECK(t.exchange(0x12, req, 3, answer, sizeof(answer), 10, &nrc, nullptr) == -1);  // not open: nothing sent
+}
+
 int main() {
     decoding();
+    tunnel();
     frames();
     ident();
     exchange();
@@ -252,7 +279,8 @@ int main() {
         return 1;
     }
     puts(
-        "PASS gauge collector: DID decoding, frames, gateway identification, HSFZ exchange, writes refused, "
+        "PASS gauge collector: DID decoding, frames, gateway identification, HSFZ exchange, MOST tunnel, writes "
+        "refused, "
         "fault memory clear (direct, via the extended session, refused, DME only)");
     return 0;
 }
