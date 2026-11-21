@@ -77,13 +77,14 @@ const char kArtPack[] = "/opt/hmi/data/ro/Plugins/CarGauges/CarGauges_Art.pack";
 const char kArtDir[] = "/tmp/gauge-art";  // pictures unpacked on first use (RAM), sent by path
 const char kShiftFile[] = "/var/local/data/AA/gauges-shift";
 const char kStyleFile[] = "/var/local/data/AA/gauges-style";
+const char kRangeFile[] = "/var/local/data/AA/gauges-range";  // Gauge ranges: the scale's digit per entry
 const char kPlaceFile[] = "/var/local/data/AA/gauges-place";  // Gauge places: '-' or 'A' + cell per entry
 const char kCollector[] = "/opt/hmi/data/ro/Plugins/CarGauges/gauge-collector";
 // Kept across restarts (the owner restarts the car between a drive and the next connection): moved to .old at 256 KB.
 const char kCollectorLog[] = "/var/local/data/AA/gauge-collector.log";
 const char kCollectorLogOld[] = "/var/local/data/AA/gauge-collector.log.old";
 const char kCodesFile[] = "/tmp/gauge-codes.txt";
-const unsigned kPollMs = 150;
+const unsigned kPollMs = 80;
 const unsigned kModels = 1536;  // every text and image model id is below this
 
 bmw::PluginApp* g_app = nullptr;
@@ -95,6 +96,11 @@ bool g_on[kEntryCount];      // ticked
 bool g_hidden[kEntryCount];  // an OBD value the DME does not support
 bool g_valid[kEntryCount];
 double g_value[kEntryCount];
+// What the needles and bars show: each follows its value a third of the way per poll (80 ms), so a needle moves
+// instead of jumping (the owner, 2026-11-21: smoother). The card's number shows the value itself.
+double g_display[kEntryCount];
+bool g_displaySet[kEntryCount];
+unsigned g_range[kEntryCount];   // each entry's scale (Gauge ranges): Entry::range index
 uint64_t g_seenAt[kEntryCount];  // DME values: when the frame carrying it arrived (they go stale)
 bool g_logged[kEntryCount];
 unsigned g_look[kEntryCount];  // each entry's look (gauges-style)
@@ -218,8 +224,9 @@ void setArt(unsigned model, unsigned id) {
 // Visibility as last set: -1 unknown, 0 hidden, 1 shown.
 // Each of a look's pictures at a cell has its own flag: one shared flag left the needles hidden (2026-11-20).
 int g_groupShown[kGroups][kLookImages][kCards];
-int g_liveShown[kCards];         // the Live values rows
-int g_lookRowShown[kLookRows];   // the Gauge styles rows
+int g_liveShown[kCards];  // the Live values rows
+int g_lookRowShown[kLookRows];
+int g_rangeRowShown[kCards];     // the Gauge ranges rows   // the Gauge styles rows
 int g_placeRowShown[kCards];     // the Gauge places rows
 int g_placeChoiceShown[kCards];  // the places of the gauge being placed
 int g_optionShown[kViews][2];    // each view's OPTION Dashboard 2 and 3
@@ -235,6 +242,7 @@ void forgetShown() {
     memset(g_groupShown, 0xff, sizeof(g_groupShown));  // -1
     memset(g_liveShown, 0xff, sizeof(g_liveShown));
     memset(g_lookRowShown, 0xff, sizeof(g_lookRowShown));
+    memset(g_rangeRowShown, 0xff, sizeof(g_rangeRowShown));
     memset(g_placeRowShown, 0xff, sizeof(g_placeRowShown));
     memset(g_placeChoiceShown, 0xff, sizeof(g_placeChoiceShown));
     memset(g_optionShown, 0xff, sizeof(g_optionShown));
@@ -310,6 +318,63 @@ void saveChoice() {
     char line[kEntryCount + 8];
     formatChoice(g_on, line, sizeof(line));
     writeLine(kChoiceFile, line);
+}
+
+// The entry with the owner's scale (Gauge ranges) as its lo, hi.
+Entry ranged(unsigned e) {
+    Entry x = kEntries[e];
+    if (g_range[e] > 0 && g_range[e] < x.ranges) {
+        x.lo = x.range[g_range[e]][0];
+        x.hi = x.range[g_range[e]][1];
+    }
+    return x;
+}
+
+// A face's or track's picture for the entry's scale: the catalogue's own (base + e) or another scale's.
+unsigned faceArt(unsigned base, unsigned kind, unsigned e) {
+    return g_range[e] == 0 ? base + e : kImgRange0 + (g_range[e] - 1) * 1000 + kind * 100 + e;
+}
+
+void loadRanges() {
+    char line[kEntryCount + 8] = "";
+    const bool got = readLine(kRangeFile, line, sizeof(line));
+    for (unsigned e = 0; e < kEntryCount; ++e) {
+        const unsigned r = got && e < strlen(line) && line[e] >= '0' && line[e] <= '9' ? line[e] - '0' : 0;
+        g_range[e] = r < kEntries[e].ranges ? r : 0;
+    }
+}
+
+void saveRanges() {
+    char line[kEntryCount + 8];
+    for (unsigned e = 0; e < kEntryCount; ++e) {
+        line[e] = static_cast<char>('0' + g_range[e]);
+    }
+    line[kEntryCount] = 0;
+    writeLine(kRangeFile, line);
+}
+
+// Each needle and bar a step towards its value; true while one still moves.
+bool easeValues() {
+    bool moving = false;
+    for (unsigned e = 0; e < kEntryCount; ++e) {
+        if (!g_valid[e]) {
+            continue;
+        }
+        if (!g_displaySet[e]) {
+            g_display[e] = g_value[e];
+            g_displaySet[e] = true;
+            continue;
+        }
+        const Entry x = ranged(e);
+        const double d = g_value[e] - g_display[e];
+        if (d > -(x.hi - x.lo) / 400 && d < (x.hi - x.lo) / 400) {
+            g_display[e] = g_value[e];
+        } else {
+            g_display[e] += d / 3;
+            moving = true;
+        }
+    }
+    return moving;
 }
 
 void loadLooks() {
@@ -656,35 +721,37 @@ void showCell(unsigned c) {
     if (look == kLookCard) {
         setText(kCardValue0 + c, text);  // the other looks show no number (the M5's gauges)
     }
-    const unsigned fine = ok ? levelOf(entry, g_value[e], kFineLevels) : 0;
+    const Entry scaled = ranged(e);
+    const double shown = g_displaySet[e] ? g_display[e] : g_value[e];
+    const unsigned fine = ok ? levelOf(scaled, shown, kFineLevels) : 0;
     switch (look) {
         case kLookDial:
-            setArt(kLookBack0[look] + c, kImgFace0 + e);
+            setArt(kLookBack0[look] + c, faceArt(kImgFace0, kKindFace, e));
             setArt(kLookFront0[look] + c, kImgNeedle0 + fine);
             break;
         case kLookWide:
-            setArt(kLookBack0[look] + c, kImgWideTrack0 + e);
+            setArt(kLookBack0[look] + c, faceArt(kImgWideTrack0, kKindWideTrack, e));
             setArt(kLookFront0[look] + c, kImgWideBar0 + fine);
             break;
         case kLookWideDial:
-            setArt(kLookBack0[look] + c, kImgWideFace0 + e);
+            setArt(kLookBack0[look] + c, faceArt(kImgWideFace0, kKindWideFace, e));
             setArt(kLookFront0[look] + c, kImgWideNeedle0 + fine);
             break;
         case kLookArc:
-            setArt(kLookBack0[look] + c, kImgArcFace0 + e);
+            setArt(kLookBack0[look] + c, faceArt(kImgArcFace0, kKindArcFace, e));
             setArt(kLookFront0[look] + c, kImgArcNeedle0 + fine);
             break;
         case kLookWideArc:
-            setArt(kLookBack0[look] + c, kImgWideArcFace0 + e);
+            setArt(kLookBack0[look] + c, faceArt(kImgWideArcFace0, kKindWideArcFace, e));
             setArt(kLookFront0[look] + c, kImgWideArcNeedle0 + fine);
             break;
         case kLookTall:
-            setArt(kLookBack0[look] + c, kImgTallTrack0 + e);
+            setArt(kLookBack0[look] + c, faceArt(kImgTallTrack0, kKindTallTrack, e));
             setArt(kLookFront0[look] + c, kImgTallBar0 + fine);
             break;
         default:
             setArt(kLookBack0[look] + c, kImgCardIcon0 + e);
-            setArt(kLookFront0[look] + c, barImage(ok ? barLevel(entry, g_value[e]) : 0));
+            setArt(kLookFront0[look] + c, barImage(ok ? barLevel(scaled, shown) : 0));
             break;
     }
 }
@@ -918,6 +985,8 @@ void showTrip() {
     }
 }
 
+void showRanges();  // Gauge ranges, below the Gauge styles' actions
+
 void refresh() {
     if (dashPage()) {
         showDash();
@@ -925,6 +994,8 @@ void refresh() {
         showLive();
     } else if (g_page == kDiagState) {
         showDiag();
+    } else if (g_page == kRangeState) {
+        showRanges();
     } else if (g_page == kLookState) {
         showLooks();
     } else if (g_page == kPlacesState) {
@@ -1125,7 +1196,7 @@ AppRunnable g_pollRunnable;
 bool g_pollPosted = false;
 
 bool needsPoll() {
-    return g_collector > 0 || g_codesPid > 0 || g_testPid > 0 || g_discoverPid > 0;
+    return livePage() || g_collector > 0 || g_codesPid > 0 || g_testPid > 0 || g_discoverPid > 0;
 }
 
 void pollRun(void*) {
@@ -1155,6 +1226,7 @@ void pollRun(void*) {
             }
         }
     }
+    easeValues();
     if (livePage()) {
         updateCollector();  // started again if it ended (gateway gone), at most every poll
         refresh();
@@ -1208,18 +1280,46 @@ void startPoll() {
 
 // ---- iDrive's notifications
 // ------------------------------------------------------------------------------------------
+// The pages open, the topmost last. Back from a page opened over a dashboard (Dashboard 2, Diagnostics) iDrive says
+// only that page is hidden, never that the dashboard shows again (2026-11-21: the gauges stopped after Diagnostics
+// until the dashboard was opened anew): the page under it becomes the shown one again.
+unsigned g_open[16];
+unsigned g_openCount = 0;
+
+void forgetOpen(unsigned state) {
+    unsigned k = 0;
+    for (unsigned i = 0; i < g_openCount; ++i) {
+        if (g_open[i] != state) {
+            g_open[k++] = g_open[i];
+        }
+    }
+    g_openCount = k;
+}
+
 void pageVisible(unsigned state, bool visible) {
     alog("gauges: state %u %s", state, visible ? "shown" : "hidden");
     if (!visible) {
+        forgetOpen(state);
         if (g_page == state) {
             if (livePage()) {
                 g_keepCollectorUntil = dme::monoMs() + 60000;  // the next page may well show values again
             }
             g_page = 0;
+            if (g_openCount) {
+                const unsigned back = g_open[g_openCount - 1];
+                alog("gauges: back on state %u", back);
+                pageVisible(back, true);
+                return;
+            }
             updateCollector();
         }
         return;
     }
+    forgetOpen(state);
+    if (g_openCount == sizeof(g_open) / sizeof(g_open[0])) {
+        forgetOpen(g_open[0]);
+    }
+    g_open[g_openCount++] = state;
     g_page = state;
     forgetShown();  // the HMI may have dropped the models while hidden: everything sent again
     if (livePage() || state == kShiftState) {
@@ -1352,6 +1452,51 @@ struct LookActions {
 };
 template <>
 struct LookActions<0> {
+    static void add(bmw::PluginApp*) {}
+};
+
+// Gauge ranges: each ticked gauge with its scale; a press gives it the next one.
+void showRanges() {
+    for (unsigned r = 0; r < kCards; ++r) {
+        const bool shown = r < g_listCount;
+        showComponent(kRangeRowComp0 + r, shown, &g_rangeRowShown[r]);
+        if (!shown) {
+            continue;
+        }
+        const unsigned e = g_list[r];
+        const Entry x = ranged(e);
+        char row[96];
+        snprintf(row, sizeof(row), "%s: %g to %g %s%s", x.title, x.lo, x.hi, x.unit,
+                 kEntries[e].ranges > 1 ? "" : " (fixed)");
+        setText(kRangeRow0 + r, row);
+    }
+    setText(kRangeNote, g_listCount ? "Press a gauge for its next scale: its dial or bar is drawn with it."
+                                    : "No gauge ticked: Choose gauges first");
+}
+
+template <unsigned Row>
+bool onRangeRow(void*, const bmw::Parcel&) {
+    if (Row >= g_listCount) {
+        return true;
+    }
+    const unsigned e = g_list[Row];
+    g_range[e] = kEntries[e].ranges > 1 ? (g_range[e] + 1) % kEntries[e].ranges : 0;
+    saveRanges();
+    const Entry x = ranged(e);
+    alog("gauges: %s scale %g to %g %s", x.title, x.lo, x.hi, x.unit);
+    showRanges();
+    return true;
+}
+
+template <unsigned N>
+struct RangeActions {
+    static void add(bmw::PluginApp* self) {
+        RangeActions<N - 1>::add(self);
+        addAction(self, kActRangeRow0 + N - 1, &onRangeRow<N - 1>);
+    }
+};
+template <>
+struct RangeActions<0> {
     static void add(bmw::PluginApp*) {}
 };
 
@@ -1565,6 +1710,8 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     addAction(self, kActLiveRow, &onLiveRow);
     ChoiceActions<kEntryCount>::add(self);
     LookActions<kLookRows>::add(self);
+    RangeActions<kCards>::add(self);
+    addStateHandler(self, kRangeState, kHandlerVisible, &onVisible<kRangeState>);
     PlaceActions<kCards>::add(self);
     addAction(self, kActResetPlaces, &onResetPlaces);
     addStateHandler(self, kPlacesState, kHandlerVisible, &onVisible<kPlacesState>);
@@ -1572,6 +1719,7 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     g_shiftPoint = readIndex(kShiftFile, sizeof(kShiftPoints) / sizeof(kShiftPoints[0]), 2);
     loadChoice();
     loadLooks();
+    loadRanges();
     loadPlaces();
     assignCards();
     collectProperties();

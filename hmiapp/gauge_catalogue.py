@@ -151,19 +151,49 @@ SCALE_MARKS = {"RON": (92, 95, 98)}
 HOT_TITLES = ("Water", "Oil", "Coolant (OBD)", "Coolant (DME)", "Oil temp. (OBD)")
 
 
-def red_from(e):
-    """Where a gauge's red end starts, or None."""
+def red_from(e, lo=None, hi=None):
+    """Where a gauge's red end starts on the scale lo..hi (default: the catalogue's), or None."""
+    lo = e["lo"] if lo is None else lo
+    hi = e["hi"] if hi is None else hi
     if e["unit"] == "rpm":
-        return e["hi"] - 1000
+        return hi - 1000
     if e["title"] in HOT_TITLES:
-        return e["lo"] + 0.85 * (e["hi"] - e["lo"])
+        return lo + 0.85 * (hi - lo)
     return None
 
 
-def scale_key(e):
-    """The scale a gauge's dial or bar draws: its range, where its red end starts (or None), and the values to number
-    when not round steps."""
-    return (e["lo"], e["hi"], red_from(e), SCALE_MARKS.get(e["unit"]))
+# Round scale ends: 1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8 times a power of ten.
+NICE = (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8)
+MAX_RANGES = 4  # platform/gauge_catalogue.hpp Entry::range
+
+
+def ranges(e):
+    """The scales the owner can pick for a gauge (Gauge ranges; the owner, 2026-11-21: boost does not reach 2.5 bar on
+    this car), as (lo, hi): the catalogue's first, then the nearest round end below, a second one below (at least half
+    the span) and the nearest above. A scale symmetric around 0 keeps its symmetry; graded scales (fuel quality) keep
+    their one scale."""
+    lo, hi = e["lo"], e["hi"]
+    if e["unit"] in SCALE_MARKS:
+        return [(lo, hi)]
+    span = hi - lo
+    symmetric = lo < 0 and abs(lo + hi) < 1e-9
+    ends = sorted({round(n * 10**k, 6) for n in NICE for k in range(-3, 6)})
+    floor = 0 if symmetric else lo
+    candidates = [v for v in ends if v > floor and lo + 0.5 * span <= v <= lo + 1.6 * span and abs(v - hi) > 1e-9]
+    if symmetric:
+        candidates = [v for v in ends if 0.5 * hi <= v <= 1.6 * hi and abs(v - hi) > 1e-9]
+    below = [v for v in candidates if v < hi]
+    above = [v for v in candidates if v > hi]
+    picks = below[-1:] + below[-2:-1] + above[:1]  # the nearest round end below, the next one down, the nearest above
+    out = [(lo, hi)] + [((-v, v) if symmetric else (lo, v)) for v in picks]
+    return out[:MAX_RANGES]
+
+
+def scale_key(e, rng=None):
+    """The scale a gauge's dial or bar draws: its range (rng, or the catalogue's), where its red end starts (or None),
+    and the values to number when not round steps."""
+    lo, hi = rng if rng else (e["lo"], e["hi"])
+    return (lo, hi, red_from(e, lo, hi), SCALE_MARKS.get(e["unit"]))
 
 
 def entries():
@@ -192,10 +222,12 @@ def cpp(es):
         prop = f'"{e["prop"]}"' if e["source"] == "cds" else "nullptr"
         key = f'"{e["key"]}"' if e["source"] == "cds" else "nullptr"
         code = e.get("pid", e.get("did", 0))
+        rs = ranges(e)
+        cells = ", ".join(f"{{{float(a)!r}, {float(b)!r}}}" for a, b in rs + [(0, 0)] * (MAX_RANGES - len(rs)))
         rows.append(
             f'    {{{src}, "{e["title"]}", "{e["unit"]}", {e["lo"]!r}, {e["hi"]!r}, {e["dec"]}, {prop}, {key}, '
             f'{e.get("invalid", 0)}, 0x{code:X}, {e.get("n", 0)}, {e.get("f", 0)}, {float(e.get("a", 0))!r}, '
-            f'{float(e.get("b", 0))!r}, {"true" if e["on"] else "false"}, {e["look"]}}},'
+            f'{float(e.get("b", 0))!r}, {"true" if e["on"] else "false"}, {e["look"]}, {{{cells}}}, {len(rs)}}},'
         )
     return (
         "// Copyright (c) 2026 Jiraiya43\n"
@@ -212,6 +244,8 @@ def cpp(es):
         "    unsigned formula;      // OBD\n    double a, b;           // OBD\n"
         "    bool on;               // shown by default\n"
         "    unsigned look;         // until the owner picks one: hmiapp/gauge_layout.hpp Look\n"
+        "    double range[4][2];    // the scales the owner can pick (Gauge ranges): lo, hi; [0] is lo, hi\n"
+        "    unsigned ranges;       // how many\n"
         "};\n\n"
         "// clang-format off\n"
         "const Entry kEntries[] = {\n" + "\n".join(rows) + "\n};\n"

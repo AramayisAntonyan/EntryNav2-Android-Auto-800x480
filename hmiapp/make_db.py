@@ -158,9 +158,10 @@ GAUGE_BAR_LEVELS = 25  # gauge_values.hpp kBarLevels: card bars 56000 + level
 BAR = (235, 235, 235)  # the value's segments: white, as the M5's gauges
 SHIFT_LEVELS = 33  # gauge_ids.hpp kShiftLevels: 57000 + level, past the shift point 57100 + level
 SHIFT_FILL, SHIFT_WARN = BAR, (229, 57, 53)
-FINE_LEVELS = 41  # gauge_ids.hpp kFineLevels: the big looks' images + level
+FINE_LEVELS = 121  # gauge_ids.hpp kFineLevels: the big looks' images + level (finer: the needles move smoother)
 IMG_WIDE_BAR, IMG_TALL_BAR, IMG_NEEDLE, IMG_WIDE_NEEDLE = 59000, 59500, 60000, 60500
 IMG_FACE, IMG_WIDE_FACE, IMG_WIDE_TRACK, IMG_TALL_TRACK, IMG_CARD_ICON = 61000, 61100, 61200, 61300, 61400
+IMG_RANGE = 64000  # gauge_ids.hpp kImgRange0: the faces and tracks of the other scales
 IMG_ARC_NEEDLE, IMG_WIDE_ARC_NEEDLE, IMG_ARC_FACE, IMG_WIDE_ARC_FACE = 62000, 62500, 63000, 63100
 
 
@@ -271,6 +272,16 @@ def art_pictures():
         yield IMG_CARD_ICON + n, gauge_art.pad(gauge_art.card_label(icon, e["title"]), cell, (12, 10))
         yield IMG_ARC_FACE + n, gauge_art.SMALL_ARC.face(scale, icon, title, unit)
         yield IMG_WIDE_ARC_FACE + n, gauge_art.WIDE_ARC.face(scale, icon, title, unit)
+        # the other scales (Gauge ranges): gauge_ids.hpp kImgRange0 + (scale - 1) * 1000 + kind * 100 + gauge
+        for r, rng in enumerate(gauge_catalogue.ranges(e)[1:], start=1):
+            sk = gauge_catalogue.scale_key(e, rng)
+            base = IMG_RANGE + (r - 1) * 1000 + n
+            yield base, gauge_art.SMALL_DIAL.face(sk, icon, title, unit)
+            yield base + 100, gauge_art.WIDE_DIAL.face(sk, icon, title, unit)
+            yield base + 200, gauge_art.WIDE_BAR.track(sk, icon, title, unit)
+            yield base + 300, gauge_art.TALL_BAR.track(sk, icon, title, unit)
+            yield base + 400, gauge_art.SMALL_ARC.face(sk, icon, title, unit)
+            yield base + 500, gauge_art.WIDE_ARC.face(sk, icon, title, unit)
 
 
 def write_art(path):
@@ -278,8 +289,8 @@ def write_art(path):
     (little-endian 32-bit), then the PNGs in that order."""
     pictures = sorted(art_pictures())
     ids = [i for i, _ in pictures]
-    if len(set(ids)) != len(ids) or not all(56000 <= i < 64000 for i in ids):
-        raise SystemExit("FAIL: picture ids repeat or leave 56000..63999 (gauge_ids.hpp kArtFirst, kArtIds)")
+    if len(set(ids)) != len(ids) or not all(56000 <= i < 67000 for i in ids):
+        raise SystemExit("FAIL: picture ids repeat or leave 56000..66999 (gauge_ids.hpp kArtFirst, kArtIds)")
     offset = 8 + 12 * len(pictures)
     index, data = [], []
     for i, png in pictures:

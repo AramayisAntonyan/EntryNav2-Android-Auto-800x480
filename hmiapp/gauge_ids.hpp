@@ -93,6 +93,13 @@ const unsigned kLookRowComp0 = 2701;  // button rows: + row
 const unsigned kActLookRow0 = 480;    // raActions: + row
 const unsigned kLookRows = kCards;
 
+// ---- Gauge ranges: one row per ticked gauge; a press gives it its next scale (gauges-range) -------------------------
+const unsigned kRangeState = 966;
+const unsigned kRangeNote = 305;      // Richtext above the rows
+const unsigned kRangeRow0 = 155;      // Richtext models: + row
+const unsigned kRangeRowComp0 = 191;  // button rows: + row
+const unsigned kActRangeRow0 = 245;   // raActions: + row
+
 // ---- Gauge places: one row per ticked gauge; a press opens its places (gauges-place) --------------------------------
 const unsigned kPlacesState = 964;       // the gauges with their places
 const unsigned kPlaceState = 965;        // the places one gauge can take
@@ -145,7 +152,7 @@ const unsigned kImgShiftWarn0 = 57100;  // + level: the same bar past the shift 
 const unsigned kShiftLevels = 33;       // 250 rpm a step, 0..8000
 // Every other picture is in CarGauges_Art.pack, sent through raImageModels (as Android Auto's album cover), under the
 // same kind of ids. The big looks move in finer steps: + level, levels 0..kFineLevels - 1.
-const unsigned kFineLevels = 41;
+const unsigned kFineLevels = 121;        // finer than 41: the needles move smoother
 const unsigned kImgBar0 = 56000;         // + level: a card's bar in its cell (189x180), 0..kBarLevels - 1
 const unsigned kImgWideBar0 = 59000;     // 386x180: the value's segments over the track
 const unsigned kImgTallBar0 = 59500;     // 189x368, filled from the bottom
@@ -162,8 +169,12 @@ const unsigned kImgArcNeedle0 = 62000;      // 189x180
 const unsigned kImgWideArcNeedle0 = 62500;  // 386x180
 const unsigned kImgArcFace0 = 63000;        // 189x180
 const unsigned kImgWideArcFace0 = 63100;    // 386x180
-const unsigned kArtFirst = 56000;           // the pack's ids: kArtFirst .. kArtFirst + kArtIds - 1
-const unsigned kArtIds = 8000;
+// The faces and tracks of a gauge's other scales (Gauge ranges): + (scale - 1) * 1000 + kind * 100 + gauge, kind as
+// kRangeKind below.
+const unsigned kImgRange0 = 64000;
+enum RangeKind { kKindFace, kKindWideFace, kKindWideTrack, kKindTallTrack, kKindArcFace, kKindWideArcFace };
+const unsigned kArtFirst = 56000;  // the pack's ids: kArtFirst .. kArtFirst + kArtIds - 1
+const unsigned kArtIds = 11000;
 
 const unsigned kShiftPoints[] = {5000, 5500, 6000, 6500};
 

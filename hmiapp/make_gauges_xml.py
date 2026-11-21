@@ -67,6 +67,7 @@ SETTINGS = (
     (34, 963, "Choose: OBD values"),
     (28, 961, "Gauge styles"),
     (354, 964, "Gauge places"),
+    (306, 966, "Gauge ranges"),
     (16, 950, "Shift point"),
 )
 # The Choose pages, one per source (gauge_ids.hpp kChooseStates): state, title, source, note label, note model
@@ -92,6 +93,9 @@ STYLE_ROW_MODEL, STYLE_ROW_COMP, STYLE_ROW_ACTION, STYLE_NOTE = 450, 2701, 480, 
 PLACE_ROW_COMP, PLACE_ROW_MODEL, PLACE_ROW_ACTION = 100, 131, 191
 PLACE_COMP, PLACE_MODEL, PLACE_ACTION = 130, 221, 281
 PLACES_NOTE, PLACE_NOTE, RESET_PLACES, PLACE_EVENT = 355, 356, 357, 359
+# Gauge ranges (gauge_ids.hpp kRange*): rows of the ticked gauges (components 191 + i, models 155 + i, raActions
+# 245 + i), the note above them (label 239, model 305); a press gives the gauge its next scale.
+RANGE_ROW_COMP, RANGE_ROW_MODEL, RANGE_ROW_ACTION, RANGE_NOTE = 191, 155, 245, 305
 
 
 def props(x, y, w, h, extra=""):
@@ -205,6 +209,8 @@ def main():
         for c in range(CELLS)
     ]
     models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (PLACES_NOTE, PLACE_NOTE)]
+    models += [f'      <raDataModel id="{RANGE_ROW_MODEL + c}" modelType="Richtext"/>' for c in range(CELLS)]
+    models.append(f'      <raDataModel id="{RANGE_NOTE}" modelType="Richtext"/>')
     models.append('      <imageIdModel id="90" imageId="57000"/>')
     models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (91, 92, 93, 104, 105, 106, 107, 108)]
     models += [f'      <raDataModel id="{95 + i}" modelType="Richtext"/>' for i in range(8)]
@@ -228,6 +234,7 @@ def main():
     actions += [f'      <raAction id="{STYLE_ROW_ACTION + i}"/>' for i in range(CELLS)]
     actions += [f'      <raAction id="{a + c}"/>' for a in (PLACE_ROW_ACTION, PLACE_ACTION) for c in range(CELLS)]
     actions.append(f'      <raAction id="{RESET_PLACES}"/>')
+    actions += [f'      <raAction id="{RANGE_ROW_ACTION + c}"/>' for c in range(CELLS)]
     events = (
         '      <focusEvent id="358" target="971"/>\n'  # a car test started: its results page
         '      <focusEvent id="88" target="930"/>\n'  # the clear started: the codes page shows its result
@@ -300,6 +307,10 @@ def main():
         modelbutton(PLACE_COMP + c, PLACE_ACTION + c, PLACE_MODEL + c) for c in range(CELLS)
     )
     states += state(965, "Choose a place", choices, parent=964)
+    scales = labelrow(239, RANGE_NOTE) + "".join(
+        modelbutton(RANGE_ROW_COMP + i, RANGE_ROW_ACTION + i, RANGE_ROW_MODEL + i) for i in range(CELLS)
+    )
+    states += state(966, "Gauge ranges", scales, parent=902)
     tests = "".join(button(1510 + i, 50 + i, t) for i, t in enumerate(CAR_TESTS))
     states += state(970, "Car tests", tests, parent=903)
     # The results: the test and its state, then the output's last lines, placed so the whole page is one photo.
