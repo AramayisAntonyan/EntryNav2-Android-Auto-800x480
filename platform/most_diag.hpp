@@ -49,8 +49,10 @@ private:
     // the answer the current exchange waits for
     const uint8_t* want_;
     unsigned wantLen_;
-    uint8_t got_[4096];  // a fault memory answer can be long
-    int gotLen_;         // > 0 an answer, -2 refused, 0 none yet
+    uint8_t got_[4096];           // a fault memory answer can be long
+    static const int kBusy = -4;  // gotLen_: the tunnel or the DME is busy, sent again shortly
+    static const unsigned kBusyPauseMs = 60;
+    int gotLen_;  // > 0 an answer, -2 refused, kBusy, 0 none yet
     unsigned gotNrc_;
 };
 

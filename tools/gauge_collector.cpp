@@ -69,8 +69,8 @@ const int kViaMost = 1 << 20;
 
 int dmeExchange(int fd, const unsigned char* req, unsigned n, unsigned char* reply, unsigned cap, unsigned timeoutMs,
                 unsigned* nrc, volatile sig_atomic_t* running) {
-    if (fd == kViaMost) {
-        return g_tunnel.exchange(hsfz::kDme, req, n, reply, cap, timeoutMs, nrc, running);
+    if (fd == kViaMost) {  // slower than the gateway: an answer may come pending first (2026-11-23)
+        return g_tunnel.exchange(hsfz::kDme, req, n, reply, cap, timeoutMs < 1500 ? 1500 : timeoutMs, nrc, running);
     }
     return hsfz::exchange(fd, hsfz::kDme, req, n, reply, cap, timeoutMs, nrc, running);
 }

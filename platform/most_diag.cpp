@@ -93,9 +93,13 @@ void Tunnel::onMessage(void* msg, void* self) {
     const uint8_t* inner = nullptr;
     unsigned len = 0, nrc = 0;
     const int r = parse(v.data, v.len, &inner, &len, &nrc);
+    // The routine's own answer, or the DME's: 0x78 the answer is pending (keep waiting), 0x21 busy with the previous
+    // request (sent again shortly: on the car each read after the first got 21 when sent at once, 2026-11-23).
     if (r == -2) {
-        t->gotNrc_ = nrc;
-        t->gotLen_ = -2;
+        if (nrc != 0x78) {
+            t->gotNrc_ = nrc;
+            t->gotLen_ = nrc == 0x21 ? kBusy : -2;
+        }
         return;
     }
     if (r != 1 || len < 1) {
@@ -103,9 +107,9 @@ void Tunnel::onMessage(void* msg, void* self) {
     }
     const uint8_t* q = t->want_;
     if (len >= 3 && inner[0] == 0x7F && inner[1] == q[0]) {
-        if (inner[2] != 0x78) {  // 0x78: the answer is pending, keep waiting
+        if (inner[2] != 0x78) {
             t->gotNrc_ = inner[2];
-            t->gotLen_ = -2;
+            t->gotLen_ = inner[2] == 0x21 ? kBusy : -2;
         }
         return;
     }
@@ -143,21 +147,35 @@ int Tunnel::exchange(uint8_t ecu, const uint8_t* req, unsigned n, uint8_t* reply
     m.op = 0x0;  // Start, as ID6 apps sends it
     m.len = static_cast<uint16_t>(len);
     m.data = buf;
+    const uint64_t end = nowMs() + timeoutMs;
+    uint64_t resendAt = 0;  // busy: the request goes again then
     if (vmost_.send(&m) != 0) {
         want_ = nullptr;
         return -1;
     }
-    const uint64_t end = nowMs() + timeoutMs;
-    while (gotLen_ == 0 && (!running || *running)) {
+    while ((gotLen_ == 0 || gotLen_ == kBusy) && (!running || *running)) {
         const uint64_t now = nowMs();
         if (now >= end) {
             break;
         }
+        if (gotLen_ == kBusy && !resendAt) {
+            resendAt = now + kBusyPauseMs;
+        }
+        if (resendAt && now >= resendAt) {
+            resendAt = 0;
+            gotLen_ = 0;
+            if (vmost_.send(&m) != 0) {
+                want_ = nullptr;
+                return -1;
+            }
+            continue;
+        }
+        const uint64_t until = resendAt && resendAt < end ? resendAt : end;
         struct pollfd p;
         p.fd = fd;
         p.events = POLLIN;
         p.revents = 0;
-        if (poll(&p, 1, static_cast<int>(end - now)) > 0) {
+        if (poll(&p, 1, static_cast<int>(until - now)) > 0) {
             vmost_.processMessages();
         }
     }
@@ -169,7 +187,7 @@ int Tunnel::exchange(uint8_t ecu, const uint8_t* req, unsigned n, uint8_t* reply
         return -2;
     }
     if (gotLen_ <= 0) {
-        return -3;
+        return -3;  // no answer in time (or still busy)
     }
     if (static_cast<unsigned>(gotLen_) > cap) {
         return -1;
