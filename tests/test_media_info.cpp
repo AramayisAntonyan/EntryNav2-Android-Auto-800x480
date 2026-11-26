@@ -114,6 +114,19 @@ void fingerprintTellsCoversApart() {
     CHECK(evo::media::fingerprint(Bytes()) == 2166136261u);
 }
 
+// The playback status (0x8001): field 1, 2 = playing; none or malformed is refused.
+void playbackState() {
+    const uint8_t playing[] = {0x08, 0x02, 0x10, 0x05};
+    const uint8_t paused[] = {0x10, 0x05, 0x08, 0x03};
+    const uint8_t none[] = {0x10, 0x05};
+    const uint8_t cut[] = {0x08};
+    uint32_t state = 0;
+    CHECK(evo::media::readPlaybackState(playing, sizeof(playing), &state) && state == evo::media::kPlaying);
+    CHECK(evo::media::readPlaybackState(paused, sizeof(paused), &state) && state == 3);
+    CHECK(!evo::media::readPlaybackState(none, sizeof(none), &state));
+    CHECK(!evo::media::readPlaybackState(cut, sizeof(cut), &state));
+}
+
 }  // namespace
 
 int main() {
@@ -124,6 +137,7 @@ int main() {
     wrongTypesAreSkipped();
     malformedLeavesNothing();
     fingerprintTellsCoversApart();
+    playbackState();
     if (failures) {
         std::fprintf(stderr, "test-media-info: %d failure(s)\n", failures);
         return EXIT_FAILURE;

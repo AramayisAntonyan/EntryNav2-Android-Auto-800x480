@@ -163,6 +163,12 @@ public:
     void clear(const char* why);
     // The BMW navigation guides: forget what we drew without a clear, the factory navigation owns the panel.
     void yieldToFactory();
+    // The idle text (NBT-AAD #288): one line of our own, the song playing, while no maneuver shows. idleText() is
+    // the title as the street line can show it. showIdleText() takes it on every step with no maneuver: sent when
+    // it changed; "" (nothing playing) clears it. A maneuver replaces it; once it is cleared the title comes back.
+    std::string idleText(const std::string& utf8) const;
+    void showIdleText(const std::string& line, double now);
+    bool idle() const { return idle_; }
 
     bool showing() const { return showing_; }
     bool sentAny() const { return sentAny_; }
@@ -199,6 +205,7 @@ public:
     Batch routeBatch(const Picture& pic) const;
     Batch clearBatch() const;
     Batch remindBatch() const;
+    Batch idleBatch(const std::string& line) const;
     Batch lanesBatch(const Picture& pic) const;
     uint16_t visibleBuffer() const { return visible_; }
     uint16_t visibleRoute() const { return routeVisible_; }
@@ -274,6 +281,9 @@ private:
     uint16_t laneVisible_;
     bool lanesDirty_;  // something of ours may be in the lane buffers
     std::vector<kombi::PhoneLane> lanesShown_;
+    // the idle text
+    bool idle_;      // the idle text is what we show (no maneuver)
+    double idleAt_;  // when it last changed
 };
 
 }  // namespace hudterm

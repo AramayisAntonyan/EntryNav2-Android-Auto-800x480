@@ -270,7 +270,9 @@ Hud6wa::Hud6wa(HudSink& sink, const HudProfile& profile, const kombi::GuideSetti
       noDistanceAt_(0),
       lanes_(false),
       laneVisible_(profile.laneB),
-      lanesDirty_(false) {
+      lanesDirty_(false),
+      idle_(false),
+      idleAt_(0) {
     if (settings.approachMiles <= 0) {
         approach_.mode = HudApproach::kOff;  // at once, as the distance rule's 0 always meant
     }
@@ -319,6 +321,71 @@ Batch Hud6wa::routeBatch(const Picture& pic) const {
     b.add(kSwitchVisibility, switchVisibility(routeVisible_, hidden));
     b.add(kRemoveAllItems, removeAllItems(routeVisible_));
     return b;
+}
+
+// The idle text, whole: both picture buffers emptied, and a route or lane layer a maneuver left, so that nothing is
+// left under the text; the texts on (the first time), the title as the street, no distance or unit, the panel on.
+Batch Hud6wa::idleBatch(const std::string& line) const {
+    Batch b("media");
+    b.add(kRemoveAllItems, removeAllItems(p_.bufA));
+    b.add(kRemoveAllItems, removeAllItems(p_.bufB));
+    if (routeDirty_ && routeInOverlay()) {
+        b.add(kRemoveAllItems, removeAllItems(p_.routeA));
+        b.add(kRemoveAllItems, removeAllItems(p_.routeB));
+    }
+    if (lanesDirty_ && lanes_) {
+        b.add(kRemoveAllItems, removeAllItems(p_.laneA));
+        b.add(kRemoveAllItems, removeAllItems(p_.laneB));
+    }
+    if (fresh_) {
+        b.add(kSetVisibility, setVisibility(p_.street, true));
+        b.add(kSetVisibility, setVisibility(p_.distance, true));
+        b.add(kSetVisibility, setVisibility(p_.unit, true));
+    }
+    b.add(kTextareaSetText, setText(p_.street, line.c_str()));
+    b.add(kTextareaSetText, setText(p_.distance, ""));
+    b.add(kTextareaSetText, setText(p_.unit, ""));
+    b.add(kSetVisibility, setVisibility(p_.frame, true));
+    return b;
+}
+
+std::string Hud6wa::idleText(const std::string& utf8) const {
+    return toClusterText(utf8, p_.streetPunct, p_.streetChars, false);
+}
+
+void Hud6wa::showIdleText(const std::string& line, double now) {
+    if (stopped_ || showing_) {
+        return;  // a maneuver has the panel
+    }
+    if (line.empty()) {
+        if (idle_) {
+            clear("nothing playing");
+        }
+        return;
+    }
+    const bool whole = !idle_;
+    if (!whole && line == shown_.street) {
+        return;
+    }
+    Batch b = whole ? idleBatch(line) : Batch("media-text");
+    if (!whole) {
+        b.add(kTextareaSetText, setText(p_.street, line.c_str()));
+        b.add(kSetVisibility, setVisibility(p_.frame, true));
+    }
+    ELOG(kTag, "MEDIA '%s' | %u calls%s", line.c_str(), static_cast<unsigned>(b.calls.size()),
+         sink_.live() ? "" : " (shadow: not sent)");
+    if (!deliver(b)) {
+        return;
+    }
+    if (whole) {
+        fresh_ = false;
+        routeDirty_ = false;
+        lanesDirty_ = false;
+        shown_ = HudTexts();
+    }
+    shown_.street = line;
+    idle_ = true;
+    idleAt_ = now;
 }
 
 Batch Hud6wa::clearBatch() const {
@@ -764,6 +831,7 @@ bool Hud6wa::showPicture(const kombi::Maneuver& m, const HudTexts& t, bool isNew
     visible_ = visible_ == p_.bufA ? p_.bufB : p_.bufA;
     fresh_ = false;
     showing_ = true;
+    idle_ = false;  // the maneuver's texts replaced the idle text
     shownTurn_ = m;
     shown_ = t;
     nearShown_ = junction;
@@ -837,6 +905,7 @@ void Hud6wa::forget() {
     laneVisible_ = p_.laneB;
     lanesDirty_ = false;
     lanesShown_.clear();
+    idle_ = false;
 }
 
 }  // namespace hudterm

@@ -25,6 +25,11 @@ struct Track {
     int64_t lengthSeconds = 0;
 };
 
+// MediaPlaybackStatus (0x8001) field 1: 1 stopped, 2 playing, 3 paused.
+const uint32_t kPlaying = 2;
+// Reads a playback status body's state; false when it is malformed or has none.
+bool readPlaybackState(const uint8_t* body, size_t size, uint32_t* state);
+
 // Reads a metadata message body. False when it is malformed: `out` is then left empty.
 bool readMetadata(const uint8_t* body, size_t size, Track& out);
 

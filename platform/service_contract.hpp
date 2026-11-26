@@ -51,6 +51,9 @@ constexpr char kKombiJunctionOff[] = "/var/local/data/AA/kombi-6wa-junction-off"
 constexpr char kKombi6waApproach[] = "/var/local/data/AA/kombi-6wa-approach";
 // The phone's lanes on the 6WA, in the LaneGuidance layers 9/10 (off by default: where they show is a guess).
 constexpr char kKombi6waLanes[] = "/var/local/data/AA/kombi-6wa-lanes";
+// The song title in the 6WA's street line while no maneuver shows (NBT-AAD #288; off by default: with the panel on,
+// the 6WA hides its on-board computer line). Set by hand; needs kKombi6wa (and kKombi6waLive to reach the car).
+constexpr char kKombi6waMedia[] = "/var/local/data/AA/kombi-6wa-media";
 // OPTION while Android Auto is on screen: "nudge" (default, no file), "tap", a key code, or "menu" (the iDrive app's
 // Android Auto menu, as before). Read at service start (option_key.hpp). Set by hand.
 constexpr char kOptionKeyFile[] = "/var/local/data/AA/option-key";

@@ -17,6 +17,21 @@ std::string text(const aa::pb::Field& f) {
 
 }  // namespace
 
+bool readPlaybackState(const uint8_t* body, size_t size, uint32_t* state) {
+    if (!body && size) {
+        return false;
+    }
+    aa::pb::FieldReader reader(body, size);
+    aa::pb::Field f;
+    while (reader.next(f)) {
+        if (f.number == 1 && f.type == aa::pb::kVarint) {
+            *state = static_cast<uint32_t>(f.value);
+            return !reader.malformed();
+        }
+    }
+    return false;
+}
+
 bool readMetadata(const uint8_t* body, size_t size, Track& out) {
     out = Track();
     if (!body && size) {

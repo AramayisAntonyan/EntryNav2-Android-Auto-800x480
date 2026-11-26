@@ -531,6 +531,41 @@ void lanes() {
     }
 }
 
+// The idle text (NBT-AAD #288): the song title in the street line while no maneuver shows; a maneuver replaces it,
+// it comes back once that is cleared, and nothing playing clears it.
+void idleText() {
+    Recorder rec;
+    GuideSettings s;
+    Hud6wa hud(rec, k6wa, s);
+    hud.setJunction(false, 300);
+    const HandleSet allowed = handlesOf(k6wa);
+    hud.showIdleText(hud.idleText("Bohemian Rhapsody"), 0.0);
+    CHECK(rec.batches.size() == 1 && rec.batches[0].label == "media" && hud.idle() && !hud.showing());
+    CHECK(textOf(rec.batches[0], 2) == "Bohemian Rhapsody" && textOf(rec.batches[0], 3).empty());
+    CHECK(find(rec.batches[0], kSetVisibility, 1) != NULL && find(rec.batches[0], kRemoveAllItems, 5) != NULL);
+    hud.showIdleText(hud.idleText("Bohemian Rhapsody"), 1.0);
+    CHECK(rec.batches.size() == 1);  // the same title: nothing
+    hud.showIdleText(hud.idleText("Under Pressure"), 2.0);
+    CHECK(rec.batches.size() == 2 && rec.batches[1].label == "media-text" &&
+          textOf(rec.batches[1], 2) == "Under Pressure");
+    Maneuver m = turn(8, "Main St", "300", 300);
+    hud.step(&m, 3.0);
+    CHECK(hud.showing() && !hud.idle() && textOf(rec.batches.back(), 2) == "Main St");
+    const size_t n = rec.batches.size();
+    hud.showIdleText(hud.idleText("Under Pressure"), 4.0);
+    CHECK(rec.batches.size() == n);  // the maneuver keeps the panel
+    hud.clear("test");
+    hud.showIdleText(hud.idleText("Under Pressure"), 5.0);
+    CHECK(rec.batches.back().label == "media" && hud.idle());
+    hud.showIdleText("", 6.0);
+    CHECK(rec.batches.back().label == "clear" && !hud.idle());
+    for (size_t b = 0; b < rec.batches.size(); ++b) {
+        for (size_t i = 0; i < rec.batches[b].calls.size(); ++i) {
+            CHECK(callOk(rec.batches[b].calls[i], allowed));
+        }
+    }
+}
+
 int main() {
     payloads();
     texts();
@@ -540,8 +575,10 @@ int main() {
     timeApproach();
     departAndRenewedStep();
     lanes();
+    idleText();
     puts(
         "PASS hud6wa: HUDTerminal payloads, every maneuver picture in the 6WA's limits, show/distance/clear batches, "
-        "junction view with route stages and exit number, time approach and reminder, DEPART, renewed step, lanes");
+        "junction view with route stages and exit number, time approach and reminder, DEPART, renewed step, lanes, "
+        "song title when idle");
     return 0;
 }

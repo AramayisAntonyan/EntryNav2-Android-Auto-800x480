@@ -53,7 +53,8 @@ ArrowsConfig::ArrowsConfig()
       anyDistanceFile(evo::contract::kKombiAnyDistance),
       junctionOffFile(evo::contract::kKombiJunctionOff),
       approachFile(evo::contract::kKombi6waApproach),
-      lanesFile(evo::contract::kKombi6waLanes) {}
+      lanesFile(evo::contract::kKombi6waLanes),
+      mediaFile(evo::contract::kKombi6waMedia) {}
 
 SendOutcome Arrows::Output::send(const std::vector<Request>& requests, std::string* why) {
     return arrows_.link_.send(requests, why);
@@ -121,6 +122,7 @@ Arrows::Arrows(const ArrowsConfig& config)
     const bool junction = config_.junctionOffFile.empty() || access(config_.junctionOffFile.c_str(), F_OK) != 0;
     hud_.setJunction(junction, 300);
     hud_.setLanes(!config_.lanesFile.empty() && access(config_.lanesFile.c_str(), F_OK) == 0);
+    mediaOn_ = hud6wa_ && !config_.mediaFile.empty() && access(config_.mediaFile.c_str(), F_OK) == 0;
     if (config_.guide.approachMiles > 0 && !config_.approachFile.empty()) {  // any distance wins
         FILE* f = fopen(config_.approachFile.c_str(), "r");
         if (f) {
@@ -184,6 +186,7 @@ void Arrows::start(BmwProbe probe) {
              s.approachMiles > 0 ? "within the approach" : "at any distance",
              hudterm::approachName(hud_.approach().mode), hud_.approach().warnS, hud_.approach().mainS,
              hud_.approach().mwayWarnM, hud_.approach().mwayMainM, hud_.lanesOn() ? "on (kombi-6wa-lanes)" : "off");
+        ELOG(kTag, "6WA song title when idle: %s", mediaOn_ ? "on (kombi-6wa-media)" : "off");
     }
     if (pthread_create(&worker_, nullptr, &Arrows::workerMain, this) != 0) {
         ELOG(kTag, "cannot start the worker thread: arrows disabled");
@@ -253,9 +256,16 @@ void Arrows::onNavStatus(uint16_t id, const uint8_t* body, size_t size, void* ar
     pthread_mutex_unlock(&a->mu_);
 }
 
+void Arrows::setNowPlaying(const std::string& title) {
+    pthread_mutex_lock(&mu_);
+    nowPlaying_ = title;
+    pthread_mutex_unlock(&mu_);
+}
+
 void Arrows::onSessionEnded() {
     pthread_mutex_lock(&mu_);
     inbox_.clear();
+    nowPlaying_.clear();
     sessionEnded_ = true;
     pthread_mutex_unlock(&mu_);
 }
@@ -389,6 +399,12 @@ void Arrows::tick(double now) {
     }
     if (hud6wa_) {
         hud_.step(shown, now, why);
+        if (mediaOn_ && !shown) {
+            pthread_mutex_lock(&mu_);
+            const std::string playing = nowPlaying_;
+            pthread_mutex_unlock(&mu_);
+            hud_.showIdleText(hud_.idleText(playing), now);
+        }
         if (hud_.takeNoSeconds() && !noSecondsNoted_) {
             noSecondsNoted_ = true;
             ELOG(kTag, "the phone sends no seconds to the next turn: the 6WA uses the distance rule (once a session)");

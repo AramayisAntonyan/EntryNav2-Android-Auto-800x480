@@ -55,6 +55,8 @@ struct ArrowsConfig {
     std::string approachFile;
     // Present at construction: the phone's lanes on the 6WA (layers 9/10).
     std::string lanesFile;
+    // Present at construction: the song title as the 6WA's idle text (NBT-AAD #288).
+    std::string mediaFile;
     GuideSettings guide;
     ArrowsConfig();
 };
@@ -80,6 +82,8 @@ public:
     static void onNavStatus(uint16_t id, const uint8_t* body, size_t size, void* arrows);
     // The Android Auto session ended (session thread).
     void onSessionEnded();
+    // The song the phone plays, "" when it stops or pauses (session thread): the 6WA's idle text, with kombi-6wa-media.
+    void setNowPlaying(const std::string& title);
     // From the fatal-signal handler: the emergency cancel when an arrow may be up. Async-signal-safe.
     static void onFatalSignal();
 
@@ -124,6 +128,8 @@ private:
     double lastMessageAt_;
     bool sessionEnded_;
     bool quit_;
+    std::string nowPlaying_;  // the song title while it plays, "" otherwise (setNowPlaying)
+    bool mediaOn_ = false;    // kombi-6wa-media, with the 6WA driver
 
     bool started_;
     pthread_t worker_;

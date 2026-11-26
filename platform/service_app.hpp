@@ -148,8 +148,10 @@ public:
     uint32_t coverPrint;
     std::string trackKey, coverPath;
     uint32_t mediaIdsSeen;
-    bool projectionOverUsb;  // the last session came over USB (its loss is not the wireless loop's business)
-    unsigned lostWireless;   // wireless sessions ended without ByeBye
+    uint32_t playbackState;    // media::kPlaying...
+    std::string playingTitle;  // the last track's title
+    bool projectionOverUsb;    // the last session came over USB (its loss is not the wireless loop's business)
+    unsigned lostWireless;     // wireless sessions ended without ByeBye
 
 private:
     // A phone connection, from the TCP listener or the USB loop: the video is made ready and the session starts.

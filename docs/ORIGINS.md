@@ -110,6 +110,35 @@ phone silent for 2 s), so on this base the fork uses upstream's versions and kee
   left every connection to the gateway in SYN_SENT on this car. The three rules are CallMeLewis/EntryNav-Apps'
   (MIT), found on the same head unit; BMW's `iptables-firewall` runs the file at start-up.
 
+- **Upstream's MOST cluster arrows only on request** (`/var/local/data/AA/kombi-most-on`, off without the file).
+  Upstream's `kombi_most` (#170 on) draws on an F-series cluster by itself during any guidance; on this car nothing
+  is sent to the 6WA without the owner's OK (a burst once made its media line vanish until a restart). With the file
+  it runs as upstream's (late answers #177, sizes #172, fields learned #246); `kombi-off` still wins.
+- **Updates from a USB stick are this fork's.** `platform/update_key.hpp` trusts this fork's key only (upstream's
+  is not there): a stick with an upstream release cannot replace this fork; it installs by SSH. The private key stays
+  in the project folder's `.secrets/`, never in git.
+- **The song title as the 6WA's idle text** (NBT-AAD #288, bejusxd; `/var/local/data/AA/kombi-6wa-media`, off without
+  the file): while no maneuver shows, the title of the song playing goes into the street line with the panel on; a
+  maneuver replaces it, it comes back once that is cleared, and goes when playback stops or pauses. Through the 6WA
+  driver like the arrows (logged only unless `kombi-6wa-live`). NBT-AAD's refresh and timed modes are not ported.
+
+## Reviewed, not ported (2026-11-27)
+
+NBT-AAD `a868ff5..0a2bcaf` (main, 161 commits) and its branches, for the F22's 6WA:
+
+- The cold cluster's late answers (#316, sabifa), a late ImageGetSize answer (d02412b), the picture size measured
+  again when the guidance moves (0e0230b, 410833a), the box fitted to the measured picture buffer (c8d7984) and a new
+  guidance session taking the HUD (3998bc0): NBT-AAD's transport reads the cluster's answers; this fork's 6WA driver
+  never does (its calls are logged, or handed to `car-test --serve`). Upstream's `kombi_most` waits up to 10 s per
+  answer (#177) and reads the field sizes (#172), and `car-test` listens 12 s (e2be38d).
+- The junction view scaled to the picture area (cedd26e), its guard on the scaled picture (6586c98, 7b260b0) and the
+  F20 profile as the fallback (de41934): for clusters with a smaller picture area (F30 HUD, MINI). This fork draws the
+  F20's 6WA profile, the F22's family, where they change nothing.
+- Mapbox glyphs (opt-in), Cyrillic street names, the F15 HUD profile, the HUD hiding the cluster's strips: not for
+  this 6WA without a HUD, or a look the owner has not asked for.
+- The J29 (Supra) track list and title, the gesture camera, native audio, NBT wireless, status row, favourites
+  overlay, installers and translations: NBT (QNX) or G-series paths.
+
 ## Reviewed, not ported (2026-11-19)
 
 NBT-AAD `87fd962..a868ff5` and its open branches, and ID6 apps up to `d0df14a`, were read for anything that fits

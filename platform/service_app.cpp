@@ -48,6 +48,7 @@ ServiceApp::ServiceApp(uint16_t p, bool v, std::atomic<int>* quit)
       wppAccepted(false),
       coverPrint(0),
       mediaIdsSeen(0),
+      playbackState(0),
       projectionOverUsb(false),
       lostWireless(0),
       quit_(quit) {
@@ -526,6 +527,15 @@ void ServiceApp::mediaStatus(uint16_t msgId, const uint8_t* body, size_t len, vo
         a->mediaIdsSeen |= bit;
         ELOG("Media", "phone: media status 0x%04X first seen (%u bytes)", msgId, static_cast<unsigned>(len));
     }
+    // The song playing, for the 6WA's idle text (kombi-6wa-media): the title while the state says playing.
+    if (msgId == aa::msg::kPlaybackState) {
+        uint32_t state = 0;
+        if (media::readPlaybackState(body, len, &state) && state != a->playbackState) {
+            a->playbackState = state;
+            a->kombi.setNowPlaying(state == media::kPlaying ? a->playingTitle : std::string());
+        }
+        return;
+    }
     if (msgId != aa::msg::kPlaybackMetadata) {
         return;
     }
@@ -533,6 +543,12 @@ void ServiceApp::mediaStatus(uint16_t msgId, const uint8_t* body, size_t len, vo
     if (!media::readMetadata(body, len, t)) {
         ELOG("Media", "track metadata malformed (%u bytes): ignored", static_cast<unsigned>(len));
         return;
+    }
+    if (t.title != a->playingTitle) {
+        a->playingTitle = t.title;
+        if (a->playbackState == media::kPlaying) {
+            a->kombi.setNowPlaying(t.title);
+        }
     }
     const uint32_t print = t.cover.empty() ? 0 : media::fingerprint(t.cover);
     const std::string key = t.title + '\n' + t.artist + '\n' + t.album;
