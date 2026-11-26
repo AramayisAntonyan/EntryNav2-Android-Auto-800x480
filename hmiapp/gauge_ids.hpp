@@ -109,6 +109,11 @@ const unsigned kActRangeStep0 = 317;      // raActions: + button
 const unsigned kRangeEditNoteComp = 263;  // the label
 const unsigned kRangeStepComp0 = 264;     // the buttons: + button
 const unsigned kRangeSteps = 9;           // max +big, +small, -small, -big; min the same; the catalogue's range
+// Its alert, under them: the value past which the gauge flashes red (gauges-alerts).
+const unsigned kAlertStepText0 = 800;  // Richtext models of the buttons: + button
+const unsigned kActAlertStep0 = 805;   // raActions: + button
+const unsigned kAlertStepComp0 = 250;  // the buttons: + button
+const unsigned kAlertSteps = 5;        // alert +big, +small, -small, -big; no alert
 
 // ---- Gauge places: one row per ticked gauge; a press opens its places (gauges-place) --------------------------------
 const unsigned kPlacesState = 964;       // the gauges with their places
@@ -182,7 +187,8 @@ const unsigned kImgWideArcFace0 = 63100;    // 386x180
 const unsigned kArtFirst = 56000;           // the pack's ids: kArtFirst .. kArtFirst + kArtIds - 1
 const unsigned kArtIds = 8000;
 // A scale the owner set by hand (Gauge ranges) is drawn on the unit (hmiapp/gauge_draw.cpp) and sent by path; its
-// pictures have ids from here (never in the pack): + ((generation * kEntryCount + entry) * 8 + kind)
+// pictures have ids from here (never in the pack): + ((generation * kEntryCount + entry) * 16 + kind), + 8 for the
+// alert's all-red face (a gauge past its alert flashes between the two). Also for an alert without a hand-set range.
 const unsigned kDrawnArt0 = 1u << 24;
 
 const unsigned kShiftPoints[] = {5000, 5500, 6000, 6500};

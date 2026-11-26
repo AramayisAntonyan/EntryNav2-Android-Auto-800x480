@@ -99,7 +99,8 @@ PLACES_NOTE, PLACE_NOTE, RESET_PLACES, PLACE_EVENT = 355, 356, 357, 359
 # 245 + i), the note above them (label 239, model 305); a press gives the gauge its next scale.
 RANGE_ROW_COMP, RANGE_ROW_MODEL, RANGE_ROW_ACTION, RANGE_NOTE = 191, 155, 245, 305
 # The range of one gauge set by hand (gauge_ids.hpp kRangeEdit*): state 967, opened by focusEvent 326; its label 263
-# (model 307), nine buttons 264 + i (texts 308 + i, raActions 317 + i).
+# (model 307), nine buttons 264 + i (texts 308 + i, raActions 317 + i); under them the alert's five buttons 250 + i
+# (texts 800 + i, raActions 805 + i).
 EDIT_STATE, EDIT_EVENT, EDIT_NOTE, EDIT_TEXT, EDIT_ACTION, EDIT_NOTE_COMP, EDIT_COMP, EDIT_STEPS = (
     967,
     326,
@@ -110,6 +111,7 @@ EDIT_STATE, EDIT_EVENT, EDIT_NOTE, EDIT_TEXT, EDIT_ACTION, EDIT_NOTE_COMP, EDIT_
     264,
     9,
 )
+ALERT_TEXT, ALERT_ACTION, ALERT_COMP, ALERT_STEPS = 800, 805, 250, 5
 
 
 def props(x, y, w, h, extra=""):
@@ -227,6 +229,7 @@ def main():
     models.append(f'      <raDataModel id="{RANGE_NOTE}" modelType="Richtext"/>')
     models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in [EDIT_NOTE]]
     models += [f'      <raDataModel id="{EDIT_TEXT + i}" modelType="Richtext"/>' for i in range(EDIT_STEPS)]
+    models += [f'      <raDataModel id="{ALERT_TEXT + i}" modelType="Richtext"/>' for i in range(ALERT_STEPS)]
     models.append('      <imageIdModel id="90" imageId="57000"/>')
     models += [f'      <raDataModel id="{m}" modelType="Richtext"/>' for m in (91, 92, 93, 104, 105, 106, 107, 108)]
     models += [f'      <raDataModel id="{95 + i}" modelType="Richtext"/>' for i in range(8)]
@@ -252,6 +255,7 @@ def main():
     actions.append(f'      <raAction id="{RESET_PLACES}"/>')
     actions += [f'      <raAction id="{RANGE_ROW_ACTION + c}"/>' for c in range(CELLS)]
     actions += [f'      <raAction id="{EDIT_ACTION + i}"/>' for i in range(EDIT_STEPS)]
+    actions += [f'      <raAction id="{ALERT_ACTION + i}"/>' for i in range(ALERT_STEPS)]
     events = (
         '      <focusEvent id="358" target="971"/>\n'  # a car test started: its results page
         '      <focusEvent id="88" target="930"/>\n'  # the clear started: the codes page shows its result
@@ -329,8 +333,10 @@ def main():
         modelbutton(RANGE_ROW_COMP + i, RANGE_ROW_ACTION + i, RANGE_ROW_MODEL + i) for i in range(CELLS)
     )
     states += state(966, "Gauge ranges", scales, parent=902)
-    edit = labelrow(EDIT_NOTE_COMP, EDIT_NOTE) + "".join(
-        modelbutton(EDIT_COMP + i, EDIT_ACTION + i, EDIT_TEXT + i) for i in range(EDIT_STEPS)
+    edit = (
+        labelrow(EDIT_NOTE_COMP, EDIT_NOTE)
+        + "".join(modelbutton(EDIT_COMP + i, EDIT_ACTION + i, EDIT_TEXT + i) for i in range(EDIT_STEPS))
+        + "".join(modelbutton(ALERT_COMP + i, ALERT_ACTION + i, ALERT_TEXT + i) for i in range(ALERT_STEPS))
     )
     states += state(EDIT_STATE, "Set the range", edit, parent=966)
     tests = "".join(button(1510 + i, 50 + i, t) for i, t in enumerate(CAR_TESTS))

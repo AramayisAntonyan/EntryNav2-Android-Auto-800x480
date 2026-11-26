@@ -224,6 +224,11 @@
       <raAction id="323"/>
       <raAction id="324"/>
       <raAction id="325"/>
+      <raAction id="805"/>
+      <raAction id="806"/>
+      <raAction id="807"/>
+      <raAction id="808"/>
+      <raAction id="809"/>
     </actions>
     <models>
       <imageIdModel id="4" imageId="58001"/>
@@ -531,6 +536,11 @@
       <raDataModel id="314" modelType="Richtext"/>
       <raDataModel id="315" modelType="Richtext"/>
       <raDataModel id="316" modelType="Richtext"/>
+      <raDataModel id="800" modelType="Richtext"/>
+      <raDataModel id="801" modelType="Richtext"/>
+      <raDataModel id="802" modelType="Richtext"/>
+      <raDataModel id="803" modelType="Richtext"/>
+      <raDataModel id="804" modelType="Richtext"/>
       <imageIdModel id="90" imageId="57000"/>
       <raDataModel id="91" modelType="Richtext"/>
       <raDataModel id="92" modelType="Richtext"/>
@@ -2206,6 +2216,11 @@
           <button id="270" action="323" model="314"/>
           <button id="271" action="324" model="315"/>
           <button id="272" action="325" model="316"/>
+          <button id="250" action="805" model="800"/>
+          <button id="251" action="806" model="801"/>
+          <button id="252" action="807" model="802"/>
+          <button id="253" action="808" model="803"/>
+          <button id="254" action="809" model="804"/>
         </components>
       </hmiState>
       <hmiState id="970" parentId="903" text="Car tests">

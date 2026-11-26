@@ -545,7 +545,7 @@ struct Dial {
         if (!icon && title && title[0]) {
             text(white, title, titleAt[0], titleAt[1], fh * 0.85);
         }
-        paint(*out, white, kWhite);
+        paint(*out, white, sc.alert ? kRed : kWhite);
         paint(*out, reds, kRed);
         return true;
     }
@@ -640,7 +640,7 @@ struct Bar {
             text(white, u, tall ? 178 : 372, tall ? 354 : 96, 18, kRight);
         }
         paint(*out, grey, kTrack);
-        paint(*out, white, kWhite);
+        paint(*out, white, sc.alert ? kRed : kWhite);
         paint(*out, reds, kRed);
         return true;
     }

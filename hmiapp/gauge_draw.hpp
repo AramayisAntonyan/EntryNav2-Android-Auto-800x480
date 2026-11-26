@@ -20,6 +20,7 @@ struct Scale {
     double lo, hi;
     bool red;        // a red end
     double redFrom;  // where it starts
+    bool alert;      // the gauge is past its alert: what is white is drawn red (the flash's other half)
 };
 
 // An RGBA picture (straight alpha).

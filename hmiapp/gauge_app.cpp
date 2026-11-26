@@ -21,7 +21,8 @@
 //                    opens a page that says what clearing does, whose one button clears the DME's fault memory
 //                    (gauge-collector --clear, the owner's choice 2026-11-19), then shows the codes left
 //     Car tests      a list of on-car tests; a press starts one and opens Test results
-// Kept in /var/local/data/AA: gauges-choice (the ticks), gauges-style (the looks), gauges-shift. Red needles and white
+// Kept in /var/local/data/AA: gauges-choice (the ticks), gauges-style (the looks), gauges-shift, gauges-alerts
+// (each gauge's alert: past it, the gauge flashes red; set on its Set the range page). Red needles and white
 // bars (no colour setting). The gauge pictures come from CarGauges_Art.pack (see setArt). DME values whenever an
 // engine gauge shows, through the gateway in gateway-ip ("demo" in gauges-dme: synthetic values).
 //
@@ -80,6 +81,8 @@ const char kArtDir[] = "/tmp/gauge-art";  // pictures unpacked on first use (RAM
 const char kShiftFile[] = "/var/local/data/AA/gauges-shift";
 const char kStyleFile[] = "/var/local/data/AA/gauges-style";
 const char kLimitFile[] = "/var/local/data/AA/gauges-limits";  // Gauge ranges: "entry lo hi" per line
+const char kAlertFile[] = "/var/local/data/AA/gauges-alerts";  // alerts: "entry value" per line
+const uint64_t kFlashMs = 500;  // a gauge past its alert: all red, then as usual, this long each
 const char kGlyphs[] = "/opt/hmi/data/ro/Plugins/CarGauges/CarGauges_Glyphs.bin";  // to draw hand-set scales
 const char kPlaceFile[] = "/var/local/data/AA/gauges-place";  // Gauge places: '-' or 'A' + cell per entry
 const char kCollector[] = "/opt/hmi/data/ro/Plugins/CarGauges/gauge-collector";
@@ -108,7 +111,10 @@ bool g_limitSet[kEntryCount];
 double g_limitLo[kEntryCount], g_limitHi[kEntryCount];
 unsigned g_rangeGen[kEntryCount];
 unsigned g_editing = kEntryCount;  // the gauge whose range Set the range shows
-uint64_t g_seenAt[kEntryCount];    // DME values: when the frame carrying it arrived (they go stale)
+// The alerts the owner set (Set the range): past g_alertAt, the gauge flashes red. Its red zone starts there.
+bool g_alertSet[kEntryCount];
+double g_alertAt[kEntryCount];
+uint64_t g_seenAt[kEntryCount];  // DME values: when the frame carrying it arrived (they go stale)
 bool g_logged[kEntryCount];
 unsigned g_look[kEntryCount];  // each entry's look (gauges-style)
 unsigned g_list[kCards];       // the ticked, offered entries in order (Live values, Gauge styles)
@@ -344,12 +350,21 @@ bool rangeFixed(unsigned e) {
     return !strcmp(kEntries[e].unit, "RON");
 }
 
-// A face's or track's picture: the pack's (base + e) for the catalogue's range, else one drawn on the unit.
-unsigned faceArt(unsigned base, gauges::draw::Kind kind, unsigned e) {
-    if (!g_limitSet[e]) {
+// A face's or track's picture: the pack's (base + e) for the catalogue's range and no alert, else one drawn on the
+// unit; red: the alert's all-red one (the gauge is past its alert, half of each flash).
+unsigned faceArt(unsigned base, gauges::draw::Kind kind, unsigned e, bool red = false) {
+    if (!g_limitSet[e] && !g_alertSet[e]) {
         return base + e;
     }
-    return kDrawnArt0 + ((g_rangeGen[e] & 0xFFFF) * kEntryCount + e) * 8 + kind;
+    return kDrawnArt0 + ((g_rangeGen[e] & 0xFFFF) * kEntryCount + e) * 16 + (red ? 8 : 0) + kind;
+}
+
+// Past its alert, and the flash on its red half now.
+bool pastAlert(unsigned e, bool fresh) {
+    return fresh && g_alertSet[e] && g_value[e] > g_alertAt[e];
+}
+bool flashRed() {
+    return dme::monoMs() / kFlashMs % 2 == 0;
 }
 
 // The red end as the PC draws it (hmiapp/gauge_catalogue.py red_from): engine speed's last 1000 rpm, the top 15 % of
@@ -357,7 +372,7 @@ unsigned faceArt(unsigned base, gauges::draw::Kind kind, unsigned e) {
 gauges::draw::Scale scaleOf(unsigned e) {
     static const char* const kHot[] = {"Water", "Oil", "Coolant (OBD)", "Coolant (DME)", "Oil temp. (OBD)"};
     const Entry x = ranged(e);
-    gauges::draw::Scale s = {x.lo, x.hi, false, 0};
+    gauges::draw::Scale s = {x.lo, x.hi, false, 0, false};
     if (!strcmp(x.unit, "rpm")) {
         s.red = true;
         s.redFrom = x.hi - 1000;
@@ -368,12 +383,17 @@ gauges::draw::Scale scaleOf(unsigned e) {
             s.redFrom = x.lo + 0.85 * (x.hi - x.lo);
         }
     }
+    if (g_alertSet[e]) {  // the owner's alert: the red zone starts there
+        s.red = true;
+        s.redFrom = g_alertAt[e];
+    }
     return s;
 }
 
 // A picture drawn on the unit for a hand-set range: /tmp/gauge-art/d<id>.png, drawn the first time it is needed.
 bool drawnPath(unsigned id, char* path, size_t cap) {
-    const unsigned kind = (id - kDrawnArt0) % 8, e = (id - kDrawnArt0) / 8 % kEntryCount;
+    const unsigned kind = (id - kDrawnArt0) % 8, e = (id - kDrawnArt0) / 16 % kEntryCount;
+    const bool red = (id - kDrawnArt0) / 8 % 2 != 0;
     snprintf(path, cap, "%s/d%u.png", kArtDir, id);
     if (access(path, F_OK) == 0) {
         return true;
@@ -383,7 +403,9 @@ bool drawnPath(unsigned id, char* path, size_t cap) {
         return false;
     }
     gauges::draw::Picture p;
-    if (!gauges::draw::render(static_cast<gauges::draw::Kind>(kind), scaleOf(e), e, kEntries[e].title, kEntries[e].unit,
+    gauges::draw::Scale scale = scaleOf(e);
+    scale.alert = red;
+    if (!gauges::draw::render(static_cast<gauges::draw::Kind>(kind), scale, e, kEntries[e].title, kEntries[e].unit,
                               &p)) {
         return false;
     }
@@ -405,6 +427,35 @@ void loadLimits() {
             g_limitSet[e] = true;
             g_limitLo[e] = lo;
             g_limitHi[e] = hi;
+        }
+    }
+    fclose(f);
+}
+
+void loadAlerts() {
+    FILE* f = fopen(kAlertFile, "r");
+    if (!f) {
+        return;
+    }
+    unsigned e;
+    double at;
+    while (fscanf(f, "%u %lf", &e, &at) == 2) {
+        if (e < kEntryCount && !rangeFixed(e)) {
+            g_alertSet[e] = true;
+            g_alertAt[e] = at;
+        }
+    }
+    fclose(f);
+}
+
+void saveAlerts() {
+    FILE* f = fopen(kAlertFile, "w");
+    if (!f) {
+        return;
+    }
+    for (unsigned e = 0; e < kEntryCount; ++e) {
+        if (g_alertSet[e]) {
+            fprintf(f, "%u %.6g\n", e, g_alertAt[e]);
         }
     }
     fclose(f);
@@ -788,40 +839,47 @@ void showCell(unsigned c) {
     if (!ok && entry.source != kCds && g_dmeWhy[0]) {
         snprintf(text, sizeof(text), "%s", g_dmeWhy);  // why there is no value
     }
+    const bool past = pastAlert(e, ok), red = past && flashRed();
     if (look == kLookCard) {
-        setText(kCardValue0 + c, text);  // the other looks show no number (the M5's gauges)
+        if (past) {  // past its alert: "!" before the number, and the bar flashes
+            char marked[56];
+            snprintf(marked, sizeof(marked), "! %s", text);
+            setText(kCardValue0 + c, marked);
+        } else {
+            setText(kCardValue0 + c, text);  // the other looks show no number (the M5's gauges)
+        }
     }
     const Entry scaled = ranged(e);
     const double shown = g_displaySet[e] ? g_display[e] : g_value[e];
     const unsigned fine = ok ? levelOf(scaled, shown, kFineLevels) : 0;
     switch (look) {
         case kLookDial:
-            setArt(kLookBack0[look] + c, faceArt(kImgFace0, gauges::draw::kFace, e));
+            setArt(kLookBack0[look] + c, faceArt(kImgFace0, gauges::draw::kFace, e, red));
             setArt(kLookFront0[look] + c, kImgNeedle0 + fine);
             break;
         case kLookWide:
-            setArt(kLookBack0[look] + c, faceArt(kImgWideTrack0, gauges::draw::kWideTrack, e));
+            setArt(kLookBack0[look] + c, faceArt(kImgWideTrack0, gauges::draw::kWideTrack, e, red));
             setArt(kLookFront0[look] + c, kImgWideBar0 + fine);
             break;
         case kLookWideDial:
-            setArt(kLookBack0[look] + c, faceArt(kImgWideFace0, gauges::draw::kWideFace, e));
+            setArt(kLookBack0[look] + c, faceArt(kImgWideFace0, gauges::draw::kWideFace, e, red));
             setArt(kLookFront0[look] + c, kImgWideNeedle0 + fine);
             break;
         case kLookArc:
-            setArt(kLookBack0[look] + c, faceArt(kImgArcFace0, gauges::draw::kArcFace, e));
+            setArt(kLookBack0[look] + c, faceArt(kImgArcFace0, gauges::draw::kArcFace, e, red));
             setArt(kLookFront0[look] + c, kImgArcNeedle0 + fine);
             break;
         case kLookWideArc:
-            setArt(kLookBack0[look] + c, faceArt(kImgWideArcFace0, gauges::draw::kWideArcFace, e));
+            setArt(kLookBack0[look] + c, faceArt(kImgWideArcFace0, gauges::draw::kWideArcFace, e, red));
             setArt(kLookFront0[look] + c, kImgWideArcNeedle0 + fine);
             break;
         case kLookTall:
-            setArt(kLookBack0[look] + c, faceArt(kImgTallTrack0, gauges::draw::kTallTrack, e));
+            setArt(kLookBack0[look] + c, faceArt(kImgTallTrack0, gauges::draw::kTallTrack, e, red));
             setArt(kLookFront0[look] + c, kImgTallBar0 + fine);
             break;
         default:
             setArt(kLookBack0[look] + c, kImgCardIcon0 + e);
-            setArt(kLookFront0[look] + c, barImage(ok ? barLevel(scaled, shown) : 0));
+            setArt(kLookFront0[look] + c, barImage(ok && !red ? barLevel(scaled, shown) : 0));
             break;
     }
 }
@@ -858,7 +916,11 @@ void showLive() {
         if (!fresh(e) && kEntries[e].source != kCds && g_dmeWhy[0]) {
             snprintf(value, sizeof(value), "%s", g_dmeWhy);
         }
-        snprintf(row, sizeof(row), "%s   %s", kEntries[e].title, value);
+        if (pastAlert(e, fresh(e))) {
+            snprintf(row, sizeof(row), "%s   %s   ! over %g", kEntries[e].title, value, g_alertAt[e]);
+        } else {
+            snprintf(row, sizeof(row), "%s   %s", kEntries[e].title, value);
+        }
         setText(kLiveRow0 + c, row);
     }
 }
@@ -1788,14 +1850,18 @@ void showRanges() {
         }
         const unsigned e = g_list[r];
         const Entry x = ranged(e);
-        char row[96];
-        snprintf(row, sizeof(row), "%s: %g to %g %s%s", x.title, x.lo, x.hi, x.unit,
+        char row[96], alert[32] = "";
+        if (g_alertSet[e]) {
+            snprintf(alert, sizeof(alert), ", alert over %g", g_alertAt[e]);
+        }
+        snprintf(row, sizeof(row), "%s: %g to %g %s%s%s", x.title, x.lo, x.hi, x.unit,
                  rangeFixed(e)   ? " (fixed)"
                  : g_limitSet[e] ? " (set)"
-                                 : "");
+                                 : "",
+                 alert);
         setText(kRangeRow0 + r, row);
     }
-    setText(kRangeNote, g_listCount ? "Press a gauge to set its min and max: its dial or bar is drawn with them."
+    setText(kRangeNote, g_listCount ? "Press a gauge to set its min, max and alert: past the alert it flashes red."
                                     : "No gauge ticked: Choose gauges first");
 }
 
@@ -1804,6 +1870,18 @@ void rangeSteps(unsigned e, double* small, double* big) {
     const double span = kEntries[e].hi - kEntries[e].lo;
     *small = pow(10.0, floor(log10(span > 0 ? span : 1)) - 1);
     *big = *small * 10;
+}
+
+// The alert's five buttons, as the range's: "Alert + 10 °C" ... "No alert". Fuel quality's fixed grades have none.
+void showAlertSteps(unsigned e, double small, double big) {
+    const Entry x = ranged(e);
+    const double kBy[4] = {big, small, -small, -big};
+    char text[64];
+    for (unsigned i = 0; i < 4; ++i) {
+        snprintf(text, sizeof(text), "Alert %s %g %s", kBy[i] > 0 ? "+" : "-", fabs(kBy[i]), x.unit);
+        setText(kAlertStepText0 + i, rangeFixed(e) ? "" : text);
+    }
+    setText(kAlertStepText0 + 4, rangeFixed(e) ? "" : "No alert");
 }
 
 // Set the range: the gauge, its range and the buttons' texts.
@@ -1817,8 +1895,14 @@ void showRangeEdit() {
     double small, big;
     rangeSteps(e, &small, &big);
     char text[96];
-    snprintf(text, sizeof(text), "%s: %g to %g %s%s", x.title, x.lo, x.hi, x.unit,
-             rangeFixed(e) ? " (fixed: its grades)" : "");
+    char alert[48] = ", no alert (the first + or - sets one at 90 %)";
+    if (rangeFixed(e)) {
+        alert[0] = 0;
+    } else if (g_alertSet[e]) {
+        snprintf(alert, sizeof(alert), ", alert over %g %s", g_alertAt[e], x.unit);
+    }
+    snprintf(text, sizeof(text), "%s: %g to %g %s%s%s", x.title, x.lo, x.hi, x.unit,
+             rangeFixed(e) ? " (fixed: its grades)" : "", alert);
     setText(kRangeEditNote, text);
     const char* const kWhat[8] = {"Max", "Max", "Max", "Max", "Min", "Min", "Min", "Min"};
     const double kBy[8] = {big, small, -small, -big, big, small, -small, -big};
@@ -1828,6 +1912,7 @@ void showRangeEdit() {
     }
     snprintf(text, sizeof(text), "The usual range: %g to %g %s", kEntries[e].lo, kEntries[e].hi, kEntries[e].unit);
     setText(kRangeStepText0 + 8, text);
+    showAlertSteps(e, small, big);
 }
 
 template <unsigned Row>
@@ -1874,6 +1959,51 @@ bool onRangeStep(void*, const bmw::Parcel&) {
     showRangeEdit();
     return true;
 }
+
+// An alert step (buttons 0..3: +big, +small, -small, -big) or none (4). The first step sets it at 90 % of the range,
+// rounded to the small step; it stays inside the range. The gauge's faces are drawn anew (its red zone starts there).
+template <unsigned Step>
+bool onAlertStep(void*, const bmw::Parcel&) {
+    const unsigned e = g_editing;
+    if (e >= kEntryCount || rangeFixed(e)) {
+        return true;
+    }
+    double small, big;
+    rangeSteps(e, &small, &big);
+    const Entry x = ranged(e);
+    if (Step == 4) {
+        g_alertSet[e] = false;
+    } else if (!g_alertSet[e]) {
+        g_alertSet[e] = true;
+        g_alertAt[e] = nearbyint((x.lo + 0.9 * (x.hi - x.lo)) / small) * small;
+    } else {
+        const double by = Step == 0 ? big : Step == 1 ? small : Step == 2 ? -small : -big;
+        double at = nearbyint((g_alertAt[e] + by) / small) * small;
+        at = at < x.lo ? x.lo : at > x.hi ? x.hi : at;
+        g_alertAt[e] = at;
+    }
+    ++g_rangeGen[e];
+    saveAlerts();
+    if (g_alertSet[e]) {
+        alog("gauges: %s alert over %g %s", x.title, g_alertAt[e], x.unit);
+    } else {
+        alog("gauges: %s alert off", x.title);
+    }
+    showRangeEdit();
+    return true;
+}
+
+template <unsigned N>
+struct AlertActions {
+    static void add(bmw::PluginApp* self) {
+        AlertActions<N - 1>::add(self);
+        addAction(self, kActAlertStep0 + N - 1, &onAlertStep<N - 1>);
+    }
+};
+template <>
+struct AlertActions<0> {
+    static void add(bmw::PluginApp*) {}
+};
 
 template <unsigned N>
 struct RangeActions {
@@ -2101,6 +2231,7 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     ChoiceActions<kEntryCount>::add(self);
     LookActions<kLookRows>::add(self);
     RangeActions<kCards>::add(self);
+    AlertActions<kAlertSteps>::add(self);
     addStateHandler(self, kRangeState, kHandlerVisible, &onVisible<kRangeState>);
     addStateHandler(self, kRangeEditState, kHandlerVisible, &onVisible<kRangeEditState>);
     PlaceActions<kCards>::add(self);
@@ -2111,6 +2242,7 @@ bool gaugesOnInit(bmw::PluginApp* self) {
     loadChoice();
     loadLooks();
     loadLimits();
+    loadAlerts();
     loadPlaces();
     assignCards();
     collectProperties();

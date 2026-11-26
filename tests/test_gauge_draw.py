@@ -69,7 +69,26 @@ def main():
             if big > len(diff) // 2000:  # a few edge pixels may round the other way
                 print(f"FAIL {title} {lo}..{hi} kind {kind}: {big} channel values differ by more than 24")
                 failures += 1
-    print("PASS gauge draw: the unit draws hand-set scales as the PC does" if not failures else f"{failures} failed")
+        # A gauge past its alert flashes its all-red face: nothing white is left on it, and it is drawn at all.
+        for k, (kind, title, lo, hi, at) in enumerate([(0, "Water", 40, 130, 110), (3, "Boost", 0, 1.6, 1.2)]):
+            e = entries[by_title[title]]
+            subprocess.run(
+                [dump, glyphs, tmp, str(kind), str(by_title[title]), repr(float(lo)), repr(float(hi)), "1",
+                 repr(float(at)), e["title"], e["unit"], f"a{k}", "1"],
+                check=True,
+            )  # fmt: skip
+            px, w, h = gauge_art.unpng((Path(tmp) / f"a{k}.png").read_bytes())
+            quads = [px[i : i + 4] for i in range(0, len(px), 4)]
+            white = sum(1 for r, g, b, a in quads if a > 128 and r > 200 and g > 200 and b > 200)
+            red = sum(1 for r, g, b, a in quads if a > 128 and r > 200 and g < 90 and b < 90)
+            if white or red < 200:
+                print(f"FAIL {title} alert face: {white} white pixels, {red} red ones")
+                failures += 1
+    print(
+        "PASS gauge draw: the unit draws hand-set scales as the PC does, and an alert's face all red"
+        if not failures
+        else f"{failures} failed"
+    )
     return 1 if failures else 0
 
 
