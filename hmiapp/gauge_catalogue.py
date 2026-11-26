@@ -25,9 +25,9 @@ from pathlib import Path
 # CDS: property, json key, invalid (>= this is "no value"; 0: none), on by default
 CDS = [
     ("Water", "C", 40, 130, 0, "engine.temperature", "engine", 255, True),
-    ("Oil", "C", 40, 150, 0, "engine.temperature", "oil", 255, True),
-    ("RPM", "rpm", 0, 7000, 0, "engine.RPMSpeed", "RPMSpeed", 0, True),
-    ("Torque", "Nm", 0, 450, 0, "engine.torque", "torque", 0, True),
+    ("Oil", "C", 40, 150, 0, "engine.temperature", "oil", 255, False),
+    ("RPM", "rpm", 0, 7000, 0, "engine.RPMSpeed", "RPMSpeed", 0, False),
+    ("Torque", "Nm", 0, 450, 0, "engine.torque", "torque", 0, False),
     ("Speed", "km/h", 0, 250, 0, "driving.speedActual", "speedActual", 0, False),
     ("Speed shown", "km/h", 0, 250, 0, "driving.speedDisplayed", "speedDisplayed", 0, False),
     ("Accelerator", "%", 0, 100, 0, "driving.acceleratorPedal", "position", 0, False),
@@ -35,7 +35,7 @@ CDS = [
     ("Lateral accel.", "m/s2", -12, 12, 1, "driving.acceleration", "lateral", 65000, False),
     ("Longitudinal accel.", "m/s2", -12, 12, 1, "driving.acceleration", "longitudinal", 65000, False),
     ("Steering angle", "deg", -540, 540, 0, "driving.steeringWheel", "angle", 0, False),
-    ("Fuel level", "l", 0, 52, 0, "sensors.fuel", "tanklevel", 0, False),
+    ("Fuel level", "l", 0, 52, 0, "sensors.fuel", "tanklevel", 0, True),
     ("Range", "km", 0, 900, 0, "sensors.fuel", "range", 0, False),
     ("Battery", "%", 0, 100, 0, "sensors.battery", "battery", 255, False),
     ("Battery temp.", "C", -20, 60, 0, "sensors.batteryTemp", "batteryTemp", 255, False),
@@ -105,7 +105,18 @@ FORMULAS = {"A*a": 0, "A+b": 1, "A*a+b": 2, "AB*a": 3, "AB*a+b": 4}
 # 0 card, 1 dial (half circle), 2 wide bar (two cells across), 3 wide dial, 4 tall bar (two cells high), 5 arc (the
 # fuel gauge's shape), 6 wide arc.
 LOOKS = ("Card", "Dial", "Wide bar", "Wide dial", "Tall bar", "Arc", "Wide arc")
-DEFAULT_LOOK = {"RPM": 3, "Water": 1, "Oil": 1}
+DEFAULT_LOOK = {"RPM": 3, "Oil": 1, "Boost": 6, "Fuel quality": 5}
+# The first dashboard (the owner's, 2026-11-27): each ticked by default, at its cell (0-3 top row, 4-7 bottom;
+# a wide look covers the next cell too). Only without a gauges-place file: a saved layout is never overridden.
+DEFAULT_PLACE = {
+    "Boost": 0,
+    "Water": 2,
+    "Intake air (OBD)": 3,
+    "Module voltage": 4,
+    "Fuel quality": 5,
+    "Fuel level": 6,
+    "Oil pressure": 7,
+}
 # Each gauge's icon (Material Symbols names, drawn by tools/make_gauge_figures.py into hmiapp/res/gauge_icons.png), as
 # BMW's own gauges carry one (the M5's coolant thermometer and turbo); a gauge with none has no icon.
 ICONS = {
@@ -178,12 +189,26 @@ def entries():
         )
     for t, u, lo, hi, dec, pid, n, f, a, b in OBD:
         out.append(
-            dict(source="obd", title=t, unit=u, lo=lo, hi=hi, dec=dec, pid=pid, n=n, f=FORMULAS[f], a=a, b=b, on=False)
+            dict(
+                source="obd",
+                title=t,
+                unit=u,
+                lo=lo,
+                hi=hi,
+                dec=dec,
+                pid=pid,
+                n=n,
+                f=FORMULAS[f],
+                a=a,
+                b=b,
+                on=t in DEFAULT_PLACE,
+            )
         )
     for t, u, lo, hi, dec, did in DID:
-        out.append(dict(source="did", title=t, unit=u, lo=lo, hi=hi, dec=dec, did=did, on=False))
+        out.append(dict(source="did", title=t, unit=u, lo=lo, hi=hi, dec=dec, did=did, on=t in DEFAULT_PLACE))
     for e in out:
         e["look"] = DEFAULT_LOOK.get(e["title"], 0)
+        e["place"] = DEFAULT_PLACE.get(e["title"], 255)
         e["icon"] = next((icon for icon, titles in ICONS.items() if e["title"] in titles), None)
     return out
 
@@ -198,7 +223,7 @@ def cpp(es):
         rows.append(
             f'    {{{src}, "{e["title"]}", "{e["unit"]}", {e["lo"]!r}, {e["hi"]!r}, {e["dec"]}, {prop}, {key}, '
             f'{e.get("invalid", 0)}, 0x{code:X}, {e.get("n", 0)}, {e.get("f", 0)}, {float(e.get("a", 0))!r}, '
-            f'{float(e.get("b", 0))!r}, {"true" if e["on"] else "false"}, {e["look"]}}},'
+            f'{float(e.get("b", 0))!r}, {"true" if e["on"] else "false"}, {e["look"]}, {e["place"]}}},'
         )
     return (
         "// Copyright (c) 2026 Jiraiya43\n"
@@ -215,6 +240,7 @@ def cpp(es):
         "    unsigned formula;      // OBD\n    double a, b;           // OBD\n"
         "    bool on;               // shown by default\n"
         "    unsigned look;         // until the owner picks one: hmiapp/gauge_layout.hpp Look\n"
+        "    unsigned place;        // its cell on the first dashboard, without a gauges-place file; 255: none\n"
         "};\n\n"
         "// clang-format off\n"
         "const Entry kEntries[] = {\n" + "\n".join(rows) + "\n};\n"

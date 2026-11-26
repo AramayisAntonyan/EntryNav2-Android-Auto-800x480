@@ -34,7 +34,7 @@ int main() {
     const Entry* water = find("Water");
     const Entry* oil = find("Oil");
     const Entry* rpm = find("RPM");
-    CHECK(water && oil && rpm && water->on && rpm->on);
+    CHECK(water && oil && rpm && water->on && !rpm->on);  // the first dashboard: Water, not RPM
     double v = 0;
     const char* temps = "{\"temperature\":{\"engine\":64,\"oil\":85}}";  // as logged on the car, 2026-11-14
     CHECK(readField(temps, water->key, water->invalid, &v) && v == 64);
@@ -67,7 +67,10 @@ int main() {
 
     bool on[kEntryCount];
     parseChoice(nullptr, on);
-    CHECK(on[0] && on[1] && !on[kEntryCount - 1]);  // defaults
+    CHECK(on[0] && !on[1]);  // defaults: Water yes, Oil no
+    for (unsigned i = 0; i < kEntryCount; ++i) {
+        CHECK(on[i] == kEntries[i].on);
+    }
     parseChoice("01", on);
     CHECK(!on[0] && on[1] && on[2] == kEntries[2].on);  // the file's choice, defaults after its end
     char line[128];
@@ -182,6 +185,37 @@ int main() {
         placeName(kLookTall, 3, name, sizeof(name));
         CHECK(!strcmp(name, "Dashboard 1, column 4"));
         CHECK(startFits(kLookWide, 2) && !startFits(kLookWide, 3) && !startFits(kLookTall, 4));
+    }
+    {  // no settings files: the owner's first dashboard, all eight cells of page 1, nothing else ticked
+        bool on[kEntryCount];
+        unsigned looks[kEntryCount], places[kEntryCount], entries[kEntryCount], lks[kEntryCount], pl[kEntryCount];
+        parseChoice(nullptr, on);
+        parseLooks(nullptr, looks);
+        parsePlaces(nullptr, places);
+        unsigned n = 0;
+        for (unsigned i = 0; i < kEntryCount; ++i) {
+            if (on[i]) {
+                entries[n] = i;
+                lks[n] = looks[i];
+                pl[n] = places[i];
+                ++n;
+            }
+        }
+        CHECK(n == 7);
+        Layout<3> l;
+        layOut(entries, lks, n, &l, pl);
+        const char* const kWant[8] = {"Boost",          "Boost",        "Water",      "Intake air (OBD)",
+                                      "Module voltage", "Fuel quality", "Fuel level", "Oil pressure"};
+        for (unsigned c = 0; c < 8; ++c) {
+            const unsigned e = l.entry[c] < kEntryCount ? l.entry[c] : entries[0];
+            CHECK(c == 1 || (l.entry[c] < kEntryCount && !strcmp(kEntries[e].title, kWant[c])));
+        }
+        CHECK(l.look[0] == kLookWideArc && l.look[5] == kLookArc && l.look[2] == kLookCard && l.pages == 1);
+        // A saved layout is kept as it is: a file that places nothing places nothing.
+        parsePlaces("", places);
+        for (unsigned i = 0; i < kEntryCount; ++i) {
+            CHECK(places[i] == kNoPlace);
+        }
     }
 
     if (g_failures) {

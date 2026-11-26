@@ -134,7 +134,9 @@ inline void parsePlaces(const char* text, unsigned* places) {
     }
     for (unsigned i = 0; i < catalogue::kEntryCount; ++i) {
         const bool given = i < n && text[i] >= 'A' && text[i] < 'A' + 58;
-        places[i] = given ? static_cast<unsigned>(text[i] - 'A') : kNoPlace;
+        // No file at all: the first dashboard's places (gauge_catalogue.py DEFAULT_PLACE), never over a saved layout.
+        const unsigned first = !text && catalogue::kEntries[i].place < 58 ? catalogue::kEntries[i].place : kNoPlace;
+        places[i] = given ? static_cast<unsigned>(text[i] - 'A') : first;
     }
 }
 inline void formatPlaces(const unsigned* places, char* out, unsigned cap) {
