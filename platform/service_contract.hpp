@@ -18,10 +18,13 @@ constexpr char kService[] = "/opt/aa/entry-aad";
 
 // ---- settings and logs, on the data partition (kept across restarts) ----------------------------------------------
 constexpr char kDataDir[] = "/var/local/data/AA";
-constexpr char kAutostart[] = "/var/local/data/AA/autostart";         // present: Android Auto starts with iDrive
-constexpr char kEntryDirect[] = "/var/local/data/AA/entry-direct";    // present: the iDrive row opens Android Auto
-constexpr char kMaintenance[] = "/var/local/data/AA/maintenance";     // present: the app and the service keep logs
-constexpr char kKombiOff[] = "/var/local/data/AA/kombi-off";          // present: nothing is sent to the cluster
+constexpr char kAutostart[] = "/var/local/data/AA/autostart";       // present: Android Auto starts with iDrive
+constexpr char kEntryDirect[] = "/var/local/data/AA/entry-direct";  // present: the iDrive row opens Android Auto
+constexpr char kMaintenance[] = "/var/local/data/AA/maintenance";   // present: the app and the service keep logs
+constexpr char kKombiOff[] = "/var/local/data/AA/kombi-off";        // present: nothing is sent to the cluster
+// This fork: upstream's MOST cluster arrows (kombi_most) draw only while this exists. Nothing is sent to the 6WA
+// without the owner's OK (a burst once made its media line vanish until a restart).
+constexpr char kKombiMostOn[] = "/var/local/data/AA/kombi-most-on";
 constexpr char kKombiShown[] = "/var/local/data/AA/kombi-nav.shown";  // an arrow may still be on the cluster
 constexpr char kPhoneGps[] = "/var/local/data/AA/gps-telephone";      // present: the phone keeps its own GPS
 constexpr char kVehicle[] = "/var/local/data/AA/vehicle";             // model= year= side= fuel=, told to the phone

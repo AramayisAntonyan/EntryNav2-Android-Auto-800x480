@@ -157,6 +157,7 @@ bool ethernetNeighbour(const std::string& ip);
 struct MostHudConfig {
     std::string markerFile;      // present: a picture may be up
     std::string offFile;         // present: the arrows are off (the iDrive app's menu), for both clusters
+    std::string onFile;          // this fork: absent, nothing is sent to the MOST cluster ("": no such file)
     std::string layoutFile;      // the fields learned from the BMW navigation, and the cluster's address
     std::string clusterAddress;  // the Ethernet KOMBI, looked for in the neighbour table
     double ethernetFirstS;       // the guidance wants a picture this long before the MOST registry is asked

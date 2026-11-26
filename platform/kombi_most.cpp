@@ -627,6 +627,7 @@ bool ethernetNeighbour(const std::string& ip) {
 MostHudConfig::MostHudConfig()
     : markerFile(evo::contract::kKombiMostShown),
       offFile(evo::contract::kKombiOff),
+      onFile(evo::contract::kKombiMostOn),
       layoutFile(evo::contract::kKombiMostLayout),
       clusterAddress("160.48.199.96"),
       ethernetFirstS(5.0) {}
@@ -789,7 +790,8 @@ void MostHud::readInputs(uint32_t now) {
     }
     if (now - settingAt_ >= 1000) {
         settingAt_ = now;
-        settingOn_ = access(config_.offFile.c_str(), F_OK) != 0;
+        settingOn_ = access(config_.offFile.c_str(), F_OK) != 0 &&
+                     (config_.onFile.empty() || access(config_.onFile.c_str(), F_OK) == 0);
     }
     const bool ethernet = ethernet_;
     if (ethernet && !ethernetLogged_) {

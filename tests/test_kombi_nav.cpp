@@ -291,6 +291,7 @@ void mostAloneWithEthernet() {
     MostHudConfig mc;
     mc.markerFile = std::string(p.dir) + "/kombi-most.shown";
     mc.offFile = p.off;
+    mc.onFile = "";
     mc.ethernetFirstS = 0;
     MostHud most(mc);
     Arrows arrows(p.config(k.port()));

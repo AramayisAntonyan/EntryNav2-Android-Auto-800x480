@@ -476,6 +476,7 @@ struct Place {
         MostHudConfig c;
         c.markerFile = marker;
         c.offFile = off;
+        c.onFile = "";  // upstream's behaviour: on unless kombi-off
         c.layoutFile = layout;
         c.clusterAddress = "160.48.199.96";  // never a neighbour of the PC
         c.ethernetFirstS = ethernetFirstS;
@@ -645,6 +646,31 @@ void notAllowedOrBmw() {
         run(hud, port, blank, now, 70000);
         CHECK(hud.phase() == MostHud::kAbsent && countFkt(port, kHudSize) == 18 && countFkt(port, kHudPolygon) == 0);
     }
+}
+
+// This fork: without kombi-most-on nothing goes to the MOST cluster, not even the registry read; with it, as upstream.
+void onlyWhenSwitchedOn() {
+    Place place;
+    FakePort port;
+    Car car;
+    uint32_t now = 0;
+    const std::string on = std::string(place.dir) + "/kombi-most-on";
+    MostHudConfig c = place.config();
+    c.onFile = on;
+    {
+        MostHud hud(c);
+        tell(hud, 8, "Rue A", 300, "300", kUnitMetres);
+        run(hud, port, car, now, 3000);
+        CHECK(port.sent.empty() && port.shadows.empty() && !place.marked());
+    }
+    place.touch(on);
+    {
+        MostHud hud(c);
+        tell(hud, 8, "Rue A", 300, "300", kUnitMetres);
+        run(hud, port, car, now, 3000);
+        CHECK(!port.sent.empty());
+    }
+    unlink(on.c_str());
 }
 
 // Right after an iDrive restart the cluster answers the size reads late: they are taken, and the picture goes up.
@@ -1454,6 +1480,7 @@ int main() {
     drawsAndClears();
     pacing();
     notAllowedOrBmw();
+    onlyWhenSwitchedOn();
     coldCluster();
     lateAnswers();
     silentDrawing();
