@@ -3,6 +3,9 @@
 // Android Auto video: libxsvideo decoder, dma-buf feeding and surface visibility (see evo_video.hpp).
 #include "evo_video.hpp"
 
+#include <poll.h>
+#include <unistd.h>
+
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
@@ -21,11 +24,14 @@ EvoVideoConfig::EvoVideoConfig()
       height(720),
       displayWidth(1280),
       displayHeight(480),
+      sourceWidth(1280),
+      sourceHeight(480),
       fps(0),
       surfaceId(kAaSurfaceId),
       layerId(kAaLayerId),
       bufCount(8),
-      bufSize(1u << 20) {}
+      bufSize(1u << 20),
+      holdCloseFrames(false) {}
 
 EvoVideo::EvoVideo()
     : h_(nullptr),
@@ -56,12 +62,14 @@ EvoVideo::~EvoVideo() {
     pthread_mutex_destroy(&mu_);
 }
 
-void EvoVideoConfig::setDisplay(uint32_t canvasWidth, uint32_t canvasHeight, uint32_t panelWidth,
-                                uint32_t panelHeight) {
+void EvoVideoConfig::setDisplay(uint32_t canvasWidth, uint32_t canvasHeight, uint32_t panelWidth, uint32_t panelHeight,
+                                uint32_t shownWidth, uint32_t shownHeight) {
     width = canvasWidth;
     height = canvasHeight;
     displayWidth = panelWidth;
     displayHeight = panelHeight;
+    sourceWidth = shownWidth ? shownWidth : panelWidth;
+    sourceHeight = shownHeight ? shownHeight : panelHeight;
     if (canvasWidth > 1280 || canvasHeight > 720) {
         bufSize = 2u << 20;
     }
@@ -72,8 +80,9 @@ bool EvoVideo::init(const EvoVideoConfig& cfg) {
         return false;
     }
     if (!cfg.width || !cfg.height || cfg.width > 1920 || cfg.height > 1080 || !cfg.bufCount || cfg.bufCount > 16 ||
-        cfg.bufSize < 65536 || cfg.bufSize > (4u << 20) || cfg.displayWidth > cfg.width ||
-        cfg.displayHeight > cfg.height ||
+        cfg.bufSize < 65536 || cfg.bufSize > (4u << 20) || !cfg.sourceWidth || !cfg.sourceHeight ||
+        cfg.sourceWidth > cfg.width || cfg.sourceHeight > cfg.height || cfg.displayWidth > 1920 ||
+        cfg.displayHeight > 1080 ||
         !ilm_.validateTarget(cfg.surfaceId, cfg.layerId, cfg.displayWidth, cfg.displayHeight)) {
         ELOG("Video", "REFUSED: target not checked (inventory, free id, visible full-screen layer)");
         return false;
@@ -120,6 +129,10 @@ bool EvoVideo::start() {
     started_ = true;
     configSent_ = false;
     framesAtStart_ = framesIn_;
+    stall_.restart();  // a new decoder; no frame is posted before start() returns
+    pthread_mutex_lock(&mu_);
+    gap_.restart(cfg_.holdCloseFrames);  // its counts are taken by the main loop
+    pthread_mutex_unlock(&mu_);
     if (pthread_create(&evThread_, nullptr, eventStub, this) == 0) {
         evStarted_ = true;
     } else {
@@ -128,7 +141,12 @@ bool EvoVideo::start() {
         return false;
     }
     // Attach our surface hidden, cropped to the panel's area.
-    if (!ilm_.attachSurface(cfg_.surfaceId, cfg_.layerId, cfg_.displayWidth, cfg_.displayHeight)) {
+    if (cfg_.sourceWidth != cfg_.displayWidth || cfg_.sourceHeight != cfg_.displayHeight) {
+        ELOG("Video", "the top-left %ux%u of the stream is stretched to the %ux%u panel", cfg_.sourceWidth,
+             cfg_.sourceHeight, cfg_.displayWidth, cfg_.displayHeight);
+    }
+    if (!ilm_.attachSurface(cfg_.surfaceId, cfg_.layerId, cfg_.displayWidth, cfg_.displayHeight, cfg_.sourceWidth,
+                            cfg_.sourceHeight)) {
         stop();
         return false;
     }
@@ -212,6 +230,11 @@ void EvoVideo::postCodecConfig(const uint8_t* data, size_t len) {
     if (!data || !len) {
         return;
     }
+    if (len > kMaxCodecConfig) {
+        ELOG("Video", "codec config of %zu B refused (no SPS/PPS is over %zu B): the one cached before stays", len,
+             kMaxCodecConfig);
+        return;
+    }
     pthread_mutex_lock(&mu_);
     codecCfg_.assign(data, data + len);
     configSent_ = false;  // prepended to the next IDR
@@ -239,6 +262,17 @@ FrameFate EvoVideo::postVideoFrame(const uint8_t* data, size_t len, uint64_t pts
     }
 
     pthread_mutex_lock(&mu_);
+    // A frame right behind the previous one waits for the rest of kFrameGapMs, without the lock (FrameGap).
+    const uint32_t holdMs = gap_.arrive(monoMs());
+    if (holdMs) {
+        pthread_mutex_unlock(&mu_);
+        usleep(holdMs * 1000);
+        pthread_mutex_lock(&mu_);
+        if (!running_) {
+            pthread_mutex_unlock(&mu_);
+            return FrameFate::kNoStream;
+        }
+    }
     bool idr = isIdr(data, len);
     if (idr) {
         ++idrSeen_;
@@ -248,11 +282,13 @@ FrameFate EvoVideo::postVideoFrame(const uint8_t* data, size_t len, uint64_t pts
     size_t need = len + (prependCfg ? codecCfg_.size() : 0);
 
     int bi = pool_.acquireFree();
-    // Bounded wait for a free buffer (the event thread releases one on each DMABUF_COMPLETE).
+    // Bounded wait for a free buffer (the event thread releases one on each DMABUF_COMPLETE); none once the decoder
+    // has stalled, so that the session thread no longer loses 20 ms on every frame.
+    const bool wait = bi < 0 && !stall_.stuck(monoMs());
     struct timespec ts;
     ts.tv_sec = 0;
     ts.tv_nsec = 0;
-    while (bi < 0 && running_) {
+    while (bi < 0 && wait && running_) {
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC, &now);  // the clock cv_ was created with
         ts = now;
@@ -268,9 +304,16 @@ FrameFate EvoVideo::postVideoFrame(const uint8_t* data, size_t len, uint64_t pts
     }
     if (bi < 0) {
         ++framesDropped_;
+        const bool stalled = stall_.starved(monoMs(), visible_);
         pthread_mutex_unlock(&mu_);
+        if (stalled) {
+            ELOG("Video", "no buffer back from the decoder for %u ms, all %u out: decoder stalled",
+                 DecoderStall::kLimitMs, cfg_.bufCount);
+            return FrameFate::kStalled;
+        }
         return FrameFate::kLost;
     }
+    stall_.bufferBack();
 
     DmaBufPool::Buf& b = pool_.at(bi);
     if (need > b.size) {
@@ -305,19 +348,55 @@ FrameFate EvoVideo::postVideoFrame(const uint8_t* data, size_t len, uint64_t pts
     return FrameFate::kDecoding;
 }
 
+FrameGapStats EvoVideo::takeFrameGaps() {
+    pthread_mutex_lock(&mu_);
+    const FrameGapStats taken = gap_.take();
+    pthread_mutex_unlock(&mu_);
+    return taken;
+}
+
 void* EvoVideo::eventStub(void* self) {
     (static_cast<EvoVideo*>(self))->eventLoop();
     return nullptr;
 }
 
+// The decoder's events. Their queue is a pipe of the library: xsv_receive_event polls it and returns at once, with no
+// event, when the pipe has hung up or is no longer open, and -1 when poll() fails (read in the car's
+// libxsvideo.so.4.1.3). Called in a loop, it would then spin a core for good. The queue is waited on here instead: a
+// queue that can no longer bring an event ends this thread, and the decoder stall (DecoderStall) ends the picture.
 void EvoVideo::eventLoop() {
+    const int queue = xsv_get_event_queue_fd(h_);
+    if (queue < 0) {
+        ELOG("Video", "the decoder has no event queue: no buffer will come back");
+        return;
+    }
     int evt[5];
     while (running_) {
+        struct pollfd p;
+        p.fd = queue;
+        p.events = POLLIN;
+        p.revents = 0;
+        const int ready = poll(&p, 1, 200);
+        if (ready < 0 && errno != EINTR) {
+            ELOG("Video", "the decoder's event queue cannot be waited on (%s): no more decoder events",
+                 strerror(errno));
+            return;
+        }
+        if (ready <= 0) {
+            continue;  // nothing within 200 ms, or a signal: running_ is looked at again
+        }
+        if (!(p.revents & POLLIN)) {
+            ELOG("Video", "the decoder's event queue is closed (poll 0x%x): no more decoder events", p.revents);
+            return;
+        }
         memset(evt, 0, sizeof(evt));
-        xsv_receive_event(h_, evt, 200);  // 20 bytes: [0] type, [1] data
+        if (xsv_receive_event(h_, evt, 0) < 0 && errno != EINTR) {  // 20 bytes: [0] type, [1] data
+            ELOG("Video", "the decoder's event queue cannot be read: no more decoder events");
+            return;
+        }
         switch (evt[0]) {
             case 0:
-                break;  // timeout, nothing received
+                break;  // nothing read (a signal)
             case XSV_EVENT_PLAYING:
                 ELOG("Video", "player PLAYING; waiting for H.264 frames");
                 break;
@@ -341,6 +420,7 @@ void EvoVideo::eventLoop() {
                 int bi = pool_.find(evt[1]);
                 if (bi >= 0) {
                     pool_.at(bi).inFlight = false;
+                    stall_.bufferBack();
                     pthread_cond_signal(&cv_);
                 }
                 pthread_mutex_unlock(&mu_);

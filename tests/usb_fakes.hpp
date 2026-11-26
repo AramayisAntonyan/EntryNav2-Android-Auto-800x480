@@ -128,10 +128,12 @@ struct Phone {
     std::string port;
     unsigned busNumber, address, vendor, product;
     bool android;       // answers the accessory protocol request
-    bool held;          // another program holds interface 0
+    bool held;          // another program holds interface 0 (EBUSY)
     bool heldByKernel;  // with held: the holder is a kernel driver, which a takeover never detaches
+    int claimErrno;     // non-zero: claimInterface fails with this errno (overrides held)
     bool unplugged;     // the device left: transfers never come back
     bool stuckOut;      // takes no data
+    bool staysPut;      // takes the request to start as an accessory, and never becomes one
     unsigned opens, protocolAsked, started, resets, claims, releases, takeovers;
     std::vector<std::string> strings;
     std::deque<std::vector<uint8_t>> toCar;     // what the phone sends, one transfer each
@@ -146,8 +148,10 @@ struct Phone {
           android(true),
           held(false),
           heldByKernel(false),
+          claimErrno(0),
           unplugged(false),
           stuckOut(false),
+          staysPut(false),
           opens(0),
           protocolAsked(0),
           started(0),
@@ -209,6 +213,7 @@ public:
         Lock lock(phone_.mu);
         if (request == 51) {
             ++phone_.protocolAsked;
+            phone_.strings.clear();  // a new identification starts
             if (!phone_.android || type != 0xc0 || size != 2) {
                 return -EPIPE;
             }
@@ -223,6 +228,9 @@ public:
         }
         CHECK(request == 53 && type == 0x40 && size == 0);
         ++phone_.started;
+        if (phone_.staysPut) {
+            return 0;
+        }
         if (phone_.bus) {
             phone_.bus->accessory(phone_.port, phone_.busNumber, ++phone_.address);
         }
@@ -232,6 +240,10 @@ public:
         Lock lock(phone_.mu);
         CHECK(number == 0);
         ++phone_.claims;
+        if (phone_.claimErrno != 0) {
+            errno = phone_.claimErrno;
+            return false;
+        }
         if (phone_.held) {
             errno = EBUSY;
             return false;

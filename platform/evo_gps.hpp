@@ -5,6 +5,7 @@
 // Record layouts as this car's libgnsssv.so.1.0.0 writes them. Read-only: no registration, semaphore or network write.
 #ifndef ENTRY_AAD_PLATFORM_EVO_GPS_HPP
 #define ENTRY_AAD_PLATFORM_EVO_GPS_HPP
+#include <errno.h>
 #include <fcntl.h>
 #include <math.h>
 #include <stdlib.h>
@@ -45,7 +46,29 @@ inline bool gpsLayout(size_t n) {
 }
 inline bool carGpsPresent() {
     struct stat s;
-    return !phoneGpsChosen() && stat(carGpsSource(), &s) == 0 && gpsLayout(s.st_size);
+    return !phoneGpsChosen() && stat(carGpsSource(), &s) == 0 && S_ISREG(s.st_mode) &&
+           gpsLayout(static_cast<size_t>(s.st_size));
+}
+inline bool preadFull(int fd, uint8_t* dst, size_t len) {
+    size_t done = 0;
+    while (done < len) {
+        const ssize_t n = pread(fd, dst + done, len - done, static_cast<off_t>(done));
+        if (n < 0 && errno == EINTR) {
+            continue;
+        }
+        if (n <= 0) {
+            return false;
+        }
+        done += static_cast<size_t>(n);
+    }
+    return true;
+}
+// Android Auto 17.9 stops using the speed of the car's fixes for the rest of the session once one says 70 m/s or more
+// (found in its location code by Supra-iDrive6-Android-Auto, c2ad815). Every speed sent stays below it, once rounded
+// to the mm/s it goes in; a faster one is left out, never clamped.
+const double kGpsSpeedLimitMps = 70;
+inline bool gpsSpeedSendable(double speed) {
+    return speed >= 0 && speed < kGpsSpeedLimitMps - 0.0005;  // 69.9996 would go as 70000 mm/s
 }
 inline uint32_t gpsU32(const uint8_t* p) {
     uint32_t n;
@@ -116,7 +139,7 @@ inline aa::CarLocation decodeGpsRecord(const std::vector<uint8_t>& r, uint64_t n
         memcpy(&heading, &r[32 + 16], 4);
         const uint32_t courseFlags =
             gpsU32(&r[32 + 20]);  // CarPlay cbCourse/RMC: bit 0 speed (m/s), bit 2 heading (degrees)
-        if ((courseFlags & 1) && isfinite(speed) && speed >= 0 && speed <= 150) {
+        if ((courseFlags & 1) && isfinite(speed) && gpsSpeedSendable(speed)) {
             p.hasSpeed = true;
             p.speedMps = speed;
             if ((courseFlags & 4) && isfinite(heading) && heading >= 0 && heading < 360 && speed >= 0.5f) {
@@ -147,7 +170,7 @@ inline aa::CarLocation decodeGpsRecord(const std::vector<uint8_t>& r, uint64_t n
     memcpy(&course, &r[44], 2);
     int32_t altitude;
     memcpy(&altitude, &r[20], 4);
-    if (speed <= 150) {
+    if (gpsSpeedSendable(speed)) {
         p.hasSpeed = true;
         p.speedMps = speed;
         if (speed >= 0.5 && course < 36000) {
@@ -161,7 +184,8 @@ inline aa::CarLocation decodeGpsRecord(const std::vector<uint8_t>& r, uint64_t n
     }
     return p;
 }
-// Fallback when the receiver gives no valid speed: two consecutive fixes. Coarse: the poll time is the only clock here.
+// Fallback when the receiver gives no valid speed: two consecutive fixes. Coarse: the poll time is the only clock here,
+// so a fix seen late makes a jump; one that would be too fast to send gives neither speed nor course.
 inline void gpsDerive(const aa::CarLocation& prev, aa::CarLocation& cur) {
     if (cur.hasSpeed || !prev.valid || cur.sampledMs < prev.sampledMs + 400) {
         return;
@@ -176,7 +200,7 @@ inline void gpsDerive(const aa::CarLocation& prev, aa::CarLocation& cur) {
         (cur.longitudeE6 - prev.longitudeE6) * metresPerE6 * cos(cur.latitudeE6 / 1000000.0 * M_PI / 180.0);
     const double d = sqrt(dx * dx + dy * dy);
     const double speed = d / dt;
-    if (speed > 150) {
+    if (!gpsSpeedSendable(speed)) {
         return;
     }
     cur.hasSpeed = true;
@@ -192,6 +216,7 @@ inline void gpsDerive(const aa::CarLocation& prev, aa::CarLocation& cur) {
 }
 class CarGpsReader {
     std::vector<uint8_t> previous_;
+    std::vector<uint8_t> bufA_, bufB_;
     aa::CarLocation latest_;
     uint64_t lastPoll_;
     size_t layout_;
@@ -209,24 +234,24 @@ public:
         }
         if (!lastPoll_ || now - lastPoll_ >= 100) {  // the main loop's pace: a 1 Hz fix is seen within ~100 ms
             lastPoll_ = now;
-            int fd = open(carGpsSource(), O_RDONLY | O_CLOEXEC);
+            int fd = open(carGpsSource(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
             struct stat s;
-            bool ok = fd >= 0 && fstat(fd, &s) == 0 && gpsLayout(s.st_size);
-            std::vector<uint8_t> a, b;
+            bool ok = fd >= 0 && fstat(fd, &s) == 0 && S_ISREG(s.st_mode) && gpsLayout(static_cast<size_t>(s.st_size));
             if (ok) {
-                a.resize(s.st_size);
-                b.resize(s.st_size);
-                ok = pread(fd, &a[0], a.size(), 0) == static_cast<ssize_t>(a.size()) &&
-                     pread(fd, &b[0], b.size(), 0) == static_cast<ssize_t>(b.size());
+                const size_t sz = static_cast<size_t>(s.st_size);
+                bufA_.resize(sz);
+                bufB_.resize(sz);
+                ok = preadFull(fd, &bufA_[0], sz) && preadFull(fd, &bufB_[0], sz);
             }
             if (fd >= 0) {
                 close(fd);
             }
             if (ok) {
-                const std::vector<uint8_t> ra = gpsRecord(&a[0], a.size()), rb = gpsRecord(&b[0], b.size());
+                const std::vector<uint8_t> ra = gpsRecord(&bufA_[0], bufA_.size()),
+                                           rb = gpsRecord(&bufB_[0], bufB_.size());
                 // Consistent double read; no fresh timestamp for cached data or the first observation.
-                if (gpsU32(&a[0]) == gpsU32(&b[0]) && ra == rb && !rb.empty()) {
-                    if (layout_ == b.size() && !previous_.empty() && rb != previous_) {
+                if (gpsU32(&bufA_[0]) == gpsU32(&bufB_[0]) && ra == rb && !rb.empty()) {
+                    if (layout_ == bufB_.size() && !previous_.empty() && rb != previous_) {
                         const aa::CarLocation before = latest_;
                         latest_ = decodeGpsRecord(rb, now);
                         if (latest_.valid) {
@@ -238,11 +263,11 @@ public:
                             latest_.utcSeconds = t > 1600000000 ? static_cast<uint64_t>(t) : 0;
                         }
                     }
-                    if (layout_ != b.size()) {
+                    if (layout_ != bufB_.size()) {
                         latest_ = aa::CarLocation();
                     }
                     previous_ = rb;
-                    layout_ = b.size();
+                    layout_ = bufB_.size();
                 }
             } else {
                 previous_.clear();

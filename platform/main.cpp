@@ -9,6 +9,8 @@
 // clang-format off
 #include "alps_spp.hpp"
 #include "car_brand.hpp"
+#include "car_series.hpp"
+#include "driver_side.hpp"
 #include "evo_ap.hpp"
 #include "evo_video.hpp"
 #include "evo_touch.hpp"
@@ -28,6 +30,7 @@
 #include "tcp_server.hpp"
 #include "usb_accessory.hpp"
 #include "crash_handler.hpp"
+#include <atomic>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
@@ -36,7 +39,10 @@
 // clang-format on
 
 namespace {
-volatile sig_atomic_t quit = 0;
+// Set by the signal handler and by the iDrive app's "quit" (control thread), read by the main loop and the vMOST
+// thread. A lock-free atomic may be stored from a signal handler, and is safe between threads (a volatile is not).
+static_assert(ATOMIC_INT_LOCK_FREE == 2, "the stop flag is set from a signal handler: it must be lock-free");
+std::atomic<int> quit(0);
 void onSignal(int) {
     quit = 1;
 }
@@ -77,6 +83,18 @@ bool alpsReady(evo::SppSnapshotReader& reader, unsigned instance, const AlpsBase
         ELOG("Main", "Alps state changed since aa-supervisor saved it: start refused");
     }
     return ok;
+}
+const unsigned kBmwAppsSlot = 0;  // BMW Apps' own SPP slot, left to it while Android Auto is on slot 5
+// For the [WifiLink] lines: whether a phone holds BMW Apps' link. Only reads, through the snapshot reader.
+bool readAppsSlot(void* user, evo::AppsSlot& out) {
+    evo::SppSlotSnapshot slot;
+    if (!static_cast<evo::SppSnapshotReader*>(user)->read(kBmwAppsSlot, slot)) {
+        return false;
+    }
+    out.connected = slot.connected;
+    out.state = slot.state;
+    out.transport = slot.transportState;
+    return true;
 }
 // The Bluetooth half of a wireless start: the SPP data interface, then the Android Auto UUID, each step checked
 // against the Alps state aa-supervisor saved. False when the service must stop.
@@ -132,7 +150,7 @@ void usage(const char* argv0) {
 // The brand the iDrive app read in the car's coding (car_brand.hpp). Without the file (an older app), a BMW.
 aa::CarBrand readCarBrand() {
     aa::CarBrand brand = aa::CarBrand::kBmw;
-    FILE* f = fopen(evo::contract::kBrandFile, "r");
+    FILE* f = fopen(evo::contract::kBrandFile, "re");
     char line[16] = {0};
     const bool read = f && fgets(line, sizeof(line), f) && aa::parseCarBrand(line, brand);
     if (f) {
@@ -143,9 +161,48 @@ aa::CarBrand readCarBrand() {
     }
     return brand;
 }
+
+// The driver's side the iDrive app read in the car's coding (driver_side.hpp). Without the file (an older app, or a
+// coding that says nothing sure), left; the vehicle file's "side=" wins either way.
+aa::DriverPosition readCodedDriverSide() {
+    bool right = false;
+    FILE* f = fopen(evo::contract::kDriverSideFile, "re");
+    char line[16] = {0};
+    const bool read = f && fgets(line, sizeof(line), f) && aa::parseDriverSide(line, right);
+    if (f) {
+        fclose(f);
+    }
+    if (read) {
+        ELOG("Main", "driver side coded in the car: %s", aa::driverSideName(right));
+    } else {
+        ELOG("Main", "driver side not read from %s: left, unless the vehicle file says otherwise",
+             evo::contract::kDriverSideFile);
+    }
+    return right ? aa::DriverPosition::kRight : aa::DriverPosition::kLeft;
+}
+// The series the iDrive app read in the car's coding (car_series.hpp), into out (6 bytes). Without the file (an older
+// app, or a coding that says nothing sure), empty: the vehicle file's model, or "iDrive".
+void readCarSeries(char* out) {
+    out[0] = 0;
+    FILE* f = fopen(evo::contract::kSeriesFile, "re");
+    char line[16] = {0};
+    const bool read = f && fgets(line, sizeof(line), f) && aa::parseCarSeries(line, out);
+    if (f) {
+        fclose(f);
+    }
+    if (read) {
+        ELOG("Main", "series coded in the car: %s (told to the phone unless the vehicle file gives a model)", out);
+    } else {
+        ELOG("Main", "series not read from %s: the vehicle file's model, or iDrive", evo::contract::kSeriesFile);
+    }
+}
 }  // namespace
 
 int main(int argc, char** argv) {
+    // No closeInheritedFds() here: libxsvideo opens /dev/kmsg in its constructor, before main(), and logs its errors
+    // there; closing it would hand its number to our next socket. The supervisor, our only parent, already closed
+    // what it inherited and opens nothing without close-on-exec.
+    evo::kombi::initBmwGuidanceThreading();
     bool run = false, monitor = false, introspect = false, configure = false, video = true, service = false;
     bool usb = false;
     const char* usbPort = nullptr;
@@ -250,31 +307,48 @@ int main(int argc, char** argv) {
     if (video) {
         evo::EvoIlm ilm;
         uint32_t panelWidth = 0, panelHeight = 0;
-        if (!ilm.screenSize(panelWidth, panelHeight) || !aa::planDisplay(panelWidth, panelHeight, display)) {
+        // Wireless: never the 1920x1080 canvas. Over the car's 2.4 GHz access point, a phone asked for it closed
+        // the session at the video setup, and 1280x720 works (#180). A larger panel gets 1280x720 stretched.
+        const uint32_t largestCanvas = usb ? 3 : 2;
+        if (!ilm.screenSize(panelWidth, panelHeight) ||
+            !aa::planDisplay(panelWidth, panelHeight, display, largestCanvas)) {
             ELOG("Main", "screen size unreadable or larger than 1920x1080 (%ux%u): no picture possible", panelWidth,
                  panelHeight);
             return 1;
         }
         ELOG("Main", "screen %ux%u: the phone is asked for %ux%u%s", display.width, display.height, display.canvasWidth,
              display.canvasHeight, display.reference() ? "" : " (a size not tried on the reference car)");
+        if (display.scaled()) {
+            ELOG("Main", "wireless: its top-left %ux%u is stretched to the panel, touches scaled by %.3f",
+                 display.shownWidth, display.shownHeight, display.touchScale());
+        }
     }
     const aa::CarBrand brand = readCarBrand();
-    display.hiddenSide = aa::surroundSide(brand, display.width);
+    display.hiddenSide = aa::surroundSide(brand, display.shownWidth);
     if (display.hiddenSide) {
-        ELOG("Main", "%s: the round surround hides %u columns on each side, the phone keeps its UI inside",
-             aa::brandName(brand), display.hiddenSide);
+        ELOG("Main",
+             "%s: the round surround hides %u columns on each side, the phone keeps its UI inside (%ux%u, touches "
+             "shifted by %u)",
+             aa::brandName(brand), display.hiddenSide, display.phoneWidth(), display.phoneHeight(),
+             display.leftInset());
     }
     evo::ServiceApp app(kAaPort, video, &quit);
-    app.videoConfig.setDisplay(display.canvasWidth, display.canvasHeight, display.width, display.height);
+    app.videoConfig.setDisplay(display.canvasWidth, display.canvasHeight, display.width, display.height,
+                               display.shownWidth, display.shownHeight);
+    app.videoConfig.holdCloseFrames = !usb;  // pairs come from the Wi-Fi's bursts, not the cable
     app.session.setDisplay(display);
     app.session.setCarMake(aa::brandName(brand));
+    app.session.setCodedDriverSide(readCodedDriverSide());
+    static char series[6];  // kept for the session's whole life
+    readCarSeries(series);
+    app.session.setCodedModel(series[0] ? series : nullptr);
     app.usbPort = usbPort ? usbPort : "";
     app.session.setTouchForwarding(input == evo::INPUT_FORWARD);
-    app.session.setVehicleFile(evo::contract::kVehicle);  // the car's model and year, written at installation
+    app.session.setVehicleFile(evo::contract::kVehicle);  // the car's model, year, side, fuel; written at installation
     app.session.setSoftwareVersion(ENTRY_AAD_VERSION);    // the file VERSION, given by the Makefile
     // Declared after app: destroyed (and joined) before the session their callbacks post to.
     evo::EvoTouch touch;
-    touch.setCanvas(display.canvasWidth, display.canvasHeight);
+    touch.setPhoneDisplay(display.leftInset(), display.phoneWidth(), display.phoneHeight(), display.touchScale());
     evo::EvoKnob knob;
     evo::EvoControl control;
     const bool logsKept = access(evo::contract::kMaintenance, F_OK) == 0;
@@ -302,6 +376,7 @@ int main(int argc, char** argv) {
     app.mic.start(evo::ServiceApp::micData, &app);  // optional: without it the Assistant just hears nothing
     app.session.setNavStatusCallback(evo::ServiceApp::navStatus, &app);
     app.session.setMediaStatusCallback(evo::ServiceApp::mediaStatus, &app);  // track and cover for the iDrive
+    app.kombi.attachMost(&app.kombiMost);  // F-series: the cluster's MOST fields, through the controller reader
     app.kombi.start(evo::kombi::probeBmwGuidance);  // HUD/cluster arrows; the BMW navigation always wins
     evo::CarGpsReader carGps;
     evo::CarGpsFeed gpsFeed;
@@ -311,8 +386,25 @@ int main(int argc, char** argv) {
         return 1;
     }
     evo::SppSnapshotReader alpsReader;
-    if (guarded && (!alpsReader.open() || !alpsReady(alpsReader, instance, baseline))) {
-        return 1;
+    if (guarded) {
+        unsigned long expectedAlpsPid = 0;
+        bool opened = false;
+        if (baseline.alpsPid && parseNumber(baseline.alpsPid, 0x7fffffffUL, expectedAlpsPid)) {
+            opened = alpsReader.open(static_cast<int>(expectedAlpsPid));
+        } else {
+            const int alpsUid = evo::queryAlpsServiceUid();  // as the supervisor's openAlps: that user, else all
+            opened = alpsUid >= 0 && alpsReader.open(0, alpsUid);
+            if (!opened) {
+                alpsReader.close();
+                opened = alpsReader.open();
+            }
+        }
+        if (!opened || !alpsReady(alpsReader, instance, baseline)) {
+            return 1;
+        }
+    }
+    if (guarded && instance != kBmwAppsSlot) {
+        app.wifiLink.setAppsProbe(readAppsSlot, &alpsReader);  // same thread as the refreshes that use the reader
     }
     if (input != evo::INPUT_OFF) {
         app.knob = &knob;  // before the control thread, which reads it ("call" command)
@@ -376,7 +468,7 @@ int main(int argc, char** argv) {
         {
             // The car's key coding, read by the iDrive app inside iDrive (controller_layout.hpp). Without it (an older
             // app), the G-style table.
-            FILE* f = fopen(evo::contract::kControllerFile, "r");
+            FILE* f = fopen(evo::contract::kControllerFile, "re");
             char line[128] = {0};
             aa::ControllerCoding coding = aa::defaultControllerCoding();
             if (f && fgets(line, sizeof(line), f) && aa::parseControllerCoding(line, coding)) {
@@ -389,7 +481,7 @@ int main(int argc, char** argv) {
             }
         }
         {
-            FILE* f = fopen(evo::contract::kDayNightFile, "r");
+            FILE* f = fopen(evo::contract::kDayNightFile, "re");
             int v = 0;  // written by the iDrive app (CDS)
             if (f) {
                 if (fscanf(f, "daynight %d", &v) == 1) {
@@ -398,6 +490,7 @@ int main(int argc, char** argv) {
                 fclose(f);
             }
         }
+        knob.setPeer(&app.kombiMost);
         if (!knob.start(input, evo::ServiceApp::knobEvent, &app)) {
             ELOG("Main", "controller unavailable for this run");
         }
@@ -411,7 +504,7 @@ int main(int argc, char** argv) {
     }
     bool failed = false;
     const uint32_t startedMs = evo::monoMs();
-    bool paceRunning = false;  // logs kept: the phone's longest silence, every 10 s of a session
+    bool paceRunning = false;  // logs kept: the phone's longest silence and the frame gaps, every 10 s of a session
     uint32_t paceMs = 0;
     evo::AdvertisementSchedule advertisement(service ? 60000 : 0);
     while (!quit) {
@@ -433,6 +526,8 @@ int main(int argc, char** argv) {
         if (logsKept) {
             // Wireless or USB: how long the phone went without sending anything. It pings and reports its media
             // every second while it projects, so several seconds here are a link that stalled, whatever the cause.
+            // Then the video frames that came right behind the previous one, and how many were held (Wi-Fi only):
+            // whether this car gets them in pairs (FrameGap).
             const uint32_t nowMs = evo::monoMs();
             if (!turn.active) {
                 paceRunning = false;
@@ -440,9 +535,14 @@ int main(int argc, char** argv) {
                 paceRunning = true;
                 paceMs = nowMs;
                 app.session.takeLongestSilenceMs();  // the start of the session is not a silence
+                app.video.takeFrameGaps();
             } else if (nowMs - paceMs >= 10000) {
-                ELOG("Session", "in %u s: the phone's longest silence %u ms", (nowMs - paceMs + 500) / 1000,
-                     app.session.takeLongestSilenceMs());
+                const evo::FrameGapStats gaps = app.video.takeFrameGaps();
+                ELOG("Session",
+                     "in %u s: the phone's longest silence %u ms; video: %u frames, %u within %u ms of the previous "
+                     "one, %u held (longest %u ms)",
+                     (nowMs - paceMs + 500) / 1000, app.session.takeLongestSilenceMs(), gaps.frames, gaps.early,
+                     evo::kFrameGapMs, gaps.held, gaps.longestHoldMs);
                 paceMs = nowMs;
             }
         }
@@ -473,6 +573,8 @@ int main(int argc, char** argv) {
     app.server.stop();  // join the accept thread before stopping its last session
     app.session.stop();
     app.video.stop();
+    app.kombi.stop();
+    evo::kombi::closeBmwGuidance();
     app.bt.stop();
     if (input != evo::INPUT_OFF) {
         touch.summary();

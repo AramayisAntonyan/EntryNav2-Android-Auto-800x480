@@ -4,16 +4,21 @@ This project is a fork of **EntryNav2 (EntryEvo) Android Auto** (formerly entry-
 small **800x480** screen, run on an F-series BMW (F22, 2019) over the USB cable (wireless not tried there yet). Almost everything is
 upstream's work; this fork adds the few things that car needed on top of it.
 
-## Base: upstream 0.13.0-rc.1 (2026-11-16)
+## Base: upstream main after 0.13.0-rc.10 (`c74e674`, 2026-11-26)
 
 - Project: [Jiraiya43/EntryNav2-Android-Auto](https://github.com/Jiraiya43/EntryNav2-Android-Auto) (formerly
   `Jiraiya43/entry-aad`), PolyForm Noncommercial 1.0.0.
-- This branch starts from upstream's `main` at `v0.13.0-rc.1` (commit `2e0d55f`), so `git log v0.13.0-rc.1..HEAD`
-  shows every change made here. Since 0.12.1-rc.4 (which reads the controller's keys from the car's coding, as iDrive
-  does: needed for this car's older 5-key controller) upstream added: a frozen picture recovered by asking the phone
-  for a full frame, a broken encrypted stream ending the session (#81); the volume pill showing the right source's
-  level and the mute (#83); MAP opening Android Auto's navigation (#84); the MINI brand (#82); Wi-Fi log fixes (#80).
-  This fork's OPTION key keeps its own behaviour on top of #84.
+- This branch started from upstream's `v0.13.0-rc.1` (commit `2e0d55f`). Upstream's changes since then, up to its
+  `main` at `c74e674` (after `v0.13.0-rc.10`), came in as one commit: upstream's diff, not its history. Among them:
+  parking assistance steps Android Auto aside and gives it back (#93, #156); the session ends cleanly when the phone,
+  TLS or the video decoder fails (#146, #148, #158, #225-#228); the Wi-Fi link's reliability (Wi-Fi video priority
+  #131, the phone called back after a lost wireless session #135, U-APSD off #160, the beacon rebuilt once #164, the
+  Bluetooth link dropped by the stack #166, wireless pictures spaced #149, wide wireless pictures #190, strict TCP
+  listening and write delays #232/#233, SPP retries #97/#209); logs kept over sleep and copied to a USB stick (#162,
+  #163); an update from a USB stick (#178); the car's series and driver's side from the coding (#157, #169); F-series
+  cluster arrows over MOST (#170, #172, #177, #239, #246); a code audit's fixes (#230-#248).
+- Upstream took two of this fork's changes: fragments without a FIRST are dropped (#115) and, out of reverse, Android
+  Auto waits for the camera to close (#114): upstream's code is used for both.
 - Required Notice: Copyright (c) 2026 Jiraiya43 - entry-aad
 
 The fork first started from entry-aad 0.11.0-rc.1 and added its own USB mode, 800x480 support and older-controller
@@ -44,20 +49,21 @@ phone silent for 2 s), so on this base the fork uses upstream's versions and kee
   as in NBT-AAD: where they show is a guess). `/var/local/data/AA/kombi-6wa-approach` picks the rule: `time [warn s
   [main s]]`, `distance` or `off`. Not ported, as they concern NBT-AAD's own transport or the factory navigation this
   car does not have: the batch queue per slot, the yield to a factory route and its clean-up, the shadow marker.
-- **Android Auto fragments need a FIRST** (NBT-AAD #223, pstryju): a MIDDLE or LAST fragment whose FIRST was lost is
-  dropped instead of being joined into a cut message (`core/aa_frame.cpp`).
 - **OPTION opens Android Auto's options panel.** The iDrive opens an option panel for every OPTION press, so the
   Android Auto page now has its own: *Show map buttons* (Google Maps hides them once a route runs, and this car has no
   touch screen; one knob step and back by default, or a tap or a key code from `/var/local/data/AA/option-key`), *Tap
   the map*, *Android Auto menu*. Android Auto steps aside while the panel shows and comes back after a choice or BACK.
-- **Out of reverse, Android Auto waits for the camera to close.** iDrive keeps the camera up a moment after reverse:
-  Android Auto came back, the camera covered it, then Android Auto again. The iDrive app now tells the service the
-  gear only once its blank page has the focus again (15 s at most).
 - **Driving mode changes leave Android Auto on screen.** Upstream steps the picture aside 3.5 s per change so that
   iDrive's driving mode popup shows (G-series). On the F22 the mode shows in the cluster only and iDrive opens
   nothing, so the step-aside only stalled the picture (one press sends two values, each restarting it). The
-  service's driving mode peek, the hold machine's 15 s quiet period and the popup peek's exception are removed;
-  real iDrive popups keep their step-aside.
+  service's driving mode peek and the popup peek's exception are removed, and the iDrive app no longer reports a
+  change (upstream reads the coding's driving mode popup setting instead, #112; a car without that setting would
+  still step aside); real iDrive popups keep their step-aside.
+- **Crash guard: crashes only.** A short run counts as a crash only when iDrive restarted while the unit kept running
+  or the unit stored a new core dump (a restart of the unit by coding, the volume knob or ignition is not one); kept
+  in upstream's date file, so that 3 crashes within 15 minutes turn the app off until they are older (#212, #213).
+- **iDrive ids.** Upstream's menu items (keep logs, copy logs, update) took actions 27-29 and model 41: this fork's
+  options panel moved to actions 47-49 and *Directions at any distance* to model 44.
 - **Engine and oil temperature logged** from CDS `engine.temperature` (`{"temperature":{"engine":…,"oil":…}}`), for
   cluster gauges later.
 - **Gauges under My Vehicle** (`opt/hmi/data/ro/Plugins/CarGauges`, a second iDrive app; `/var/local/data/AA/gauges-off`

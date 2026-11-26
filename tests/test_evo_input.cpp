@@ -44,6 +44,15 @@ static size_t ipUdp(uint8_t* p, const uint8_t* payload, size_t n, uint16_t sport
     return total;
 }
 
+// The datagram comes from a phone on the car's Wi-Fi (192.168.1.20) instead of the touch controller.
+static size_t fromPhone(uint8_t* p, size_t n) {
+    p[12] = 192;
+    p[13] = 168;
+    p[14] = 1;
+    p[15] = 20;
+    return n;
+}
+
 static int frame(evo::TouchTracker& t, int x, int y, int state, unsigned char seq, aa::TouchEventOut* ev) {
     unsigned char f[112];
     aa::TouchContact c;
@@ -93,6 +102,38 @@ int main() {
     pkt[0] = 0x45;
     CHECK(evo::parseIpv4Udp(pkt, n, u));
 
+    // The touchscreen is the sender of the first touch frame on a wired interface; nothing else fixes it.
+    {
+        typedef evo::TouchSource S;
+        const int kVbr = 7, kTwin = 3, kWlan = 5;
+        uint8_t other[8] = {0x12, 0x34, 0x56, 0x78, 1, 2, 3, 4};
+        uint8_t wifiPkt[256], wifiTouchPkt[256], otherPkt[256], touchPkt[256], twinPkt[256];
+        evo::UdpView wifiOther, wifiTouch, otherPdu, touch, twin;
+        // From a phone on the car's Wi-Fi: first a datagram that is no touch frame, then a touch frame.
+        CHECK(evo::parseIpv4Udp(wifiPkt, fromPhone(wifiPkt, ipUdp(wifiPkt, other, sizeof(other), 40000, 30567)),
+                                wifiOther));
+        CHECK(evo::parseIpv4Udp(
+            wifiTouchPkt, fromPhone(wifiTouchPkt, ipUdp(wifiTouchPkt, pdu, sizeof(pdu), 40000, 30567)), wifiTouch));
+        CHECK(evo::parseIpv4Udp(otherPkt, ipUdp(otherPkt, other, sizeof(other), 30501, 30567), otherPdu));
+        CHECK(evo::parseIpv4Udp(touchPkt, ipUdp(touchPkt, pdu, sizeof(pdu), 30501, 30567), touch));
+        CHECK(evo::parseIpv4Udp(twinPkt, ipUdp(twinPkt, pdu, sizeof(pdu), 30502, 30567), twin));
+        S source;
+        CHECK(source.judge(kWlan, false, wifiOther) == S::kOther && !source.known());
+        CHECK(source.judge(kWlan, false, wifiTouch) == S::kUntrusted && !source.known());
+        CHECK(source.judge(kTwin, true, otherPdu) == S::kOther && !source.known());  // another PDU, on a twin
+        CHECK(source.judge(0, true, touch) == S::kUntrusted && !source.known());     // no interface
+        // The touchscreen's first frame: its interface and sender from now on.
+        CHECK(source.judge(kVbr, true, touch) == S::kTouch && source.known() && source.ifindex() == kVbr);
+        CHECK(source.ip() == ((160u << 24) | (48u << 16) | (199u << 8) | 115u) && source.port() == 30501);
+        CHECK(source.judge(kVbr, true, touch) == S::kTouch);
+        CHECK(source.judge(kTwin, true, touch) == S::kTwin && source.judge(kWlan, false, wifiTouch) == S::kTwin);
+        CHECK(source.judge(kVbr, true, twin) == S::kOtherSender && source.judge(kVbr, true, otherPdu) == S::kOther);
+        CHECK(source.ifindex() == kVbr && source.port() == 30501);
+        CHECK(evo::isWifiInterface("wlan0") && evo::isWifiInterface("wlan1") && evo::isWifiInterface("p2p-wlan0-0"));
+        CHECK(!evo::isWifiInterface("vbr0.73") && !evo::isWifiInterface("eth0") && !evo::isWifiInterface("lo"));
+        CHECK(!evo::isWifiInterface(nullptr));
+    }
+
     // Touch state machine: one tap = PRESS, DRAG, RELEASE; a duplicate is never a second tap.
     evo::TouchTracker t;
     aa::TouchEventOut ev[16];
@@ -125,6 +166,23 @@ int main() {
               aa::parseTouchStream(msg[0], got, 2, &declared) == 1 && declared == 1 && got[0].state == 2 &&
               got[0].id == 2 && got[0].x == 640 && got[0].y == 240);
     }
+    // A MINI: the phone's display starts 40 columns into the panel (its left margin) and is 1200x480. A finger is sent
+    // in the phone's pixels: 40 less, kept inside its display. Before, it landed 40 pixels right of it (#78, #88).
+    evo::TouchTracker mini;
+    mini.setOffset(-40, 0);
+    mini.setLimits(1199, 479);
+    CHECK(frame(mini, 100, 200, 1, 0, ev) == 1 && ev[0].action == 0 && ev[0].p[0].x == 60 && ev[0].p[0].y == 200);
+    CHECK(frame(mini, 20, 210, 2, 12, ev) == 1 && ev[0].p[0].x == 0);  // under the surround: the edge
+    CHECK(frame(mini, 1270, 479, 2, 24, ev) == 1 && ev[0].p[0].x == 1199 && ev[0].p[0].y == 479);
+    CHECK(frame(mini, 1270, 479, 3, 36, ev) == 1 && ev[0].action == 1 && mini.activeCount() == 0);
+    // A 1440x540 panel showing a 1280x480 picture stretched to it (wireless, #180): a finger is sent in the picture's
+    // pixels, the panel's last pixel is the picture's last one.
+    evo::TouchTracker stretched;
+    stretched.setScale(1280.0 / 1440.0, 1280.0 / 1440.0);
+    stretched.setLimits(1279, 479);
+    CHECK(frame(stretched, 720, 270, 1, 0, ev) == 1 && ev[0].action == 0 && ev[0].p[0].x == 640 && ev[0].p[0].y == 240);
+    CHECK(frame(stretched, 1439, 539, 2, 12, ev) == 1 && ev[0].p[0].x == 1279 && ev[0].p[0].y == 479);
+    CHECK(frame(stretched, 1439, 539, 3, 24, ev) == 1 && ev[0].action == 1 && stretched.activeCount() == 0);
     // Before the picture: a finger that touches down is ignored until it lifts, even once the picture is up.
     evo::TouchTracker early;
     early.setPictureStarted(false);
@@ -137,6 +195,50 @@ int main() {
     early.setPictureStarted(false);  // picture gone mid-gesture: released where it was
     CHECK(frame(early, 100, 410, 2, 60, ev) == 1 && ev[0].action == 1 && ev[0].p[0].y == 400 &&
           early.activeCount() == 0);
+    // The picture steps aside (volume, popup, reverse, MENU) with a finger down on the phone, and its lift is decoded
+    // before the touch thread's next turn: the lift still goes to the phone, which would otherwise keep the finger
+    // down. Nothing else goes once the picture has left: no new touch, no drag, no lift of a finger it never saw.
+    {
+        evo::TouchTracker tr;
+        evo::PhoneFingers phone;
+        CHECK(frame(tr, 200, 100, 1, 0, ev) == 1 && phone.admit(ev[0], true) && phone.any());
+        CHECK(frame(tr, 210, 100, 2, 12, ev) == 1 && phone.admit(ev[0], true));
+        CHECK(frame(tr, 210, 100, 3, 24, ev) == 1 && ev[0].action == 1);
+        CHECK(phone.admit(ev[0], false) && !phone.any());  // the picture has gone: this lift goes all the same
+        CHECK(frame(tr, 300, 100, 1, 36, ev) == 1 && !phone.admit(ev[0], false));  // a new touch is iDrive's
+        CHECK(frame(tr, 300, 100, 3, 48, ev) == 1 && !phone.admit(ev[0], false) && !phone.any());  // so is its lift
+        CHECK(frame(tr, 400, 100, 1, 60, ev) == 1 && phone.admit(ev[0], true));  // the picture is back
+        CHECK(frame(tr, 420, 100, 2, 72, ev) == 1 && ev[0].action == 2 && !phone.admit(ev[0], false));
+        // Two fingers: the phone saw the first one go down, not the second one, which came after the picture left.
+        aa::TouchContact two[2] = {{0, 2, 420, 100, 9}, {1, 1, 600, 300, 9}};
+        unsigned char f2[112];
+        aa::buildTouchFrame(f2, two, 2, 0, 84);
+        CHECK(tr.feed(f2, sizeof(f2), ev, 16) == 1 && ev[0].action == 5 && !phone.admit(ev[0], false));
+        aa::buildTouchFrame(f2, two, 1, 0, 96);  // the second finger lifts
+        CHECK(tr.feed(f2, sizeof(f2), ev, 16) == 1 && ev[0].action == 6 && !phone.admit(ev[0], false));
+        two[0].state = 3;  // then the first one
+        aa::buildTouchFrame(f2, two, 1, 0, 108);
+        CHECK(tr.feed(f2, sizeof(f2), ev, 16) == 1 && ev[0].action == 1 && phone.admit(ev[0], false) && !phone.any());
+    }
+    // The picture leaves (a popup, the reverse camera) during a pinch: the phone saw the first finger go down, the
+    // second came in the last instant, and the touch thread's next turn releases both. Both lifts go to the phone,
+    // the last one a RELEASE that ends the gesture; sorted finger by finger, the phone would get only a POINTER_UP and
+    // keep a pointer down.
+    {
+        evo::TouchTracker tr;
+        evo::PhoneFingers phone;
+        CHECK(frame(tr, 200, 100, 1, 0, ev) == 1 && phone.admit(ev[0], true));
+        aa::TouchContact two[2] = {{0, 2, 200, 100, 9}, {1, 1, 600, 300, 9}};
+        unsigned char f2[112];
+        aa::buildTouchFrame(f2, two, 2, 0, 12);
+        CHECK(tr.feed(f2, sizeof(f2), ev, 16) == 1 && !phone.admit(ev[0], false));  // the picture has just left
+        const int n = tr.releaseAll(ev, 16);
+        CHECK(n == 2 && ev[0].action == 6 && ev[1].action == 1);
+        CHECK(evo::phoneLifts(phone, n) == 2 && !phone.any());
+        // The phone saw no finger at all: no lift for it.
+        CHECK(frame(tr, 300, 100, 1, 24, ev) == 1 && !phone.admit(ev[0], false));
+        CHECK(tr.releaseAll(ev, 16) == 1 && evo::phoneLifts(phone, 1) == 0);
+    }
     // The same message split over three datagrams.
     evo::TouchTracker s;
     unsigned char whole[112], parts[3 * 112];
@@ -343,6 +445,32 @@ int main() {
             kk.setOwned(true);
             rec.n = beforeHold;  // the recorder keeps 16 events
             rec.apps = appsBefore;
+        }
+        // COM held when a call starts: its press went to Android Auto, so its release goes there too instead of
+        // iDrive's call screen, or the phone keeps the key down. A COM pressed during the call stays iDrive's.
+        {
+            const int beforeCall = rec.n, appsBefore = rec.apps, localsBefore = rec.locals;
+            pv.data = kCom;
+            kk.onMessage(pv);
+            CHECK(rec.n == beforeCall + 1 && rec.e[beforeCall].keycode == aa::AAK_TEL && rec.e[beforeCall].down == 1);
+            kk.setPhoneToIdrive(true);  // the call starts while COM is held
+            pv.data = k0;
+            kk.onMessage(pv);
+            CHECK(rec.n == beforeCall + 2 && rec.e[beforeCall + 1].keycode == aa::AAK_TEL &&
+                  rec.e[beforeCall + 1].down == 0 && rec.locals == localsBefore);
+            kk.setOwned(false);
+            kk.pollTurnForTest();  // nothing is left held: no second release when the picture goes
+            CHECK(rec.n == beforeCall + 2);
+            kk.setOwned(true);
+            pv.data = kCom;
+            kk.onMessage(pv);
+            pv.data = k0;
+            kk.onMessage(pv);
+            CHECK(rec.n == beforeCall + 2 && rec.locals == localsBefore + 1 && !strcmp(rec.localKey, "COM"));
+            kk.setPhoneToIdrive(false);
+            rec.n = beforeCall;
+            rec.apps = appsBefore;
+            rec.locals = localsBefore;
         }
         // An ignored controller instance must not change the state retained for status 7 (no information).
         const int beforeForeign = rec.n;
@@ -743,9 +871,11 @@ int main() {
         "PASS ancienne molette BMW (C10/C20), lue seulement si la CCS35up reste muette, un seul protocole par voiture "
         "; "
         "entrees : IPv4/UDP de la copie, machine tactile (appui, glisse, "
-        "relache, doublon, trame fragmentee, relache forcee, rien avant l'image), message vMOST -> decodeur molette ; "
+        "relache, doublon, trame fragmentee, relache forcee, rien avant l'image, relache d'un doigt vu par le "
+        "telephone apres le depart de l'image), message vMOST -> decodeur molette ; "
         "touches comme CarPlay (effleurement ignore, NAV/MEDIA/COM et bouton telephone du volant -> applis AA, COM a "
-        "l iDrive pendant un appel) ; touches selon le codage de la voiture, comme l iDrive (controleur G ou F, F20 "
-        "ZBE3 #55, double MEDIA) ; boutons de volume console/volant decodes ; niveau du volume (20.00.C08)");
+        "l iDrive pendant un appel, sauf le relache d'un COM appuye avant) ; touches selon le codage de la voiture, "
+        "comme l iDrive (controleur G ou F, F20 ZBE3 #55, double MEDIA) ; boutons de volume console/volant decodes ; "
+        "niveau du volume (20.00.C08)");
     return 0;
 }

@@ -31,8 +31,14 @@ struct UsbLoopSetup {
     unsigned turnMs;                                     // between two looks at the bus
     unsigned afterResetMs;                               // a reset phone leaves the bus and comes back: not looked at
     bool takeover;  // usb-takeover: our accessory's interface is taken from another program holding it through usbfs
+    unsigned returnMs;  // how long a phone asked to switch is watched closely for its return as an accessory
     UsbLoopSetup()
-        : sysfs("/sys/bus/usb/devices"), open(openUsbDevice), turnMs(500), afterResetMs(2000), takeover(false) {}
+        : sysfs("/sys/bus/usb/devices"),
+          open(openUsbDevice),
+          turnMs(500),
+          afterResetMs(2000),
+          takeover(false),
+          returnMs(5000) {}
 };
 
 // Runs until a stop is requested.
@@ -44,7 +50,8 @@ struct UsbLoopSetup {
 // session, made by the car for itself, or held by another program) is no use to the phone either: the phone alone is
 // reset, which is what unplugging it does, and it is asked again. A phone that says nothing may be showing a question
 // to its owner: it is tried again as it is, without a reset. After 3 resets with no session that held, the phone is
-// left alone until it is plugged in again.
+// left alone until it is plugged in again; so is a phone that took the switch request 5 times without ever coming
+// back as an accessory.
 void runUsbLoop(const UsbLoopSetup& setup, UsbHost& host);
 
 }  // namespace evo

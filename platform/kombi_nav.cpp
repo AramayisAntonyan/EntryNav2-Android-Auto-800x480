@@ -11,6 +11,7 @@
 #include <cstdio>
 
 #include "evo_log.hpp"
+#include "kombi_most.hpp"
 #include "service_contract.hpp"
 
 namespace evo {
@@ -103,6 +104,8 @@ Arrows::Arrows(const ArrowsConfig& config)
       sessionEnded_(false),
       quit_(false),
       started_(false),
+      inboxRevision_(0),
+      guiding_(false),
       enabled_(false),
       settingCheckedAt_(-1e9),
       offUntilNextSession_(false),
@@ -110,6 +113,7 @@ Arrows::Arrows(const ArrowsConfig& config)
       noSecondsNoted_(false),
       linkFailures_(0),
       marked_(false),
+      most_(nullptr),
       bmwGuiding_(false),
       watching_(false) {
     pthread_mutex_init(&mu_, nullptr);
@@ -230,6 +234,9 @@ void Arrows::watchBmwGuidance() {
         pthread_mutex_lock(&watchMu_);
         bmwGuiding_ = state == 1;
         pthread_mutex_unlock(&watchMu_);
+        if (most_) {
+            most_->setBmwGuiding(state == 1);
+        }
         doze(kWatchEveryS, &Arrows::quitting, this);
     }
 }
@@ -329,12 +336,21 @@ void Arrows::tick(double now) {
         return;
     }
 
+    // The messages are copied and read again only when one came in, not on every tick.
     pthread_mutex_lock(&mu_);
-    const NavInbox inbox = inbox_;
+    const bool newMessages = inbox_.revision() != inboxRevision_;
+    NavInbox inbox;
+    if (newMessages) {
+        inbox = inbox_;
+        inboxRevision_ = inbox_.revision();
+    }
     const double lastMessageAt = lastMessageAt_;
     const bool ended = sessionEnded_;
     sessionEnded_ = false;
     pthread_mutex_unlock(&mu_);
+    if (newMessages) {
+        guiding_ = inbox.guiding() && inbox.nextManeuver(next_);
+    }
 
     if (ended) {
         if (guide_.showing() || guide_.sentAny()) {
@@ -362,14 +378,13 @@ void Arrows::tick(double now) {
         markArrow(false, true);
         return;
     }
-    Maneuver next;
     const Maneuver* shown = nullptr;
     const char* why = "guidance ended";
-    if (inbox.guiding() && inbox.nextManeuver(next)) {
+    if (guiding_) {
         if (now - lastMessageAt > config_.guide.staleS) {
             why = "navigation status frozen";
         } else {
-            shown = &next;
+            shown = &next_;
         }
     }
     if (hud6wa_) {
@@ -387,6 +402,9 @@ void Arrows::tick(double now) {
     guide_.step(shown, now, why);
     if (guide_.showing()) {
         linkFailures_ = 0;
+        if (most_) {
+            most_->setEthernetSeen();  // a G-series KOMBI: the MOST cluster is left alone
+        }
     }
     if (guide_.stopped() == Guide::kStoppedRefused) {
         ELOG(kTag,

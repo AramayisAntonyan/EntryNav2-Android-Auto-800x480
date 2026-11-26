@@ -7,6 +7,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -18,15 +19,39 @@
 #include "evo_process.hpp"
 
 namespace evo {
+// One hostapd_cli command on the car's access point (wlan0); false when it could not run or ended in error.
+static bool callHostapd(const std::vector<std::string>& command, std::string& out, int timeoutMs) {
+    std::vector<std::string> args = {"-p", "/var/run/hostapd", "-i", "wlan0"};
+    args.insert(args.end(), command.begin(), command.end());
+    return runCommand("/usr/sbin/hostapd_cli", args, out, timeoutMs);
+}
 static bool queryHostapd(std::string& out) {
-    const char* const cli = "/usr/sbin/hostapd_cli";
-    std::vector<std::string> args;
-    args.push_back("-p");
-    args.push_back("/var/run/hostapd");
-    args.push_back("-i");
-    args.push_back("wlan0");
-    args.push_back("get_config");
-    return runCommand(cli, args, out);
+    return callHostapd(std::vector<std::string>{"get_config"}, out, 2000);
+}
+// RELOAD derives the passphrase's key again: more time than a query.
+static const int kChangeTimeoutMs = 5000;
+static HostapdStart currentHostapdStart() {
+    HostapdStart start;
+    struct stat st;
+    if (stat("/var/run/hostapd/wlan0", &st) == 0) {
+        start.device = st.st_dev;
+        start.inode = st.st_ino;
+        start.known = true;
+    }
+    return start;
+}
+// The wireless loop's thread only.
+UapsdOffer withdrawAccessPointUapsd(bool (*stopping)(void*), void* user) {
+    static HostapdStart rebuiltFor;  // the hostapd start whose beacon was rebuilt
+    const HostapdStart now = currentHostapdStart();
+    const UapsdOffer offer =
+        withdrawUapsd([](const std::vector<std::string>& command,
+                         std::string& reply) { return callHostapd(command, reply, kChangeTimeoutMs); },
+                      [stopping, user]() { return stopping(user); }, now.same(rebuiltFor));
+    if (offer == UapsdOffer::kWithdrawn) {
+        rebuiltFor = now;
+    }
+    return offer;
 }
 static bool macAddress(const std::string& value) {
     if (value.size() != 17) {
@@ -65,7 +90,7 @@ bool loadAccessPoint(aa::ApInfo& out, std::string& source) {
         }
         source = file;
     }
-    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
     if (fd < 0) {
         return false;
     }

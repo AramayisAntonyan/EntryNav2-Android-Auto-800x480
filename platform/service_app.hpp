@@ -10,7 +10,6 @@
 #define ENTRY_AAD_PLATFORM_SERVICE_APP_HPP
 
 #include <pthread.h>
-#include <signal.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -24,6 +23,7 @@
 #include "evo_mic.hpp"
 #include "evo_pill.hpp"
 #include "evo_video.hpp"
+#include "kombi_most.hpp"
 #include "kombi_nav.hpp"
 #include "media_recall.hpp"
 #include "option_key.hpp"
@@ -54,8 +54,9 @@ public:
         bool idleForAdvert;   // nothing connected or being prepared: the advertisement may be refreshed
     };
 
-    // port: the TCP port told to the phone. quit: the main loop's flag, set by the "quit" command.
-    ServiceApp(uint16_t port, bool videoEnabled, volatile sig_atomic_t* quit);
+    // port: the TCP port told to the phone. quit: the main loop's flag, set by the "quit" command (control thread) and
+    // by the signal handler, read by the main loop and the vMOST thread: a lock-free atomic, not a volatile.
+    ServiceApp(uint16_t port, bool videoEnabled, std::atomic<int>* quit);
     ~ServiceApp();
 
     // ---- main loop ----
@@ -97,7 +98,9 @@ public:
     bool stopRequested() override;
     bool projectionBusy() override;
     void sppLinkOpened() override;
+    void prepareAccessPoint() override;
     void handshakeEnded(bool spoke, bool accepted) override;
+    unsigned lostSessions() override;
 
     // ---- UsbHost (stopRequested and projectionBusy are shared) ----
     void usbPhoneReady(int fd) override;
@@ -107,8 +110,9 @@ public:
     AlpsSppLink bt;
     EvoVideo video;
     aa::AASession session;
-    EvoMic mic;                // car mic for the Assistant (stopped before the session it posts to)
-    evo::kombi::Arrows kombi;  // AA turn-by-turn -> HUD/cluster arrows, SOME/IP 0xB006 to the KOMBI
+    EvoMic mic;                     // car mic for the Assistant (stopped before the session it posts to)
+    evo::kombi::MostHud kombiMost;  // F-series cluster over MOST, on the controller reader (destroyed after kombi)
+    evo::kombi::Arrows kombi;       // AA turn-by-turn -> HUD/cluster arrows, SOME/IP 0xB006 to the KOMBI
     aa::TcpServer server;
     aa::ApInfo ap;
     EvoVideoConfig videoConfig;
@@ -127,6 +131,7 @@ public:
     int optionTapX, optionTapY;   // "tap": the centre of the shown picture, in the phone's coordinates
     int pendingOption;            // under mu: 1 map buttons, 2 tap, chosen in the iDrive app's options panel; 0 none
     uint32_t pendingOptionMs;     // when the picture came back for it, 0: not yet
+    bool parkAssist;              // service: park assist owns the screen (iDrive app, "pdc 1"): picture hidden
     bool inCall;                  // MEDIA recall never covers iDrive's call screen
     MediaDoublePress mediaPress;  // under mu, fed by the existing vMOST reader
     bool awaitShow;    // service: the iDrive app asked ("await") that a phone that connects waits aside for its "show"
@@ -143,12 +148,14 @@ public:
     uint32_t coverPrint;
     std::string trackKey, coverPath;
     uint32_t mediaIdsSeen;
+    bool projectionOverUsb;  // the last session came over USB (its loss is not the wireless loop's business)
+    unsigned lostWireless;   // wireless sessions ended without ByeBye
 
 private:
     // A phone connection, from the TCP listener or the USB loop: the video is made ready and the session starts.
     void startProjection(int fd, bool overUsb);
 
-    volatile sig_atomic_t* quit_;
+    std::atomic<int>* quit_;
 };
 
 }  // namespace evo

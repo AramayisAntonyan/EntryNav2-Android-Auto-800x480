@@ -10,6 +10,8 @@
 #include <string>
 
 #include "aa_protocol.hpp"
+#include "atomic_file.hpp"
+#include "evo_ap.hpp"
 #include "evo_log.hpp"
 #include "evo_spp_snapshot.hpp"
 #include "media_info.hpp"
@@ -18,7 +20,7 @@
 
 namespace evo {
 
-ServiceApp::ServiceApp(uint16_t p, bool v, volatile sig_atomic_t* quit)
+ServiceApp::ServiceApp(uint16_t p, bool v, std::atomic<int>* quit)
     : knob(nullptr),
       server(p),
       port(p),
@@ -33,6 +35,7 @@ ServiceApp::ServiceApp(uint16_t p, bool v, volatile sig_atomic_t* quit)
       optionTapY(0),
       pendingOption(0),
       pendingOptionMs(0),
+      parkAssist(false),
       inCall(false),
       awaitShow(false),
       asking(false),
@@ -45,6 +48,8 @@ ServiceApp::ServiceApp(uint16_t p, bool v, volatile sig_atomic_t* quit)
       wppAccepted(false),
       coverPrint(0),
       mediaIdsSeen(0),
+      projectionOverUsb(false),
+      lostWireless(0),
       quit_(quit) {
     pthread_mutex_init(&mu, nullptr);
     pthread_mutex_init(&connectMu, nullptr);
@@ -98,6 +103,15 @@ void ServiceApp::sppLinkOpened() {
     pthread_mutex_unlock(&mu);
 }
 
+// The hostapd commands of prepareAccessPoint ask it before each one.
+static bool stopAsked(void* app) {
+    return static_cast<ServiceApp*>(app)->stopRequested();
+}
+
+void ServiceApp::prepareAccessPoint() {
+    ELOG("ServiceApp", "car access point: %s", describeUapsdOffer(withdrawAccessPointUapsd(stopAsked, this)));
+}
+
 void ServiceApp::handshakeEnded(bool spoke, bool accepted) {
     pthread_mutex_lock(&mu);
     wppReply = wppReply || spoke;
@@ -105,12 +119,19 @@ void ServiceApp::handshakeEnded(bool spoke, bool accepted) {
     pthread_mutex_unlock(&mu);
 }
 
+unsigned ServiceApp::lostSessions() {
+    pthread_mutex_lock(&mu);
+    const unsigned v = lostWireless;
+    pthread_mutex_unlock(&mu);
+    return v;
+}
+
 ServiceApp::Turn ServiceApp::turn(bool service) {
     Turn t;
     pthread_mutex_lock(&mu);
     t.failed = wirelessDone;
     t.active = session.isActive();
-    t.onScreen = videoEnabled && t.active && focus && !reverse;  // what the iDrive app is told
+    t.onScreen = videoEnabled && t.active && focus && !reverse && !parkAssist;  // what the iDrive app is told
     t.asks = t.active && asking && !focus;
     const uint32_t nowMs = monoMs();
     const PeekTiming::Picture picture = peek.turn(nowMs, t.onScreen);
@@ -173,8 +194,15 @@ void ServiceApp::frame(uint32_t, const uint8_t* data, size_t len, uint64_t pts, 
         // Phone frames never wait for mu: the main loop holds it while LayerManagerControl runs (show/hide,
         // opacity), which would stall the picture.
         ++a->videoFrames;
-        if (a->video.postVideoFrame(data, len, pts) == FrameFate::kLost) {
+        const FrameFate fate = a->video.postVideoFrame(data, len, pts);
+        if (fate == FrameFate::kLost) {
             a->session.postKeyframeRequest();  // the session decides whether and when to ask the phone
+        } else if (fate == FrameFate::kStalled) {
+            // Only a new decoder takes frames again, and the next connection starts one. The session ends as lost:
+            // over Wi-Fi the phone's Bluetooth link is then closed for a fresh start (wireless_loop.cpp), over USB
+            // the phone is asked again (usb_loop.cpp).
+            ELOG("ServiceApp", "decoder stalled: the session ends so that the phone comes back to a new decoder");
+            a->session.giveUp();
         }
     }
 }
@@ -206,7 +234,7 @@ void ServiceApp::volumeEvent(unsigned steps, void* user) {
 }
 
 // Volume level from the car (vMOST thread): the pill over Android Auto, which stays opaque. Only a change, or a level
-// right after a volume key, shows; another source's level never does (volume_state.hpp).
+// right after a volume key, shows; another source's level only during a call, as the call's volume (volume_state.hpp).
 void ServiceApp::volumeLevel(const VolumeLevel& level, void* user) {
     ServiceApp* a = static_cast<ServiceApp*>(user);
     pthread_mutex_lock(&a->mu);
@@ -240,7 +268,20 @@ void ServiceApp::audioButton(void* user) {
 // once, so the result does not depend on timing (observed on the car otherwise: iDrive sometimes came back,
 // sometimes not). If iDrive stays on the blank Android Auto page the iDrive app opens its main menu. The Android
 // Auto row brings the phone back.
+// A key file for the iDrive app: one line, renamed into place so it is never read half written; its time is the
+// file's own.
+static void writeKeyFile(const char* path, const char* word, const char* name) {
+    char line[96];
+    const int n = snprintf(line, sizeof(line), "%s %s\n", word, name);
+    if (n > 0 && n < static_cast<int>(sizeof(line))) {
+        writeAtomicFile(path, line, static_cast<size_t>(n), 0644);
+    }
+}
+
 void ServiceApp::hardKey(const char* name, void* user) {
+    // Every key left to iDrive, whatever it does next: the iDrive app tells iDrive leaving its blank state for a key
+    // from iDrive raising one of its screens by itself (its radio page, when the tuner follows the station, #138).
+    writeKeyFile(contract::kHardKeyFile, "hardkey", name);
     // OPTION opens the Android Auto menu of the iDrive app (Stop, start automatically): see the app's hold logic.
     // NAV, MAP and MEDIA always go to Android Auto (appKey); COM reaches here only during a call.
     static const char* const leave[] = {"MENU", "COM", "OPTIONS"};
@@ -320,13 +361,7 @@ void ServiceApp::optionAction(int which) {
 // if iDrive left its blank state, puts it back.
 void ServiceApp::appKey(const char* name, void* user) {
     (void)user;
-    const std::string tmp = std::string(contract::kAppKeyFile) + ".tmp";
-    FILE* f = fopen(tmp.c_str(), "w");
-    if (f) {
-        fprintf(f, "appkey %s\n", name);
-        fclose(f);
-        rename(tmp.c_str(), contract::kAppKeyFile);
-    }
+    writeKeyFile(contract::kAppKeyFile, "appkey", name);
     if (!strcmp(name, "BACK") || !strcmp(name, "TILT_LEFT")) {
         // Every BACK goes through here: logged with the knob's own line only.
         return;
@@ -347,7 +382,7 @@ void ServiceApp::mediaKey(unsigned state, void* user) {
     pthread_mutex_unlock(&a->mu);
 }
 
-// Commands from the iDrive app (service mode): show, hide, await, drivemode, popup, gear, call, daynight, quit.
+// Commands from the iDrive app (service mode): show, hide, await, drivemode, popup, gear, pdc, call, daynight, quit.
 void ServiceApp::command(const ControlCommand& c, void* user) {
     ServiceApp* a = static_cast<ServiceApp*>(user);
     pthread_mutex_lock(&a->mu);
@@ -390,11 +425,26 @@ void ServiceApp::command(const ControlCommand& c, void* user) {
     } else if (c.verb == "gear") {
         const bool r = c.arg == 2;  // CDS driving.gear reverse (2 = reverse), logged by the app
         if (r != a->reverse) {
-            ELOG("ServiceApp", "reverse gear %s: AA picture %s", r ? "engaged" : "left", r ? "hidden" : "back");
+            // Either one keeps the picture hidden: the log said "back" while park assist still hid it (#88).
+            ELOG("ServiceApp", "reverse gear %s: AA picture %s", r ? "engaged" : "left",
+                 r               ? "hidden"
+                 : a->parkAssist ? "still hidden by park assist"
+                                 : "back");
         }
         a->reverse = r;
+    } else if (c.verb == "pdc") {
+        // The iDrive app decides: park assist on, and the driver has not chosen Android Auto over it.
+        const bool owns = c.arg != 0;
+        if (owns != a->parkAssist) {
+            ELOG("ServiceApp", "park assist %s: AA picture %s", owns ? "on" : "off",
+                 owns         ? "hidden"
+                 : a->reverse ? "still hidden by the reverse gear"
+                              : "back");
+        }
+        a->parkAssist = owns;
     } else if (c.verb == "call") {  // iDrive app (CDS communication.callStatus): phone keys go to iDrive's call screen
         a->inCall = c.arg != 0;
+        a->volume.call(a->inCall);  // during a call the pill shows the call's volume (volume_state.hpp)
         if (a->knob) {
             a->knob->setPhoneToIdrive(c.arg != 0);
         }
@@ -445,6 +495,7 @@ void ServiceApp::micData(const uint8_t* pcm, size_t len, void* user) {
 void ServiceApp::navStatus(uint16_t msgId, const uint8_t* body, size_t len, void* user) {
     ServiceApp* a = static_cast<ServiceApp*>(user);
     evo::kombi::Arrows::onNavStatus(msgId, body, len, &a->kombi);
+    evo::kombi::MostHud::onNavStatus(msgId, body, len, &a->kombiMost);  // F-series cluster over MOST
 }
 
 namespace {
@@ -517,14 +568,20 @@ void ServiceApp::ended(void* user) {
     // No stop()/join here: this callback runs on the AA session thread.
     a->mic.request(false);
     a->kombi.onSessionEnded();
+    a->kombiMost.onSessionEnded();
+    const bool goodbye = a->session.phoneSaidGoodbye();
     pthread_mutex_lock(&a->mu);
     a->focus = false;
     a->asking = false;
     a->mediaPress.cancel();
     unlink(contract::kMediaRecallFile);
+    const bool lost = !goodbye && !a->projectionOverUsb;
+    if (lost) {
+        ++a->lostWireless;
+    }
     pthread_mutex_unlock(&a->mu);
     a->server.notifySessionEnded();
-    ELOG("ServiceApp", "session ended");
+    ELOG("ServiceApp", "session ended%s", goodbye ? " (the phone said goodbye)" : lost ? " (lost)" : "");
 }
 
 void ServiceApp::connected(int fd, void* user) {
@@ -554,6 +611,7 @@ void ServiceApp::startProjection(int fd, bool overUsb) {
     }
     pthread_mutex_lock(&a->mu);
     ++(overUsb ? a->usbLinks : a->tcpLinks);
+    a->projectionOverUsb = overUsb;
     a->tcpPreparing = true;
     a->mediaPress.cancel();
     unlink(contract::kMediaRecallFile);

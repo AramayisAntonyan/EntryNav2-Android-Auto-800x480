@@ -5,7 +5,7 @@
 // Protocol: a Unix datagram socket with an abstract name (evo::contract::kControlName, control_address.hpp: no file,
 // no port another program could be given by chance), one text command per datagram:
 //   ping (answered "pong"), show, hide, await, quit, gear <n>, daynight <n>, call <0|1>, popup <0|1>,
-//   drivemode [<n>], pdc <n> (accepted from older apps, not used by the service).
+//   drivemode [<n>] (accepted; this fork's iDrive app no longer sends it), pdc 0|1 (park assist owns the screen).
 // await: from then on a phone that connects is served with its picture aside, until "show" (the app brings iDrive to
 // its blank page first) or "hide" (the app gave up).
 // State file (evo::contract::kStateFile), read every second by the app: "<connecting|connected> <pid> <overlay>",
@@ -16,6 +16,7 @@
 
 #include <pthread.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 #include <atomic>
 #include <string>
@@ -29,6 +30,10 @@ struct ControlCommand {
 };
 // Pure parser. False for an unknown or malformed command.
 bool parseControlCommand(const char* data, size_t len, ControlCommand& out);
+// Pure UID check: only root or the service's own effective UID may drive Android Auto.
+inline bool controlPeerAllowed(uid_t peerUid, uid_t ownUid) {
+    return peerUid == 0 || peerUid == ownUid;
+}
 
 class EvoControl {
 public:
@@ -50,6 +55,7 @@ private:
     std::atomic<bool> running_;
     std::string stateFile_, last_;
     uint32_t lastWriteMs_;
+    unsigned ignoredLogs_;
     Callback cb_;
     void* user_;
 };

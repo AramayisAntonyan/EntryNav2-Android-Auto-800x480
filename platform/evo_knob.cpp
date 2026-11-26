@@ -3,6 +3,7 @@
 // iDrive controller, keys and volume read through vMOST (see evo_knob.hpp).
 #include "evo_knob.hpp"
 
+#include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
 
@@ -114,6 +115,8 @@ EvoKnob::EvoKnob()
       running_(false),
       owned_(false),
       connected_(false),
+      fd_(-1),
+      peer_(nullptr),
       gets_(0),
       nRegistered_(0),
       nVolRegistered_(0),
@@ -319,6 +322,10 @@ void EvoKnob::observeMedia(const VmostMsgView& m) {
 
 void EvoKnob::onMessage(const VmostMsgView& m) {
     ++messages_;
+    if (peer_ && peer_->wants(m)) {
+        peer_->onMessage(m);
+        return;
+    }
     if (m.fblock == kAudioMasterFblock) {  // volume level (copy of what the AudioMaster tells HmiMain3D)
         VolumeLevel level;
         if (decodeVolumeLevel(m, level)) {
@@ -403,9 +410,12 @@ void EvoKnob::onMessage(const VmostMsgView& m) {
     }
     const uint8_t* data = m.data;
     observeMedia(m);
-    uint8_t keys[8];
+    uint8_t keys[64];
     if (m.inst == 0x03 && (m.fkt == 0xC47 || m.fkt == 0xC4F) && m.op == 0xC && m.data && m.len <= sizeof(keys)) {
         // Match CcsDecoder's front-controller instance before updating retained state (status 7).
+        if (m.len > 8) {
+            memcpy(keys + 8, m.data + 8, m.len - 8);
+        }
         normalizePushButtons(m.data, m.len, pushPrev_, keys);  // touch (4) is not a press
         data = keys;
     }
@@ -418,9 +428,12 @@ void EvoKnob::onMessage(const VmostMsgView& m) {
             mediaCb_(MediaDoublePress::kOtherInput, mediaUser_);
         }
         const char* what = ev[i].what ? ev[i].what : "?";
+        // A release whose press reached Android Auto follows it there, before anything else is decided: COM pressed
+        // just before a call started must come up on the phone, not on iDrive's call screen.
+        const bool releaseToPhone = ev[i].kind == 1 && !ev[i].down && takeHeld(ev[i].keycode);
         // During a call, COM stays with iDrive's call screen (CarPlay does the same: ICallManager check).
-        const bool localKey =
-            ev[i].kind == 1 && (ev[i].keycode == 0 || (ev[i].keycode == aa::AAK_TEL && phoneToIdrive_));
+        const bool localKey = !releaseToPhone && ev[i].kind == 1 &&
+                              (ev[i].keycode == 0 || (ev[i].keycode == aa::AAK_TEL && phoneToIdrive_));
         if (localKey) {  // hard key left to iDrive (configureHardKeys)
             if (ev[i].down) {
                 ELOG("Knob", "key %s left to iDrive (not sent to AA)", what);
@@ -437,10 +450,23 @@ void EvoKnob::onMessage(const VmostMsgView& m) {
         bool forward = send;
         if (ev[i].kind == 1) {
             if (!ev[i].down) {
-                forward = takeHeld(ev[i].keycode);
+                forward = releaseToPhone;
             } else if (send) {
                 takeHeld(ev[i].keycode);  // pressed again without a release: still held once
-                if (nHeld_ < static_cast<int>(sizeof(held_) / sizeof(held_[0]))) {
+                const int maxHeld = static_cast<int>(sizeof(held_) / sizeof(held_[0]));
+                if (nHeld_ >= maxHeld && cb_) {
+                    aa::CcsEvent rel;
+                    rel.kind = 1;
+                    rel.keycode = held_[0];
+                    rel.down = 0;
+                    rel.delta = 0;
+                    rel.what = "RELEASE";
+                    cb_(rel, user_);
+                    ++sent_;
+                    memmove(held_, held_ + 1, static_cast<size_t>(maxHeld - 1) * sizeof(held_[0]));
+                    --nHeld_;
+                }
+                if (nHeld_ < maxHeld) {
                     held_[nHeld_++] = ev[i].keycode;
                 }
             }
@@ -474,13 +500,55 @@ void EvoKnob::readOlderProtocol() {
     }
 }
 
+int EvoKnob::send(VmostMsgOut& m) {
+    return vmost_.send(&m);
+}
+
+int EvoKnob::shadow(uint8_t fblock, uint8_t inst, bool on) {
+    return on ? vmost_.shadowRegister(fblock, inst) : vmost_.shadowDeregister(fblock, inst);
+}
+
+// Only while the reader closes (VmostPeer::finish): the answers to the last calls.
+void EvoKnob::pump(int ms) {
+    const uint32_t until = monoMs() + static_cast<uint32_t>(ms > 0 ? ms : 0);
+    for (;;) {
+        const int32_t left = static_cast<int32_t>(until - monoMs());
+        if (left <= 0 || fd_ < 0) {
+            return;
+        }
+        struct pollfd p;
+        p.fd = fd_;
+        p.events = POLLIN;
+        p.revents = 0;
+        const int r = poll(&p, 1, left);
+        if (r <= 0 || (p.revents & (POLLERR | POLLHUP | POLLNVAL))) {
+            if (r < 0 && errno == EINTR) {
+                continue;
+            }
+            return;
+        }
+        if (vmost_.processMessages() != 0) {
+            return;
+        }
+    }
+}
+
 void EvoKnob::run() {
+    nRegistered_ = 0;
+    nVolRegistered_ = 0;
+    levelRegistered_ = false;
     int rc = vmost_.connect(vmostCallback, this, 0);
     if (rc != 0) {
         ELOG("Knob", "vmostd refused the connection (%d)", rc);
         return;
     }
     connected_ = true;
+    bool linkLost = false;  // vmostd closed or broke the connection: nothing more to ask of it, only to let it go
+    // vmostd's library opens its connection without close-on-exec: kept from the programs the service starts.
+    int link = -1;
+    if (vmost_.fileDescriptorGet(&link) == 0 && link >= 0) {
+        fcntl(link, F_SETFD, fcntl(link, F_GETFD) | FD_CLOEXEC);
+    }
     for (size_t i = 0; i < sizeof(kInstances); ++i) {
         rc = vmost_.shadowRegister(kControllerFblock, kInstances[i]);
         ELOG("Knob", "shadow registration E5.%02x: %s (%d)", kInstances[i], rc == 0 ? "OK" : "refused", rc);
@@ -549,25 +617,32 @@ void EvoKnob::run() {
                  kAudioMasterInstance, kVolumeLevelFkt, levelRegistered_ ? "OK" : "refused", lr,
                  gr == 0 ? "sent" : "not sent", gr);
         }
+        fd_ = fd;
         while (running_) {
             struct pollfd p;
             p.fd = fd;
             p.events = POLLIN;
             p.revents = 0;
-            int r = poll(&p, 1, 100);
+            int wait = 100;
+            if (peer_) {
+                const int due = peer_->dueInMs(monoMs());
+                wait = due < wait ? due : wait;
+            }
+            int r = poll(&p, 1, wait);
             if (r < 0 && errno != EINTR) {
                 ELOG("Knob", "poll: %s", strerror(errno));
                 break;
             }
             if (r > 0 && (p.revents & (POLLERR | POLLHUP | POLLNVAL))) {
                 ELOG("Knob", "vmostd closed the connection");
+                linkLost = true;
                 break;
             }
             if (r > 0 && (p.revents & POLLIN)) {
                 rc = vmost_.processMessages();
                 if (rc != 0) {
                     ELOG("Knob", "vMOST reading interrupted (%d)", rc);
-                    connected_ = false;
+                    linkLost = true;
                     break;
                 }
             }
@@ -577,10 +652,17 @@ void EvoKnob::run() {
             if (protocol_.olderDue(monoMs())) {
                 readOlderProtocol();
             }
+            if (peer_) {
+                peer_->tick(monoMs(), *this);
+            }
         }
+        if (peer_ && !linkLost) {
+            peer_->finish(*this);
+        }
+        fd_ = -1;
     }
     releaseHeldKeys("controller reading stopped");
-    if (connected_) {
+    if (connected_ && !linkLost) {
         if (levelRegistered_) {
             vmost_.shadowDeregister(kAudioMasterFblock, kAudioMasterInstance);
             levelRegistered_ = false;
@@ -593,7 +675,9 @@ void EvoKnob::run() {
             rc = vmost_.shadowDeregister(kControllerFblock, registered_[i]);
             ELOG("Knob", "deregistration E5.%02x: %s (%d)", registered_[i], rc == 0 ? "OK" : "failed", rc);
         }
-        vmost_.disconnect();
+    }
+    if (connected_) {
+        vmost_.disconnect();  // the library's side too, the connection lost or not
         connected_ = false;
     }
 }

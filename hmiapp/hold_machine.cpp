@@ -50,7 +50,13 @@ HoldMachine::HoldMachine(HoldIo& io)
       reverseHeld_(false),
       gearPending_(false),
       gearPendingSince_(0),
-      serviceReachable_(false) {
+      pdc_(kPdcUnknown),
+      parkDismissed_(false),
+      driveModeAt_(0),
+      screen_(kScreenUnknown),
+      radioBacks_(0),
+      radioSince_(0),
+      servicePid_(0) {
     memset(prevState_, 0, sizeof(prevState_));
     strcpy(prevState_, "idle");
 }
@@ -73,36 +79,66 @@ void HoldMachine::callChanged(bool inCall, long now) {
 }
 
 bool HoldMachine::gearChanged(int gear, long now) {
-    const bool leaving = gear_ == kReverseGear && gear != kReverseGear;
-    if (gear == kReverseGear && gear_ != kReverseGear) {
-        reverseHeld_ = holding_;
-    }
+    const bool wasInReverse = gear_ == kReverseGear;
     gear_ = gear;
     if (gear == kReverseGear) {
-        gearPending_ = false;  // the camera again: the service hides the picture at once
+        if (!wasInReverse) {
+            reverseHeld_ = holding_ || gearPending_;
+        }
+        gearPending_ = false;
         return true;
     }
-    if (gearPending_) {
-        return false;  // still waiting for the camera to close: the latest gear goes then
-    }
-    if (leaving && reverseHeld_ && !aaFocused_) {
+    if (wasInReverse && reverseHeld_ && !aaFocused_) {
         gearPending_ = true;
         gearPendingSince_ = now;
-        say("hold: out of reverse: Android Auto comes back once iDrive closes the camera (%d s at most)", kCameraWaitS);
-        return false;
+        say("hold: out of reverse, waiting for camera focus to return");
     }
-    return true;
+    return !gearPending_;
 }
 
 void HoldMachine::flushGear(const char* why) {
-    if (!gearPending_) {
+    if (gearPending_) {
+        gearPending_ = false;
+        char msg[32];
+        snprintf(msg, sizeof(msg), "gear %d", gear_);
+        io_.send(msg);
+        say("hold: %s: service told \"%s\"", why, msg);
+    }
+}
+
+// Park assist starting or ending is a new episode: a choice of Android Auto made during the previous one is
+// forgotten. The service is told whether park assist owns the screen, only when that changes.
+void HoldMachine::pdcChanged(int status) {
+    if (status == pdc_) {
+        return;  // the same value again is not a new episode
+    }
+    const bool owned = parkAssistOwns();
+    pdc_ = status;
+    parkDismissed_ = false;
+    if (parkAssistOwns() != owned) {
+        io_.send(owned ? "pdc 0" : "pdc 1");
+        say("park assist %s: Android Auto picture %s", owned ? "ended" : "on", owned ? "back" : "aside");
+    }
+}
+
+// The picture comes back over a park assist that is still on, until park assist changes.
+void HoldMachine::leaveParkAssist(const char* why) {
+    if (!parkAssistOwns()) {
         return;
     }
-    gearPending_ = false;
-    char msg[32];
-    snprintf(msg, sizeof(msg), "gear %d", gear_);
-    io_.send(msg);
-    say("hold: %s: service told \"%s\"", why, msg);
+    parkDismissed_ = true;
+    io_.send("pdc 0");
+    say("park assist: %s, kept until park assist changes", why);
+}
+
+void HoldMachine::driveModeChanged(long now) {
+    driveModeAt_ = now;
+}
+
+// Only kept for a departure from the blank state: forgotten each time it shows again, so a screen seen before Android
+// Auto was opened cannot pass for the one iDrive raises later.
+void HoldMachine::screenChanged(int screen) {
+    screen_ = screen;
 }
 
 // ---- events 52 and 51 -----------------------------------------------------------------------------------------------
@@ -131,16 +167,42 @@ void HoldMachine::holdViaMenu(const char* why, long now) {
     say("hold: event %u -> our menu, then state %u (%s, try %d)", kEvOpenMenu, kAaState, why, menuRouteTries_);
 }
 
+// ---- our own popup --------------------------------------------------------------------------------------------------
+// It only serves to ask for the blank state under it at the next poll. Closed as soon as that is pointless: one of our
+// states shows or has the focus, Android Auto is brought to the front another way, it steps aside, the session ends.
+// Left open, it kept the focus over the blank state, which then looked covered by an iDrive popup: Android Auto was
+// hidden behind an empty popup that nothing closed (code review of 25/11, H10).
+void HoldMachine::closeOwnPopup() {
+    if (popupOpen_) {
+        popupOpen_ = false;
+        io_.ownPopup(false);
+    }
+}
+
+// iDrive's call screen or the camera came up before it was used: not left over them. Nothing was asked under it, so
+// the step that opened it comes again once they are gone (while waiting aside, from our menu: iDrive may take it now).
+void HoldMachine::dropOwnPopup() {
+    if (!popupOpen_) {
+        return;
+    }
+    closeOwnPopup();
+    popupTried_ = false;
+    if (waiting_) {
+        asks_ = 0;
+    }
+    say("hold: our own popup closed: %s on top", inCall_ ? "iDrive's call screen" : "the camera");
+}
+
 // ---- the app's own requests -----------------------------------------------------------------------------------------
 // Android Auto comes to the front: iDrive goes to the blank state at once, not at the next status poll, so the knob
 // never reaches the screen underneath (entry button and the menu's Open row).
 void HoldMachine::showAndHold(const char* why, long now) {
+    flushGear(why);
+    // Park assist stays on a while after reverse: the driver who picks Android Auto over it gets it.
+    leaveParkAssist("Android Auto chosen over it");
     waiting_ = false;
     unheld_ = false;
-    if (popupOpen_) {
-        popupOpen_ = false;
-        io_.ownPopup(false);  // our menu opened by itself meanwhile
-    }
+    closeOwnPopup();  // our menu opened by itself meanwhile
     io_.send("show");
     prevOverlay_ = false;  // the coming overlay is new
     holding_ = true;
@@ -159,6 +221,7 @@ void HoldMachine::optionChosen(const char* which, long now) {
 void HoldMachine::requestShow() {
     waiting_ = false;
     unheld_ = false;
+    closeOwnPopup();
     io_.send("show");
     prevOverlay_ = false;  // the coming overlay is new: hold iDrive on the blank state
 }
@@ -169,13 +232,52 @@ void HoldMachine::requestShow() {
 // Auto, or walked back its history to the screen one of those keys opened (F30, #43: Android Auto stepped aside after
 // BACK in its map); put it back on our blank state at once, so the knob does not act on that hidden screen. A key that
 // leaves Android Auto (MENU, OPTION) removes the file in the service first.
+// A file dated after now (the car's date moved back since it was written) is not recent: its age is unknown. Taken as
+// recent, an old app key file kept Android Auto on screen after a hard key.
 bool HoldMachine::appKeyRecent() {
     long age = 0;
-    return io_.appKeyAge(&age) && age <= kAppKeyS;
+    return io_.appKeyAge(&age) && age >= 0 && age <= kAppKeyS;
+}
+
+// iDrive left the blank state for its FM station page with no key left to iDrive just before: the tuner followed the
+// station to another frequency and iDrive raised that page by itself (#138). Back to the blank state at once, a
+// bounded number of times per window so a page raised over and over cannot start a fight. A key pressed just before
+// (the service's file) is the driver's choice: the hard key step aside.
+bool HoldMachine::winBackRadioPage(long now) {
+    if (screen_ != kRadioStationScreen) {
+        return false;
+    }
+    long age = 0;
+    if (io_.hardKeyAge(&age) && age >= 0 && age <= kHardKeyS) {  // dated after now: not recent (appKeyRecent)
+        if (!leftSeen_) {
+            say("hold: iDrive's radio page %ld s after a key left to iDrive: the driver's choice", age);
+        }
+        return false;
+    }
+    if (!radioSince_ || now - radioSince_ >= kRadioWindowS) {
+        radioSince_ = now;
+        radioBacks_ = 0;
+    }
+    if (radioBacks_ >= kRadioBacksMax) {
+        if (!leftSeen_) {
+            say("hold: iDrive's radio page again, %d times in %d s: Android Auto steps aside this time", radioBacks_,
+                kRadioWindowS);
+        }
+        return false;
+    }
+    ++radioBacks_;
+    leftSeen_ = 0;
+    holdTries_ = 0;
+    menuRouteTries_ = 0;
+    popupTried_ = false;
+    say("hold: iDrive raised its radio page (screen %d) without a key: back to state %u, %d of %d in %d s", screen_,
+        kAaState, radioBacks_, kRadioBacksMax, kRadioWindowS);
+    fireHold("iDrive raised its radio page", now);
+    return true;
 }
 
 bool HoldMachine::keepForAppKey(const char* why, long now) {
-    if (!appKeyRecent() || inCall_ || gear_ == kReverseGear) {
+    if (!appKeyRecent() || inCall_ || cameraWins()) {
         return false;
     }
     const ServiceState d = io_.readService();
@@ -192,6 +294,8 @@ bool HoldMachine::keepForAppKey(const char* why, long now) {
 void HoldMachine::aaFocus(bool focused) {
     aaFocused_ = focused;
     if (focused) {
+        closeOwnPopup();
+        screen_ = kScreenUnknown;
         // The blank state has the focus: it is shown, whatever visibility notification was or was not sent. The hold
         // worked, so its tries start over (a focus lost and given back without "visible" used them up for good, and
         // the next BACK then left the menu under Android Auto for the rest of the session).
@@ -203,20 +307,30 @@ void HoldMachine::aaFocus(bool focused) {
         popupTried_ = false;
         holdGaveUp_ = false;
         underPopup_ = false;
+        flushGear("blank state regained focus");
+        // Out of reverse, park assist still on: iDrive gives the focus back to the blank state when its view closes
+        // (BACK, or by itself). The picture stayed hidden over a blank page until park assist ended (#88).
+        if (gear_ != kReverseGear) {
+            leaveParkAssist("its view closed, iDrive back on the Android Auto page");
+        }
     }
     say("hold: state %u focus -> %d", kAaState, static_cast<int>(focused));
-    if (focused) {
-        flushGear("the camera closed (blank state focused)");
-        if (optionPanel_) {
-            optionPanel_ = false;
-            panelClosed_ = true;  // closed without a choice: Android Auto back at the next poll
-        }
+    if (focused && optionPanel_) {
+        optionPanel_ = false;
+        panelClosed_ = true;  // closed without a choice: Android Auto back at the next poll
     }
 }
 
 void HoldMachine::aaVisible(bool visible, long now) {
     aaVisible_ = visible;
     if (visible) {
+        if (popupOpen_) {
+            // Shown under our popup, which has the focus: what refused our pages may still be on top of the blank
+            // state once it is closed, as after event 52 under it.
+            closeOwnPopup();
+            underPopup_ = true;
+        }
+        screen_ = kScreenUnknown;
         aaSeen_ = true;
         holdTries_ = 0;
         menuRouteTries_ = 0;
@@ -231,7 +345,7 @@ void HoldMachine::aaVisible(bool visible, long now) {
     }
     // iDrive came back to our blank state by itself while Android Auto is minimized (BACK walks its history): bring
     // Android Auto to the front, like CarPlay. Not in reverse or during a call.
-    if (visible && !holding_ && !inCall_ && gear_ != kReverseGear) {
+    if (visible && !holding_ && !inCall_ && !cameraWins()) {
         const ServiceState d = io_.readService();
         if (d.pid > 0 && !d.onScreen() && d.is("connected")) {
             say("hold: iDrive went back to the Android Auto screen: asking the service to come to the front");
@@ -240,10 +354,12 @@ void HoldMachine::aaVisible(bool visible, long now) {
     }
 }
 
-void HoldMachine::menuFocus(unsigned state, bool focused, long now, long nowMs) {
+void HoldMachine::menuFocus(unsigned state, bool focused, long now, int64_t nowMs) {
     menuFocused_ = focused;
     if (focused) {
         aaFocused_ = false;
+        closeOwnPopup();
+        flushGear("our menu has the focus");
     }
     say("menu state %u focus -> %d", state, static_cast<int>(focused));
     if (focused) {
@@ -252,7 +368,7 @@ void HoldMachine::menuFocus(unsigned state, bool focused, long now, long nowMs) 
     if (focused && unheld_ && !waiting_) {
         say("hold: iDrive opened our menu after %d request(s): taking the hold", asks_);
     }
-    if (focused && waiting_ && !inCall_ && gear_ != kReverseGear) {
+    if (focused && waiting_ && !inCall_ && !cameraWins()) {
         // Our menu has the focus: iDrive performs our events. Android Auto was waiting for exactly that.
         say("hold: our menu is open after %ld s and %d request(s): Android Auto comes up", now - waitSince_, asks_);
         showAndHold("our menu opened for Android Auto", now);
@@ -270,30 +386,34 @@ void HoldMachine::menuFocus(unsigned state, bool focused, long now, long nowMs) 
 }
 
 // ---- the status poll ------------------------------------------------------------------------------------------------
-// A (re)started service knows neither the call nor the gear: started in reverse, Android Auto would come up over the
-// camera. Both are sent when the service becomes reachable, and again when the phone connects.
+// A (re)started service knows neither the call, the gear nor park assist: started in reverse, Android Auto would
+// come up over the camera. They are sent when the service becomes reachable, and again when the phone connects.
 void HoldMachine::tellService(const ServiceState& service) {
     const bool reachable = service.pid > 0;
-    if (reachable && !serviceReachable_) {
+    const bool newService = reachable && service.pid != servicePid_;
+    if (newService) {
         // From now on a phone that connects waits aside for our "show": iDrive is brought to our pages first. A
         // service that does not know the word shows Android Auto by itself, as before.
         io_.send("await");
     }
-    if ((reachable && !serviceReachable_) || (service.is("connected") && strcmp(prevState_, "connected"))) {
+    if (newService || (service.is("connected") && strcmp(prevState_, "connected"))) {
         io_.send(inCall_ ? "call 1" : "call 0");
         if (gear_ != kGearUnknown) {
             char msg[32];
-            snprintf(msg, sizeof(msg), "gear %d", gearPending_ ? kReverseGear : gear_);  // as the service knows it
+            snprintf(msg, sizeof(msg), "gear %d", gearPending_ ? kReverseGear : gear_);
             io_.send(msg);
         }
+        if (pdc_ != kPdcUnknown) {
+            io_.send(parkAssistOwns() ? "pdc 1" : "pdc 0");
+        }
     }
-    serviceReachable_ = reachable;
+    servicePid_ = reachable ? service.pid : 0;
     strncpy(prevState_, service.state, sizeof(prevState_) - 1);
 }
 
 // iDrive popup over our blank state: the service steps aside so the driver sees it (hmiapp/popup_peek.hpp).
-void HoldMachine::updatePopupPeek(bool covered) {
-    const PopupPeek::Action a = popup_.step(covered);
+void HoldMachine::updatePopupPeek(bool covered, long) {
+    const PopupPeek::Action a = popup_.step(covered);  // no driving mode exception: this fork sends none
     if (a == PopupPeek::kStart) {
         io_.send("popup 1");
         say("popup: iDrive took the focus over state %u (gear %d): Android Auto picture removed", kAaState, gear_);
@@ -321,13 +441,10 @@ void HoldMachine::beginWait(long now) {
 void HoldMachine::bringIdrive(const ServiceState& service, long now) {
     if (service.onScreen() || service.pid <= 0 || !service.is("connected") || !service.asks()) {
         waiting_ = false;  // shown another way, the session is over, or the service no longer waits
-        if (popupOpen_) {
-            popupOpen_ = false;
-            io_.ownPopup(false);
-        }
+        closeOwnPopup();
         return;
     }
-    if (inCall_ || gear_ == kReverseGear) {
+    if (inCall_ || cameraWins()) {
         return;  // iDrive's call screen or the camera: not now
     }
     if (menuFocused_ || aaFocused_) {
@@ -353,8 +470,7 @@ void HoldMachine::bringIdrive(const ServiceState& service, long now) {
     }
     if (asks_ >= 2) {
         io_.triggerEvent(kEvHoldAa);
-        io_.ownPopup(false);
-        popupOpen_ = false;
+        closeOwnPopup();
         underPopup_ = true;
         askedAt_ = now;
         waiting_ = false;
@@ -378,7 +494,7 @@ void HoldMachine::bringIdrive(const ServiceState& service, long now) {
 
 // Android Auto is on screen over an iDrive screen that refused our pages: asked again, once a second.
 void HoldMachine::askWithoutHold(long now) {
-    if (inCall_ || gear_ == kReverseGear || (askedAt_ && now - askedAt_ < 1)) {
+    if (inCall_ || cameraWins() || (askedAt_ && now - askedAt_ < 1)) {
         return;
     }
     askedAt_ = now;
@@ -393,6 +509,12 @@ void HoldMachine::askWithoutHold(long now) {
 
 // Status poll (1 s). service.onScreen(): Android Auto is on screen (knob and touch go to the phone).
 void HoldMachine::poll(const ServiceState& service, long now) {
+    if (gearPending_ && now - gearPendingSince_ >= kCameraWaitS) {
+        flushGear("camera focus wait timed out");
+    }
+    if (inCall_ || cameraWins()) {
+        dropOwnPopup();
+    }
     const bool overlay = service.onScreen();
     const bool connectedNow = service.pid > 0 && service.is("connected");
     if (connectedNow) {
@@ -407,26 +529,27 @@ void HoldMachine::poll(const ServiceState& service, long now) {
     const bool blank = blankShown();
     if (panelClosed_) {
         panelClosed_ = false;
-        if (!holding_ && !inCall_ && gear_ != kReverseGear && service.pid > 0 && service.is("connected") &&
-            !service.onScreen()) {
+        if (!holding_ && !inCall_ && !cameraWins() && connectedNow && !overlay) {
             showAndHold("options panel closed", now);
             return;
         }
     }
-    if (gearPending_ && now - gearPendingSince_ >= kCameraWaitS) {
-        flushGear("no focus back from the camera");
+    if (blank) {
+        // iDrive is back on the blank state: an earlier departure was not a hard key. The next one needs its own
+        // second poll, or two short departures within 3 s would add up to a "hide" with no key pressed.
+        leftSeen_ = 0;
     }
     // Covered: the blank state is still shown but none of our states has the focus (an iDrive popup over it).
     // Not while the blank state, taken under our own popup, has not had the focus yet: what refused our pages is
-    // still on top of it, and it is not a popup the driver can see.
-    bool covered = !rose && !fell && overlay && holding_ && blank && !aaFocused_ && !inCall_ && gear_ != kReverseGear &&
-                   !underPopup_;
+    // still on top of it, and it is not a popup the driver can see. Never our own popup itself.
+    bool covered = !rose && !fell && overlay && holding_ && blank && !aaFocused_ && !inCall_ && !cameraWins() &&
+                   !underPopup_ && !popupOpen_;
     // A key that keeps Android Auto just covered it: OPTION acting in Android Auto (iDrive opened its option panel
     // over our blank state). Taken back at once, not treated as a popup to step aside for.
     if (covered && !popup_.active() && keepForAppKey("a key kept Android Auto on screen (iDrive panel over it)", now)) {
         covered = false;
     }
-    updatePopupPeek(covered);
+    updatePopupPeek(covered, now);
     if (rose) {
         waiting_ = false;
         if (unheld_) {
@@ -450,18 +573,15 @@ void HoldMachine::poll(const ServiceState& service, long now) {
         return;
     }
     if (fell) {
-        if (popupOpen_) {
-            popupOpen_ = false;  // opened to hold Android Auto, which is gone
-            io_.ownPopup(false);
-        }
+        closeOwnPopup();  // opened to hold Android Auto, which is gone
         // Android Auto stepped aside by itself (phone's exit icon, signal lost) while iDrive shows our blank state:
         // give the driver the iDrive main menu. Not in reverse, not when a hard key already took iDrive elsewhere.
-        if (blank && !aaFocused_ && gear_ != kReverseGear) {
+        if (blank && !aaFocused_ && !cameraWins()) {
             // OPTION while Android Auto is on screen: the service stepped aside and iDrive opened the blank page's own
             // options panel (Show map buttons, Tap the map, Android Auto menu). Left to the driver.
             optionPanel_ = true;
             say("hold: OPTION: the Android Auto options panel is open");
-        } else if (blank && !hideSent_ && gear_ != kReverseGear) {
+        } else if (blank && !hideSent_ && !cameraWins()) {
             io_.triggerEvent(kEvGoHome);
             say("hold: Android Auto stepped aside: event %u -> iDrive main menu", kEvGoHome);
         } else {
@@ -505,10 +625,10 @@ void HoldMachine::poll(const ServiceState& service, long now) {
         if (underPopup_) {
             return;  // shown, and the focus still with what refused our pages: held, nothing to ask again
         }
-        if (popup_.active()) {
-            return;  // an iDrive popup: Android Auto steps aside, no event over it
+        if (popup_.active() || (driveModeAt_ && now - driveModeAt_ < kDriveModeQuietS)) {
+            return;  // an iDrive popup or the driving mode display: Android Auto steps aside, no event over it
         }
-        if (gear_ == kReverseGear) {
+        if (cameraWins()) {
             unfocusedPolls_ = 0;
             return;  // the camera took the focus before Android Auto stepped aside: no event over it
         }
@@ -550,6 +670,9 @@ void HoldMachine::poll(const ServiceState& service, long now) {
         fireHold("call ended", now);
         return;
     }
+    if (cameraWins()) {
+        return;  // the camera or the park assist view: nothing is asked over it, not even our own popup
+    }
     if (!aaSeen_) {
         // Still on an iDrive screen a second after asking: through our menu (holdViaMenu), then event 52 once if the
         // menu never opened. After the first refused menu, our own popup, as for a phone waiting aside
@@ -558,8 +681,7 @@ void HoldMachine::poll(const ServiceState& service, long now) {
         // refused, and the knob driving that screen underneath.
         if (popupOpen_) {
             io_.triggerEvent(kEvHoldAa);
-            io_.ownPopup(false);
-            popupOpen_ = false;
+            closeOwnPopup();
             underPopup_ = true;
             aaSeen_ = false;
             holdTime_ = now;
@@ -589,10 +711,10 @@ void HoldMachine::poll(const ServiceState& service, long now) {
     }
     // A hard key (MENU / MEDIA / NAV / COM / MAP / OPTION) took iDrive elsewhere, the way MENU leaves native CarPlay:
     // Android Auto steps aside; the Android Auto entry brings it back. Confirmed on a second poll.
-    if (gear_ == kReverseGear) {
+    if (keepForAppKey("a key kept Android Auto on screen (poll)", now)) {
         return;
     }
-    if (keepForAppKey("a key kept Android Auto on screen (poll)", now)) {
+    if (winBackRadioPage(now)) {
         return;
     }
     if (!leftSeen_ || now - leftSeen_ > 3) {

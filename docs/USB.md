@@ -40,7 +40,8 @@ Le fichier est lu à chaque démarrage d'Android Auto et vaut jusqu'à son arrê
    ([protocole AOA](https://source.android.com/docs/core/interaction/accessories/aoa) : requêtes 51, 52 et 53). Un
    appareil qui ne répond pas à la première n'est plus sollicité.
 4. Le téléphone revient en accessoire sur la même prise : le service prend son interface et y fait passer la session
-   Android Auto, la même qu'en sans fil.
+   Android Auto, la même qu'en sans fil. Un téléphone qui accepte la demande sans jamais revenir en accessoire est
+   sollicité cinq fois au plus, puis laissé tranquille jusqu'au prochain branchement.
 
 Le service ne prend jamais une interface USB à un pilote ou à un programme BMW. Quand le téléphone est en mode
 accessoire sans que le service puisse s'en servir (resté ainsi après un *Arrêter*, ou tenu par un programme de la
@@ -69,4 +70,4 @@ case du menu retire le fichier, nom de prise compris : il est à réécrire ensu
 | Rien ne se passe au branchement | Câble de données et non de charge seule. Sur le téléphone, choisir « Transfert de fichiers » dans la notification USB, puis rebrancher. |
 | Le téléphone affiche Android Auto mais pas l'iDrive | Débrancher, attendre 10 secondes, rebrancher. |
 | Pas de son | Le son passe par le Bluetooth : vérifier que le téléphone est connecté à la voiture. |
-| Toujours rien | Activer les journaux ([maintenance](MAINTENANCE.md)), reproduire, et joindre `/tmp/entry-aa-service.log` à un ticket : les lignes `[UsbLoop]` et `[UsbBridge]` disent ce qui a été vu sur les prises. |
+| Toujours rien | Activer les journaux ([maintenance](MAINTENANCE.md)), reproduire, et joindre le journal du service à un ticket : les lignes `[UsbLoop]` et `[UsbBridge]` disent ce qui a été vu sur les prises. |

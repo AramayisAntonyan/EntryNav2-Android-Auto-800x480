@@ -58,6 +58,7 @@ struct Run {
         setup.open = openFake;
         setup.turnMs = 50;
         setup.afterResetMs = 100;
+        setup.returnMs = 200;
         g_refused = 0;
         CHECK(pthread_create(&thread, nullptr, main, this) == 0);
     }
@@ -147,21 +148,37 @@ void onePortOnly() {
     CHECK(phone.opens == 0 && run.host.handed == 0);
 }
 
-// Another program holds the accessory: it is never taken from it, and after 3 resets the phone is left alone.
+// Another program holds the accessory (EBUSY): it is never taken from it, and after 3 resets the phone is left
+// alone. Another claim error (EIO) is handled the same way.
 void heldInterface() {
-    fake::Bus bus;
-    fake::Phone phone;
-    phone.held = true;
-    g_phones.assign(1, &phone);
-    phone.plug(bus, "1-1");
-    Run run(bus);
-    CHECK(fake::within(15000, [&]() { return phone.count(&fake::Phone::resets) == 3; }));
-    const unsigned started = phone.count(&fake::Phone::started);
-    usleep(1500000);
-    CHECK(phone.count(&fake::Phone::resets) == 3 && phone.count(&fake::Phone::started) <= started + 1);
-    CHECK(run.host.handed == 0 && phone.count(&fake::Phone::releases) == 0);
-    CHECK(phone.count(&fake::Phone::takeovers) == 0);
-    run.end();
+    {
+        fake::Bus bus;
+        fake::Phone phone;
+        phone.held = true;
+        g_phones.assign(1, &phone);
+        phone.plug(bus, "1-1");
+        Run run(bus);
+        CHECK(fake::within(15000, [&]() { return phone.count(&fake::Phone::resets) == 3; }));
+        const unsigned started = phone.count(&fake::Phone::started);
+        usleep(1500000);
+        CHECK(phone.count(&fake::Phone::resets) == 3 && phone.count(&fake::Phone::started) <= started + 1);
+        CHECK(run.host.handed == 0 && phone.count(&fake::Phone::releases) == 0);
+        run.end();
+    }
+    {
+        fake::Bus bus;
+        fake::Phone phone;
+        phone.claimErrno = EIO;
+        g_phones.assign(1, &phone);
+        phone.plug(bus, "1-1");
+        Run run(bus);
+        CHECK(fake::within(15000, [&]() { return phone.count(&fake::Phone::resets) == 3; }));
+        const unsigned started = phone.count(&fake::Phone::started);
+        usleep(1000000);
+        CHECK(phone.count(&fake::Phone::resets) == 3 && phone.count(&fake::Phone::started) <= started + 1);
+        CHECK(run.host.handed == 0 && phone.count(&fake::Phone::releases) == 0);
+        run.end();
+    }
 }
 
 // usb-takeover: the accessory another program holds through usbfs (the EntryNav2's media player) is taken over and
@@ -189,6 +206,27 @@ void kernelHeld() {
     Run run(bus, "", true);
     CHECK(fake::within(15000, [&]() { return phone.count(&fake::Phone::resets) == 3; }));
     CHECK(run.host.handed == 0 && phone.count(&fake::Phone::takeovers) >= 1);
+    run.end();
+}
+
+// A phone that takes the request to start as an accessory but never becomes one: asked 5 times, then left alone until
+// it is plugged in again, without a reset. Before, it was asked again after each wait, for ever.
+void neverSwitches() {
+    fake::Bus bus;
+    fake::Phone phone;
+    phone.staysPut = true;
+    g_phones.assign(1, &phone);
+    phone.plug(bus, "1-1");
+    Run run(bus);
+    CHECK(fake::within(5000, [&]() { return phone.count(&fake::Phone::started) == 5; }));
+    usleep(1000000);
+    CHECK(phone.count(&fake::Phone::started) == 5 && phone.count(&fake::Phone::resets) == 0 && run.host.handed == 0);
+    // Plugged in again, at another address: asked again, and this time it switches.
+    phone.set(&fake::Phone::staysPut, false);
+    bus.remove("1-1");
+    phone.address = 30;
+    phone.plug(bus, "1-1");
+    CHECK(run.handed(1) && phone.count(&fake::Phone::started) == 6);
     run.end();
 }
 
@@ -222,6 +260,7 @@ int main() {
     otherDevices();
     onePortOnly();
     heldInterface();
+    neverSwitches();
     takenOver();
     kernelHeld();
     busyService();
@@ -229,6 +268,6 @@ int main() {
     dup2(console, 1);
     puts(
         "PASS USB loop: switch and hand-over, stale accessory reset, other devices untouched, one port, held "
-        "interface, takeover from usbfs only, busy service");
+        "interface, a phone that never switches left alone, takeover from usbfs only, busy service");
     return 0;
 }

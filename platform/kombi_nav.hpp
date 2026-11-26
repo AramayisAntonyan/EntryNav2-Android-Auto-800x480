@@ -14,6 +14,8 @@
 //   - The BMW navigation wins: while it guides (the probe given to start(), a read-only D-Bus getter), the arrows stop
 //     writing without a cancel, and come back when it ends.
 //   - The marker file says an arrow may be up; it survives a SIGKILL, and the next start sends the cancel again.
+//   - The F-series cluster over MOST (kombi_most.hpp), once attached, is told when the Ethernet KOMBI took an arrow
+//     (it then stays alone) and whether the BMW navigation guides.
 #ifndef ENTRY_AAD_PLATFORM_KOMBI_NAV_HPP
 #define ENTRY_AAD_PLATFORM_KOMBI_NAV_HPP
 
@@ -57,6 +59,8 @@ struct ArrowsConfig {
     ArrowsConfig();
 };
 
+class MostHud;
+
 class Arrows {
 public:
     // 1: the BMW navigation guides (the arrows give way), 0: it doesn't, -1: unknown (the arrows stay).
@@ -65,6 +69,8 @@ public:
     explicit Arrows(const ArrowsConfig& config = ArrowsConfig());
     ~Arrows();
 
+    // The MOST cluster of the F-series cars, told what concerns it; before start().
+    void attachMost(MostHud* most) { most_ = most; }
     // Starts the worker, idle while the setting is off. probe: null never gives way. Once, from main().
     void start(BmwProbe probe = nullptr);
     // Stops the threads and clears the arrow, one quick attempt. Safe to call twice.
@@ -123,6 +129,9 @@ private:
     pthread_t worker_;
 
     // The worker's own
+    unsigned inboxRevision_;  // of the inbox last read
+    bool guiding_;            // what it said: a guidance with a next maneuver,
+    Maneuver next_;           // this one
     bool enabled_;
     double settingCheckedAt_;
     bool offUntilNextSession_;  // the cluster refused a request, or never answered
@@ -130,6 +139,7 @@ private:
     bool noSecondsNoted_;  // the 6WA's "no seconds" line was written this Android Auto session
     int linkFailures_;
     bool marked_;
+    MostHud* most_;
 
     // The BMW navigation watch, under watchMu_
     pthread_mutex_t watchMu_;

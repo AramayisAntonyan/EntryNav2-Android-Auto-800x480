@@ -6,13 +6,15 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "../platform/service_contract.hpp"
 #include "app_log.hpp"
+#include "guard_file.hpp"
+#include "mono_clock.hpp"
 #include "service_link.hpp"
 
 namespace evo {
@@ -24,6 +26,9 @@ const long kAutostartDelayS = 30;
 const int kBootGuardMax = 3;
 const long kBootGuardWindowS = 15 * 60;
 const int kCrashGuardMax = 3;  // starts without 2 min of uptime before the app turns itself off
+// Only loads this recent count: three short trips over days are not a crash loop, and turned the app off until someone
+// removed the file over SSH (#4).
+const long kCrashGuardWindowS = 15 * 60;
 const long kStableAfterS = 120;
 const double kFreshBootS = 90;  // iDrive loads the app ~12 s after the unit starts; later: iDrive restarted alone
 
@@ -53,34 +58,14 @@ void setSwitch(const char* what, const char* path, bool on, const char* content)
     close(fd);
 }
 
+// Both guards count on the date, not on the monotonic clock (mono_clock.hpp): the starts they count can be in
+// different runs of the unit, and that clock starts again at each.
 bool bootGuardAllows() {
-    time_t now = time(nullptr);
-    long t[8];
     int n = 0;
-    FILE* f = fopen(contract::kBootGuard, "r");
-    if (f) {
-        long v;
-        while (n < 8 && fscanf(f, "%ld", &v) == 1) {
-            if (v <= now && now - v < kBootGuardWindowS) {
-                t[n++] = v;
-            }
-        }
-        fclose(f);
-    }
-    if (n >= kBootGuardMax) {
+    if (!guardTurn(contract::kBootGuard, static_cast<long>(time(nullptr)), kBootGuardWindowS, kBootGuardMax, &n)) {
         alog("autostart SKIPPED by the bootloop guard (%d starts within %ld min): use Start in the menu", n,
              kBootGuardWindowS / 60);
         return false;
-    }
-    f = fopen(contract::kBootGuard, "w");
-    if (f) {
-        for (int i = 0; i < n; ++i) {
-            fprintf(f, "%ld\n", t[i]);
-        }
-        fprintf(f, "%ld\n", static_cast<long>(now));
-        fflush(f);
-        fsync(fileno(f));
-        fclose(f);
     }
     return true;
 }
@@ -97,8 +82,8 @@ bool appDisabled() {
 
 // ---- crash guard (HMI crash loop protection) ------------------------------------------------------------------------
 // create() notes the load in app-guard-load; 2 minutes later the status poll deletes it. A note still there at the
-// next create() = the last run was short: judged by how it ended, a crash adds a line to app-guard. kCrashGuardMax
-// lines: create() refuses (iDrive starts without the app).
+// next create() = the last run was short: judged by how it ended, a crash adds its date to app-guard. kCrashGuardMax
+// dates within kCrashGuardWindowS: create() refuses (iDrive starts without the app) until they are older.
 LastRunEnd judgeLastRun(double systemUptimeS, const char* coresThen, const char* coresNow) {
     if (systemUptimeS > kFreshBootS) {
         return LastRunEnd::kHmiRestart;  // iDrive went down and came back while the unit kept running
@@ -183,26 +168,29 @@ bool crashGuardAllows() {
             const char* why = end == LastRunEnd::kHmiRestart ? "iDrive restarted while the unit kept running"
                                                              : "the unit stored a new core dump";
             alog("crash guard: the last run was a crash (%s; cores now: %s)", why, coresNow[0] ? coresNow : "none");
-            char line[160];
-            snprintf(line, sizeof(line), "%ld %s\n", static_cast<long>(time(nullptr)),
-                     end == LastRunEnd::kHmiRestart ? "hmi-restart" : "core-dump");
-            writeFileSynced(contract::kAppGuard, line, true);
+            // One date per crash (guard_file.hpp): only those of the last kCrashGuardWindowS count.
+            long dates[kGuardDatesMax];
+            const long now = static_cast<long>(time(nullptr));
+            int n = readGuardDates(contract::kAppGuard, now, kCrashGuardWindowS, dates);
+            if (n == kGuardDatesMax) {
+                --n;
+                for (int i = 0; i < n; ++i) {
+                    dates[i] = dates[i + 1];  // the oldest goes
+                }
+            }
+            dates[n++] = now;
+            writeGuardDates(contract::kAppGuard, dates, n);
         }
     }
-    int lines = 0;
-    f = fopen(contract::kAppGuard, "r");
-    if (f) {
-        char b[64];
-        while (fgets(b, sizeof(b), f)) {
-            ++lines;
-        }
-        fclose(f);
-    }
-    if (lines >= kCrashGuardMax) {
+    long crashes[kGuardDatesMax];
+    const int recent =
+        readGuardDates(contract::kAppGuard, static_cast<long>(time(nullptr)), kCrashGuardWindowS, crashes);
+    if (recent >= kCrashGuardMax) {
         alog(
-            "crash guard: iDrive crashed %d times shortly after loading this app: app turned off. "
-            "Remove %s after checking the logs, then restart the unit.",
-            kCrashGuardMax, contract::kAppGuard);
+            "crash guard: iDrive crashed %d times within %ld min, each time shortly after loading this app: app turned "
+            "off. It loads again at an iDrive start once these are %ld min old; to load it at once, remove %s after "
+            "checking the logs, then restart the unit.",
+            recent, kCrashGuardWindowS / 60, kCrashGuardWindowS / 60, contract::kAppGuard);
         return false;
     }
     char line[600];
@@ -211,8 +199,8 @@ bool crashGuardAllows() {
     return true;
 }
 
-void resetGuardsWhenStable(time_t initTime) {
-    if (!g_stableMarked && initTime && time(nullptr) - initTime >= kStableAfterS) {
+void resetGuardsWhenStable(long initTime) {
+    if (!g_stableMarked && initTime && monoSeconds() - initTime >= kStableAfterS) {
         g_stableMarked = true;
         unlink(contract::kAppGuard);  // the HMI has been up 2 min with us: not a crash loop
         unlink(contract::kAppGuardLoad);
@@ -222,8 +210,8 @@ void resetGuardsWhenStable(time_t initTime) {
 }
 
 // ---- start automatically (with a bootloop guard) --------------------------------------------------------------------
-void serviceAutostart(time_t initTime) {
-    if (g_autostartDone || !initTime || time(nullptr) - initTime < kAutostartDelayS) {
+void serviceAutostart(long initTime) {
+    if (g_autostartDone || !initTime || monoSeconds() - initTime < kAutostartDelayS) {
         return;
     }
     g_autostartDone = true;
@@ -275,6 +263,21 @@ void toggleAnyDistance() {
     setSwitch("directions at any distance", contract::kKombiAnyDistance, !on, "");
     alog("menu: directions at any distance %s -> %s (from the next Android Auto start)", on ? "on" : "off",
          anyDistanceOn() ? "on" : "off");
+}
+
+bool keepLogsOn() {
+    return fileExists(contract::kMaintenance);
+}
+
+void toggleKeepLogs() {
+    const bool on = keepLogsOn();
+    if (on) {
+        alog("menu: keep logs off: the app's log stops here");  // the last line, written while still on
+    }
+    setSwitch("keep logs", contract::kMaintenance, !on, "");
+    if (!on) {
+        alog("menu: keep logs on: the service's log starts with its next start");
+    }
 }
 
 }  // namespace app

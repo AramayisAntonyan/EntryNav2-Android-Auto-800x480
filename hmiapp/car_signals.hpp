@@ -1,12 +1,15 @@
 // Copyright (c) 2026 Jiraiya43
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// The car's CDS properties the app follows: gear, the two phone lines, day/night, driving mode. Each change goes to
-// the service as a control message and to the hold machine (driving mode: logged only).
+// The car's CDS properties the app follows: gear, park assist, the two phone lines, day/night, driving mode, and the
+// iDrive screen shown. Each change goes to the service as a control message and to the hold machine.
 //   driving.gear                     "gear <n>": in reverse the camera shows and Android Auto steps aside
+//   sensors.PDCStatus                to the hold machine, which tells the service "pdc 1" / "pdc 0" (#26)
 //   communication.callStatus0 / 1    "call 1" / "call 0": the phone keys follow iDrive's call
 //   vehicle.dayNightChangeOver       "daynight <n>" (1 day, 2 night), also written to /tmp/entry-aad-daynight
-//   driving.mode / driving.mode35up  logged only: on the F22 the mode shows in the cluster, iDrive opens nothing,
-//                                    so Android Auto stays on screen (it used to step aside 3.5 s per change)
+//   driving.mode / driving.mode35up  logged only (this fork): on the F22 the mode shows in the cluster, iDrive opens
+//                                    nothing, so Android Auto stays on screen
+//   hmi.graphicalContext             the number of each iDrive screen: logged (those of the cameras are not known
+//                                    yet), and to the hold machine, which knows iDrive's radio page (#138)
 // Every handler runs on the app thread.
 #ifndef ENTRY_AAD_HMIAPP_CAR_SIGNALS_HPP
 #define ENTRY_AAD_HMIAPP_CAR_SIGNALS_HPP
@@ -19,6 +22,8 @@ namespace app {
 
 // Registers the handlers; their changes also go to hold.
 void subscribeCarSignals(bmw::PluginApp* app, HoldMachine& hold);
+// Detaches from the hold machine during finalize/destroy so late CDS callbacks become no-ops.
+void detachCarSignals();
 bool callActive();  // either phone line is in a call
 int lastGear();     // kGearUnknown until the first driving.gear value
 

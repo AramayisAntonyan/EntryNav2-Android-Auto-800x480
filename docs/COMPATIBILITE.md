@@ -2,8 +2,8 @@
 
 ## Voitures concernées
 
-Une BMW avec une **unité EntryNav2** (appelée EntryEVO dans son système). Le sans-fil passe par le **Wi-Fi de
-CarPlay** de l'unité ; sans lui, le [câble USB](USB.md) marche aussi. Écrans essayés en voiture : **1280x480** et
+Une BMW ou une MINI avec une **unité EntryNav2** (appelée EntryEVO dans son système). Le sans-fil passe par le
+**Wi-Fi de CarPlay** de l'unité ; sans lui, le [câble USB](USB.md) marche aussi. Écrans essayés en voiture : **1280x480** et
 **800x480** (voir [plus bas](#autres-tailles-décran)).
 
 Les NBT Evo, ID7 et MGU tournent sur d'autres systèmes : ce programme ne peut pas s'y exécuter. L'installation demande
@@ -18,12 +18,33 @@ rapports de leurs propriétaires : elles disent ce qu'ils ont vu, avec la versio
 |---|---|---|---|---|---|
 | G20 de 2019 (référence) | `202111011321` | 1280x480 | sans fil, USB | 0.12.0-rc.12 | celles du [README](../README.md#what-this-fork-adds), limites dans la [feuille de route](../ROADMAP.md#limites-connues) |
 | G20 de 2019 | `202207190806` | 1280x480 | sans fil | 0.12.0-rc.6 | marche ; lenteur au bout d'une minute avec un Galaxy Z Fold7, disparue en bloquant My BMW ([#44](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/44)) |
-| G21 320d de 2020 | `202402191339` | 1280x480 | sans fil | 0.12.0-rc.2 | marche, guidage au compteur avec Waze ; lenteur en sans-fil avec un Galaxy S26 Ultra ([#26](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/26)) |
-| X3 G01 de 2020 | `202003311616` | 1280x480 | sans fil, USB | 0.12.0-rc.6 | marche, double MEDIA ; flèches au compteur avec `kombi-single-maneuver` ; lenteur en sans-fil avec un Galaxy S24+ ([#17](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/17)) |
-| F30 330d LCI de 2018 | `202402191339` | 1280x480 | sans fil | 0.12.0-rc.6 | marche, ancien contrôleur ; touche MAP non reconnue sur ce contrôleur ([#43](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/43)) |
-| F45 225xe | non indiqué | 1280x480 | sans fil, USB | 0.12.0-rc.6 | marche ; lenteur en sans-fil, fluide par câble ; glissements tactiles à l'étude ([discussion #30](https://github.com/Jiraiya43/EntryNav2-Android-Auto/discussions/30)) |
-| F20 118i de 2018 | `202402191339` | 800x480 | USB (unité sans Wi-Fi) | 0.12.0-rc.6 | marche ; pastille du volume pas vue ([#45](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/45)) |
-| i3 | `202012141616` | 800x480 | USB ; sans fil avec une clé Wi-Fi USB | 0.13.0-alpha.2 | marche, ancien contrôleur ([#19](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/19)) |
+| G21 320d de 2020 | `202402191339` | 1280x480 | sans fil | 0.12.0 | marche, guidage au compteur avec Waze ; lenteur en sans-fil avec un Galaxy S26 Ultra, partie avec une mise à jour d'Android Auto puis revenue ; caméra et vue panorama ouvertes par leur bouton restées sous Android Auto, à l'étude ([#26](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/26)) |
+| G30 | non indiqué (HMI `ID5_2403`, nom du logiciel `W2408C1R`) | non relevé | non indiquée | non indiquée | marche ; pas de son par le câble USB : le son passe par le Bluetooth de la voiture, comme toujours avec ce projet |
+| X3 G01 de 2020 | `202003311616` | 1280x480 | sans fil, USB | 0.13.0-rc.1 | marche, double MEDIA ; flèches au compteur avec `kombi-single-maneuver` ; lenteur en sans-fil avec un Galaxy S24+ ([#17](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/17)) ; la touche favorite du son Bluetooth fait quitter Android Auto ([#87](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/87)) |
+| F20 118i LCI de 2017 | `201708081739` | non relevé (écran de 8,8 pouces monté après coup) | USB (unité sans Wi-Fi) | 0.13.0-rc.4 | marche : toucher, molette, son Bluetooth ; contrôle bloqué sur `alps` (bibliothèque Bluetooth d'une autre construction), sans effet en USB ; iDrive figé puis redémarré une fois au premier démarrage avec l'appli ([#106](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/106)) |
+| F20 118i LCI de 2018 | `202402191339` | 800x480 | USB ; sans fil aussi, sans CarPlay activé ni antenne Wi-Fi, téléphone près de la console | 0.12.1-rc.4 | marche, ancien contrôleur ; pastille du volume vue après un redémarrage ; MEDIA, COM et double MEDIA ([#45](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/45), [#55](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/55)) |
+| F20 120i LCI de 2019 | `201811150004` | 1280x480 (écran de 8,8 pouces monté après coup) | USB (unité sans Wi-Fi) | 0.12.1-rc.4 | marche ; bouton vocal sans effet ([discussion #28](https://github.com/Jiraiya43/EntryNav2-Android-Auto/discussions/28)) |
+| F21 de 2018 | non indiqué | non relevé | USB | 0.12.1-rc.3 | marche ; commandes vocales lentes, avec AAIdrive installé aussi ([#68](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/68)) |
+| F30 330d LCI de 2018 | `202402191339` | 1280x480 | sans fil | 0.12.0-rc.6 | marche, ancien contrôleur, pastille du volume ; MAP rendait l'écran à l'iDrive, il ouvre la navigation d'Android Auto depuis 0.13.0-rc.1, pas encore essayé ([#43](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/43)) |
+| F40 118i de 2019 | `202207190806` | non relevé | USB, sans fil | 0.12.1-rc.4 | marche par câble ; sans-fil très lent avec un Galaxy S25 Ultra ([#71](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/71)) |
+| F44 | `202402191339` | non relevé | non indiquée | non indiquée | marche, menu en polonais essayé ([#176](https://github.com/Jiraiya43/EntryNav2-Android-Auto/pull/176)) |
+| F45 218i de 2017 | `201907031456` | 1280x480 | USB | 0.12.0 | marche ; pas de guidage au compteur ni à la tête haute : sur les Série F, le compteur n'est pas sur l'Ethernet ([#69](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/69), [#79](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/79)) |
+| F45 225xe | `202402191339` | 1280x480 | sans fil, USB | 0.13.0-rc.1 | marche ; sans-fil lent au bout de quelques minutes, fluide par câble ; glissements tactiles à l'étude ([discussion #30](https://github.com/Jiraiya43/EntryNav2-Android-Auto/discussions/30)) |
+| F45 218d de 2018 | `201910211433` | 1280x480 | sans fil | non indiquée | marche après un second appairage (un téléphone appairé quand Android Auto ne tournait pas ne le voit pas, [#72](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/72)) ; par câble, rien avec un Motorola edge 40, marche avec un Galaxy S26 ([#134](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/134)) |
+| X1 F48 de 2018 | `202207190806` | 800x480 | sans fil, USB | 0.13.0-rc.3 | marche ; plus de pastille du volume au toucher en 0.13.0-rc.3 ; démarrage sans fil parfois bloqué ([#72](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/72)) |
+| X1 F48 | `201802230007` | 1280x480 | sans fil, USB | 0.12.1-rc.4 | marche ; coupures du sans-fil de temps en temps ; pas de guidage à la tête haute : la navigation BMW de ces voitures passe par D-Bus ([#79](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/79)) |
+| X1 F48 de 2018 | non indiqué | non relevé | sans fil, sans antenne Wi-Fi ajoutée | non indiquée | marche, essayé une fois avec la carte et la musique ([#175](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/175)) |
+| X1 F48 LCI de 2020 | `202306092158` | 1280x480 | sans fil | 0.13.0-rc.3 | marche avec un OnePlus 13, toucher et molette ; l'iDrive a redémarré une fois de trop juste après l'installation ([#103](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/103)) |
+| F52 de 2022 | `202012141616` | 1440x540 | USB et sans fil | 0.13.0-rc.10 avec [#190](https://github.com/Jiraiya43/EntryNav2-Android-Auto/pull/190) | image par câble (1920x1080 demandé au téléphone) ; sans fil, le téléphone fermait la séance quand on lui demandait 1920x1080 : en 1280x720 étiré à l'écran depuis #190, image sur tout l'écran et toucher justes ; pas de guidage sur la tête haute, à l'étude ([#180](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/180)) |
+| i3 | `202012141616` | 800x480 | USB ; sans fil, et par un adaptateur Android Auto sur l'USB | 0.13.0-rc.6 | marche, ancien contrôleur ([#19](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/19)) ; sans fil avec un OnePlus 15 après un nouvel appairage ([#133](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/133)) |
+| MINI Clubman F54 de 2019 | `202111011321` | 1280x480 | sans fil | 0.13.0-rc.2 | marche ; écran rond : marges et toucher justes en 0.13.0-rc.2 ([#78](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/78)) |
+| MINI Clubman F54 de 2022 | `202111011321` | 1280x480 | sans fil | 0.13.0-rc.10 | marche avec un OnePlus 13 une fois AdGuard coupé sur le téléphone ; écran noir une fois en 0.13.0-rc.7, au redémarrage qui finit l'installation, plus en 0.13.0-rc.10 ([#137](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/137)) |
+| MINI Clubman F54 de 2023 | `202402191339` | non relevé (8,8 pouces) | USB | non indiquée | marche ; l'écran rond cache la colonne de gauche ([#64](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/64)) |
+| MINI F56 JCW de 2022 | non indiqué | non relevé | non indiquée | 0.13.0-rc.3 | marche, toucher et image justes ; pas de pastille du volume pendant un appel, corrigé en 0.13.0-rc.4 ([#88](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/88)) |
+| MINI F57 de 2018 | `201910092124` | 800x480 | sans fil | 0.12.1-rc.4 | marche ; plus de pastille du volume au toucher en 0.12.1-rc.4 ; l'écran rond cache les côtés ([#56](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/56)) |
+
+Un adaptateur Android Auto sans fil branché sur la prise USB, en [mode USB](USB.md), donne aussi le sans-fil : essayé
+sur l'i3 et sur une autre voiture avec un Galaxy S24 ([discussion #28](https://github.com/Jiraiya43/EntryNav2-Android-Auto/discussions/28)).
 
 Chaque nouvelle voiture s'ajoute ici, avec son rapport de compatibilité ([ticket « Compatibility report »](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/new/choose)).
 
@@ -41,8 +62,9 @@ programmes restent dans `/tmp`, en mémoire.
 | `vmost` | Fonctions de la molette et des touches, chargées à l'exécution | Bloquant |
 | `mic` | Fonctions du micro | Douteux |
 | `video`, `order` | **Démarrage à blanc :** taille de l'écran, emplacement de l'image, superposition des couches | Bloquant |
-| `screen` | Écran d'une autre taille que 1280x480 : accepté, mais jamais essayé en voiture | Douteux |
-| `alps`, `uuid`, `spp` | **Démarrage à blanc :** bibliothèque Bluetooth de même structure, profil reconnu, état lisible | Bloquant ; Bluetooth occupé : douteux |
+| `screen` | Écran d'une autre taille que 1280x480, 800x480 et 1440x540 : accepté, mais jamais essayé en voiture | Douteux |
+| `alps`, `uuid`, `spp` | **Démarrage à blanc :** bibliothèque Bluetooth de même structure, profil reconnu, état lisible, sur l'emplacement que prendrait Android Auto (détail de `alps` : `SPP 5`, ou `SPP 0` là où le 5 n'est pas disponible) | Bloquant pour le sans-fil seulement ; Bluetooth occupé : douteux. En mode USB : information |
+| `usb` | Mode USB choisi : fichier `/var/local/data/AA/usb` présent ([USB](USB.md)) | Information ; fichier qui contient autre chose qu'un nom de prise : bloquant |
 | `running` | Android Auto tourne déjà : l'écran et le Bluetooth ne sont pas contrôlés | Information |
 | `hotspot`, `gps` | Wi-Fi de la voiture disponible, GPS de la voiture reconnu | Information |
 
@@ -60,10 +82,15 @@ Deux mécanismes font ce travail :
 |---|---|---|
 | Aucune ligne `@block`, logiciel `202111011321` | Même logiciel que la voiture de référence | Possible |
 | Aucune ligne `@block`, autre logiciel ou lignes `@warn` | Même type d'unité, mais rien ne prouve que tout se comporte à l'identique | Possible, et réversible |
-| Au moins une ligne `@block`, ou une fonction absente | Il manque quelque chose sur cette voiture | À ne pas faire |
+| `@block` seulement sur `alps`, `uuid` ou `spp` | Le Bluetooth de cette voiture n'est pas pris en charge : le sans-fil ne peut pas marcher | Possible en mode USB seulement |
+| Au moins une autre ligne `@block`, ou une fonction absente | Il manque quelque chose sur cette voiture | À ne pas faire |
 
 « Possible, et réversible » sera le cas le plus fréquent sur une autre voiture : toutes les fonctions appelées existent et
 le démarrage à blanc passe, mais le contrôle ne peut pas prouver qu'Android Auto marchera jusqu'au bout.
+
+Le Bluetooth ne sert qu'au sans-fil : en mode USB, le service n'y touche pas. Le détail d'un `@block` sur `alps`, `uuid`
+ou `spp` le rappelle (`wireless only`). Avec le fichier `/var/local/data/AA/usb` posé avant le contrôle, ces points
+sortent en `@info` : le contrôle suit alors le mode USB.
 
 ## Autres tailles d'écran
 
@@ -71,14 +98,29 @@ Le service lit la taille de l'écran sur la voiture et règle l'image d'Android 
 Android Auto ne sait dessiner que trois tailles : le service demande la plus petite qui contient l'écran, dit au
 téléphone de garder son affichage dans la zone visible, et ne montre que cette zone.
 
+En sans-fil, il ne demande jamais plus de 1280x720 : sur le Wi-Fi 2,4 GHz de la voiture, un téléphone à qui l'on
+demandait 1920x1080 fermait la séance dès la mise en place de la vidéo
+([#180](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/180)). Sur un écran plus large que 1280 pixels, le haut
+de cette image est alors étiré à tout l'écran, dans les mêmes proportions, et le toucher est ramené aux pixels de
+l'image.
+
 | Écran | Image demandée au téléphone | Zone montrée | État |
 |---|---|---|---|
 | 1280x480 | 1280x720 | les 480 lignes du haut | essayé en voiture (référence) : rien ne change |
-| 800x480 | 800x480 | tout | essayé en voiture sur une i3 ([#19](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/19)) et une F20 ([#45](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/45)), par câble |
-| jusqu'à 1920x1080 | 1920x1080 | la zone de l'écran, en haut à gauche | testé sur PC, jamais essayé |
+| 800x480 | 800x480 | tout | essayé en voiture par câble sur une i3 ([#19](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/19)) et une F20 ([#45](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/45)), aussi sans fil sur une X1 F48 ([#72](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/72)) et une MINI F57 ([#56](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/56)) |
+| plus large que 1280, jusqu'à 1920x1080, par câble | 1920x1080 | la zone de l'écran, en haut à gauche | essayé en 1440x540 sur une F52 ([#180](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/180)) |
+| plus large que 1280, jusqu'à 1920x1080, sans fil | 1280x720 | le haut de l'image, étiré à tout l'écran (1280x480 étiré à 1440x540) | essayé en 1440x540 sur une F52 ([#190](https://github.com/Jiraiya43/EntryNav2-Android-Auto/pull/190)) |
 
 La ligne `@ok|video|` du contrôle donne la taille lue. Un écran plus grand que 1920x1080 est refusé. En 800x480,
-l'image et le menu de l'appli iDrive ont été vus en voiture, pas encore la pastille du volume ({iss(45)}).
+l'image, le menu de l'appli iDrive et la pastille du volume ont été vus en voiture.
+
+### Écran rond des MINI
+
+Sur une MINI, la marque est lue dans le codage de l'iDrive et annoncée au téléphone. Le contour rond de l'écran cache
+ses côtés : le service demande au téléphone de garder ses boutons à 40 colonnes des bords sur un écran de 1280 de large,
+à 25 sur 800. Son affichage et son toucher commencent après la marge de gauche. Marges et toucher vus justes en voiture sur une
+F54 ([#78](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/78)) et une F56
+([#88](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/88)) ; sur 800 de large, pas encore confirmé.
 
 ## Une autre version de la bibliothèque Bluetooth
 
@@ -86,13 +128,16 @@ Android Auto emprunte un emplacement de la pile Bluetooth BMW, puis le rend. La 
 règle que deux : le 0, celui des BMW Apps, où se connecte l'appli My BMW, et le 1, celui de CarPlay. Android Auto prend le
 5, et laisse le 0 à My BMW. Sur une voiture où le 5 n'est pas démarré ou porte un autre identifiant, il prend le 0, comme
 avant : My BMW ne trouve alors plus la voiture tant qu'Android Auto tourne. Le journal du superviseur dit lequel il a pris
-(`Android Auto takes SPP 5` ou `takes SPP 0`).
+(`Android Auto takes SPP 5` ou `takes SPP 0`). Le contrôle regarde le même emplacement, choisi de la même façon
+(`@ok|alps|SPP 5` ou `SPP 0`) : My BMW connecté sur le 0 ne le rend plus douteux quand Android Auto prend le 5. Un
+emplacement 5 encore connecté, ou qui porte encore Android Auto, sort en `@warn|alps|` : un démarrage attend qu'il se
+libère.
 
 Pour vérifier cet emplacement, Android Auto lit les tables de la pile en mémoire. Sur une autre voiture :
 
 1. Les tables sont trouvées dans la bibliothèque de cette voiture, par leurs noms exportés.
-2. Leurs trois tailles doivent être celles de la voiture de référence. Sinon, la voiture est refusée, et le rapport donne
-   ces tailles.
+2. Leurs trois tailles doivent être celles de la voiture de référence. Sinon, le sans-fil est refusé et le rapport donne
+   ces tailles ; le mode USB, qui ne touche pas au Bluetooth, reste possible.
 3. Chaque lecture recoupe deux copies de chaque identifiant. Au moindre désaccord, rien n'est modifié.
 4. Après l'emprunt, Android Auto relit la table pour y retrouver son propre identifiant. Sinon, il s'arrête et rend
    l'emplacement.
@@ -132,6 +177,46 @@ en roulant. La signification OEM exacte de `0x26` reste inconnue. L'essai en voi
 la base 0.12.0-rc.2 ; le portage sur la branche actuelle est vérifié séparément sur PC.
 
 Pour activer ce mode ou revenir au graphe historique : [maintenance](MAINTENANCE.md#graphe-limité-à-la-prochaine-manœuvre).
+
+## Flèches sur le compteur des Série F
+
+Sur les Série F (et les MINI de la même époque), le compteur n'est pas sur l'Ethernet comme celui des Série G : c'est un
+appareil MOST, dont les champs de guidage (bloc `HUD_Terminal`, `0x82`) sont remplis par la navigation BMW. Depuis la
+0.13.0-rc.10, le service y affiche la prochaine manœuvre d'Android Auto : une flèche dessinée, la
+distance, son unité et la rue. **Jamais essayé en voiture par le projet** : le protocole vient de la description d'un
+testeur sur une F52 au compteur 6WA ([#79](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/79)).
+
+- Seulement là où aucun compteur Ethernet ne répond : une Série G n'est pas concernée.
+- Rien n'est créé sur le compteur. Si ses champs n'existent pas ou n'ont pas les tailles du compteur 6WA, rien n'est
+  dessiné et le journal donne les tailles lues.
+- Tous les compteurs n'ont pas les champs du 6WA : sur une MINI F56
+  ([#88](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/88)), aucun ne répondait. Le service apprend alors
+  ceux que la navigation BMW utilise, en l'écoutant pendant un guidage (rien n'est envoyé au compteur pendant ce temps) :
+  les deux images qu'elle échange, le cadre qu'elle affiche, et ses textes classés par leur contenu (des chiffres pour
+  la distance, une unité, le reste pour la rue). Le nom d'une rue n'est jamais gardé ni écrit dans le journal. La taille
+  des images est celle que le compteur a donnée à la navigation, sinon celle qu'il répond au service ; sans taille,
+  rien n'est dessiné. Ce qui est appris va dans le fichier `kombi-most-layout` ([maintenance](MAINTENANCE.md)) : **un
+  seul guidage de la navigation BMW suffit**, ensuite Android Auto dessine sur ces champs, le cadre affiché avant
+  d'écrire les textes, comme le fait la navigation. Il faut que le service ait trouvé le compteur au moins une fois
+  (5 s de guidage Android Auto) : il écoute ensuite jusqu'à son arrêt, puis dès chaque démarrage. **Jamais essayé en
+  voiture.**
+- La navigation BMW garde la priorité : quand elle guide, ou qu'un autre programme dessine sur ces champs, Android Auto
+  les lui laisse sans les effacer.
+- Pendant quelques minutes après un démarrage à froid de l'iDrive, le compteur répond à chaque appel, mais 1 à 7,5 s
+  plus tard. Chaque appel attend donc sa réponse 10 s, et jusqu'à huit appels partent sans attendre les précédents :
+  la première flèche met quelques secondes à venir au lieu de plusieurs minutes. Une taille de champ est prise quand
+  elle arrive, et ce qui manque est redemandé 30 s plus tard (trois fois en tout).
+- Sur une voiture à tête haute, le réglage de l'iDrive fait passer le guidage du compteur à la tête haute, dont l'image
+  est plus petite (126x77 au lieu de 176x126 sur une F30) : le compteur le signale, la taille est relue et la flèche
+  redessinée à la nouvelle taille. Ces deux points viennent des mesures d'un autre projet sur des F20 et F30.
+- Le compteur doit peut-être être codé pour afficher la navigation : s'il accepte tout sans rien montrer, c'est la piste.
+- Le fichier `kombi-off` coupe aussi ces flèches.
+
+Les lignes `[KombiMost]` du journal du service disent ce qui s'est passé : registre MOST, tailles des champs, première
+image prise par le compteur, refus. Après un guidage BMW, une ligne `the BMW navigation on the cluster` résume ce que la
+navigation a fait de chaque champ (numéros, nombres d'appels, sortes de textes, tailles) et ce qui a été appris ou ce
+qui manque. Une réponse du compteur qui ne se rattache à rien (une lecture de taille refusée, par exemple) est écrite
+une fois, avec ses premiers octets.
 
 ## Double appui sur MEDIA
 

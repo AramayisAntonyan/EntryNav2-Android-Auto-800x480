@@ -24,6 +24,14 @@ int main() {
         assert(p.step(false) == PopupPeek::kEnd);
         assert(p.step(true) == PopupPeek::kStart);
     }
-    puts("PASS iDrive popups: one step aside per popup, no repeat");
+    {  // the driving mode popup: only its setting read off, with no coding forcing it, means none (#28)
+        assert(!driveModePopupExpected(0, 0));
+        assert(driveModePopupExpected(1, 0) && driveModePopupExpected(1, 1) && driveModePopupExpected(0, 1));
+        assert(driveModePopupExpected(-1, 0) && driveModePopupExpected(-1, -1) && driveModePopupExpected(0, -1));
+        assert(driveModePopupExpected(1, -1) && driveModePopupExpected(-1, 1));
+    }
+    puts(
+        "PASS iDrive popups: one step aside per popup, driving mode display left out, no repeat, driving mode popup "
+        "turned off in iDrive");
     return 0;
 }
