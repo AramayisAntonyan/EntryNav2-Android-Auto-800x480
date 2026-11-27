@@ -3,7 +3,7 @@
 """Build the release archive: artifacts/entrynav2-android-auto-<version>-armhf.tar, ready to copy to the head unit.
 
 Its files sit at the paths they take on the car (opt/aa/..., opt/hmi/data/ro/Plugins/EntryAad/...), with MD5SUMS
-checkable by the car's BusyBox before and after the copy (docs/INSTALLATION.md). Only the programs recorded by the last
+checkable by the car's BusyBox before and after the copy (docs/INSTALL.md). Only the programs recorded by the last
 validation (make verify_binary verify_wireless) go in. The archive is reproducible: fixed owner, modes and dates.
 
 For the update from a USB stick (platform/update_package.hpp) it also holds UPDATE, the list of the installed files with
@@ -149,7 +149,8 @@ def release_files(version: str, key) -> dict:
     if key is not None:
         files["UPDATE.sig"] = sign(files["UPDATE"], key)
     files["LICENSE.md"] = (ROOT / "LICENSE.md").read_bytes()
-    files["INSTALLATION.md"] = (ROOT / "docs/INSTALLATION.md").read_bytes()
+    files["INSTALL.md"] = (ROOT / "docs/INSTALL.md").read_bytes()
+    files["install.sh"] = (ROOT / "tools/install.sh").read_bytes()
     return files
 
 

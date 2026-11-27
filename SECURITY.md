@@ -13,8 +13,9 @@ Only the latest release is supported: fixes are not backported.
 ## What this project touches
 
 This project runs on a car's head unit. It is installed by hand over SSH on the car's ENET (OBD to Ethernet) cable, as
-described in [docs/INSTALLATION.md](docs/INSTALLATION.md); later versions can also be installed from a USB stick, from
-the iDrive menu. Things worth knowing when assessing a report:
+described in [docs/INSTALL.md](docs/INSTALL.md); later versions can also be installed from a USB stick, from the
+iDrive menu (only archives signed with this fork's key, platform/update_key.hpp). Things worth knowing when assessing a
+report:
 
 | Area | Behaviour |
 |---|---|

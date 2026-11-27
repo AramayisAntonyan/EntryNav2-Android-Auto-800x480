@@ -24,7 +24,7 @@ namespace evo {
 
 namespace {
 
-// The check of docs/INSTALLATION.md, step 2: the loader lists what a program would miss, without running any of it.
+// The installer's check (install.sh, step 2/7): the loader lists what a program would miss, without running any of it.
 const char* const kLoaderEnv[] = {"LD_TRACE_LOADED_OBJECTS=1", "LD_WARN=yes", "LD_BIND_NOW=yes",
                                   "LD_LIBRARY_PATH=/usr/local/lib:/opt/hmi/lib:/usr/lib:/lib", nullptr};
 const unsigned kRestartDelayS = 5;  // the menu says "restarting" meanwhile

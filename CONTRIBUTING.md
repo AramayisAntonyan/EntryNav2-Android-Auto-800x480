@@ -1,109 +1,62 @@
-# Contribuer
+# Contributing
 
-*Contributions in English are welcome too. The project documentation is in French (the installation guide and the
-changelog also exist in English); code, comments and commit scopes are in English. Pull requests are squash-merged: the pull request title (Conventional Commits) becomes the
-commit title, in French; an English title is translated at merge time. No need to rebase or reword your commits.*
+Most useful, in order:
 
-Merci de votre intérêt ! Le plus utile, par ordre :
+1. **A compatibility report** from another car: the install check ([docs/INSTALL.md](docs/INSTALL.md)) changes
+   nothing. Open a *Compatibility report* issue with what it prints.
+2. **A bug report**, with the version, the car's software (`head -n 1 /etc/version`) and, if you can, the logs from
+   the maintenance profile ([docs/SETTINGS.md](docs/SETTINGS.md#logs)).
+3. **A pull request**, ideally after an issue about it.
 
-1. **Un rapport de compatibilité** d'une autre voiture : le contrôle de l'[installation](docs/INSTALLATION.md) ne
-   modifie rien. Ouvrez un ticket *Compatibility report* avec ce qu'il affiche.
-2. **Un signalement de bug**, avec la version, le logiciel de la voiture et, si possible, les journaux du profil
-   maintenance.
-3. **Une demande de fusion**, idéalement après en avoir parlé dans un ticket.
+## What never goes into git
 
-## Ce qui ne va jamais dans git
+- **The car's root password.** It lives in `.secrets/hu-password.txt` (git-ignored); `tools/verify_repo.py` searches
+  every pushed commit for it, to be sure it leaked nowhere.
+- **BMW files**: the copy of the car's system, its libraries, logs and captures. Tests that need them read them from
+  `~/entrynav2/rootfs`, outside the repository. The only exception is the short fixtures in `tests/fixtures/`, whose
+  origin is noted in [tests/fixtures/README.md](tests/fixtures/README.md).
+- **Personal data**: the car's VIN, Bluetooth and Wi-Fi addresses, GPS positions.
+- **Compiled programs.**
 
-- **Le mot de passe de la voiture.** Rangé dans `.secrets/hu-password.txt` (ignoré par git), `tools/verify_repo.py` le
-  cherche dans chaque commit envoyé pour vérifier qu'il n'a fuité nulle part.
-- **Les fichiers BMW** : la copie du système de la voiture, ses bibliothèques, journaux et captures. Les tests qui en ont
-  besoin les lisent dans `~/entrynav2/rootfs`, hors du dépôt. Seule exception : les quelques relevés courts de
-  `tests/fixtures/`, dont l'origine est notée dans [tests/fixtures/README.md](tests/fixtures/README.md).
-- **Les données personnelles** : numéro de série de la voiture (VIN), adresses Bluetooth et Wi-Fi, positions GPS.
-- **Les programmes compilés.**
-
-`.gitignore` n'autorise que ce qu'il liste. `tools/verify_repo.py` relit dans git chaque fichier de chaque commit envoyé.
-Après un clone, activer ce contrôle à chaque envoi :
+`.gitignore` allows only what it lists. After a clone, turn the push check on:
 
 ```sh
 git config core.hooksPath .githooks
 ```
 
-## Sécurité de la voiture
+## Car safety
 
-- Sans fil par défaut ; par câble USB seulement avec le fichier `usb`, que pose la case du menu : le mode n'est
-  jamais déduit de ce qui est branché. Le Bluetooth est toujours rendu à l'iDrive à l'arrêt.
-- USB : seul un téléphone Android reçoit des requêtes ou une réinitialisation. Jamais d'interface prise à un pilote
-  ou à un programme BMW.
-- Aucun service BMW redémarré tout seul, aucun fichier BMW modifié. Deux dossiers ajoutés, toujours retirables.
-- Toute nouvelle écriture sur le réseau de la voiture est annoncée dans le CHANGELOG et dans la procédure d'installation.
-- Le contrôle de compatibilité n'écrit rien sur la mémoire flash : seulement dans `/tmp`.
-- Ne pas changer `vehicleId` dans `core/sdr_builder.cpp` : le téléphone y range ses réglages pour la voiture.
-  `tests/test_sdr_g20.cpp` fige les octets envoyés au téléphone.
-- Ne jamais régénérer un relevé figé de `tests/fixtures/` pour faire passer un test : `test_session_phone`,
-  `test_wireless_phone` et `test_kombi_golden` comparent chaque octet envoyé au téléphone et au compteur. Un relevé ne
-  change qu'avec un changement de comportement voulu, expliqué dans le commit et le CHANGELOG.
-- Pas de réglage par variable d'environnement : des constantes, des arguments de ligne de commande, quelques fichiers
-  interrupteurs dans `/var/local/data/AA`.
+- Wireless by default; the USB cable only with the `usb` file, which the menu box sets. Bluetooth is always handed
+  back to iDrive. No BMW service is restarted and no BMW file is changed; two folders are added, always removable.
+- Diagnostics read only (UDS 0x22, OBD 0x01/0x19). The one exception is clearing the fault codes, which the user
+  starts from the Gauges app and which asks first.
+- Any new write to the car's network is stated in the pull request and the changelog.
+- Never regenerate a frozen fixture to make a test pass: the golden tests compare every byte sent to the phone and
+  the cluster. A fixture changes only with an intended change, explained in the commit.
 
-## Dire ce qui est prouvé
+## Say what is proven
 
-Distinguer toujours « essayé en voiture » de « testé sur PC ». Rien n'est validé tant qu'une voiture ne l'a pas montré.
-Le CHANGELOG et la ROADMAP suivent cette règle, les demandes de fusion aussi.
+Always separate "tried in the car" from "tested on a PC". Nothing counts until a car has shown it. Any command meant
+for the car is first tried with the car's BusyBox 1.21 under QEMU.
 
-Toute commande destinée à la voiture se teste d'abord avec la BusyBox 1.21 de la voiture sous QEMU : pas de
-`ip neigh`, pas de `netstat -p`, pas de classes de caractères dans `tr`, et les processus d'une session SSH meurent à sa
-fermeture.
+## Tests and style
 
-## Tests
-
-| Niveau | Commande | Il faut |
+| Level | Command | Needs |
 |---|---|---|
-| PC, comme la CI | `make check` | `g++`, `libssl-dev`, `libdbus-1-dev`, `protobuf-compiler`, `python3-protobuf`, clang-format 18.1.8 et ruff 0.6.9 (`pip install -r requirements-dev.txt`) |
-| PC, mémoire et UB | `make test-host-sanitizers` | `g++` avec ASan/UBSan, `libssl-dev` ; tests des trames et de la session, détection des fuites active |
-| ARM | `bash toolchain/tc.sh make -j4 all hmiapp test-arm-all` | Docker, la copie du système de la voiture |
-| ARM sous QEMU | `python3 -I tests/run_qemu.py` | `qemu-user`, la copie du système |
-| Programmes validés | `make verify_binary verify_wireless` | idem |
-| Procédure d'installation | les commandes de [docs/INSTALLATION.md](docs/INSTALLATION.md), avec la BusyBox de la voiture sous QEMU | idem |
+| PC, as CI | `make check` | `g++`, `libssl-dev`, `libdbus-1-dev`, `protobuf-compiler`, clang-format 18.1.8, ruff 0.6.9 |
+| ARM | `bash toolchain/tc.sh make -j4 all hmiapp test-arm-all` | Docker, a copy of the car's system |
+| ARM under QEMU | `python3 -I tests/run_qemu.py` | `qemu-user`, the copy |
 
-## Style
+- C and C++: GCC 4.7 in `-std=gnu++0x` (no C++14), `.clang-format`. Python: 3.9+, a `main()`, `pathlib`. Shell:
+  POSIX `sh` for BusyBox 1.21. Format with `python tools/format_sources.py` and `ruff check .`.
+- Comments and logs in English, one tag per module (`[Video]`, `[KombiNav]`…). Each source file starts with the two
+  header lines (copyright and `SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0`).
 
-| Langage | Règles | Outil |
-|---|---|---|
-| C et C++ | GCC 4.7 en `-std=gnu++0x` (pas de C++14), `.clang-format` | `python tools/format_sources.py` (clang-format 18.1.8) |
-| Python | 3.9 et plus, une fonction `main()`, `pathlib`, pas d'`assert` pour les contrôles | `python tools/format_sources.py`, `ruff check .` (0.6.9) |
-| Shell | POSIX `sh` pour BusyBox 1.21, ASCII, indentation 4 | `shellcheck`, `shfmt -i 4` |
+## Commits and releases
 
-Commentaires et journaux en anglais, une étiquette par module (`[Video]`, `[KombiNav]`…) ; textes affichés par
-l'iDrive en français. Chaque fichier source commence par :
-
-```cpp
-// Copyright (c) 2026 Jiraiya43
-// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// Une ligne qui dit ce que fait le fichier.
-```
-
-## Commits et branches
-
-- Une branche par sujet, partie de `main` : `fix/…`, `feat/…`, `docs/…`.
-- Messages au format [Conventional Commits](https://www.conventionalcommits.org/fr/) : `type(portée): description` en
-  français, à l'impératif ou au constat, 72 caractères au plus. Types : `feat`, `fix`, `refactor`, `perf`, `test`,
-  `docs`, `build`, `ci`, `chore`. Le corps explique pourquoi.
-- Un commit = un changement cohérent qui compile et passe `make check`.
-- Les demandes de fusion entrent dans `main` par squash : un seul commit, au titre de la demande suivi de `(#N)`.
-  Ce titre suit donc les règles ci-dessus (la CI le vérifie) ; un titre en anglais est mis en français à la fusion.
-  Pas besoin de rebaser ni de réécrire ses commits.
-- Les versions suivent [SemVer](https://semver.org/lang/fr/) et sont marquées par une étiquette `vX.Y.Z`.
-
-## Publier une version
-
-1. `make check`, la compilation ARM, `tests/run_qemu.py`, `make verify_binary verify_wireless`.
-2. Mettre à jour `VERSION`, `CHANGELOG.md` et `CHANGELOG.en.md` (section de la version, date, « PC » ou
-   « voiture »), et le numéro des commandes de `docs/INSTALLATION.md` et `docs/INSTALLATION.en.md` :
-   `tests/test_docs.py` vérifie que les deux guides ont les mêmes commandes.
-3. `python3 tools/package_release.py` : `artifacts/entrynav2-android-auto-X.Y.Z-armhf.tar` et son `.sha256`, sa liste
-   `UPDATE` signée par la clé du projet (`.secrets/update-signing-key.pem`, chez le mainteneur seulement) pour la mise
-   à jour par clé USB. Sans cette clé, `--unsigned` fabrique une archive qui s'installe par SSH seulement.
-4. Demande de fusion `chore(version): X.Y.Z`, puis étiquette `vX.Y.Z` sur `main` et publication sur GitHub, sous le
-   titre « EntryNav2 (EntryEvo) Android Auto X.Y.Z », de l'archive et de son `.sha256`, avec l'extrait du CHANGELOG.
-   Une version jamais essayée en voiture est marquée *pre-release*.
+- One branch per topic off `main`: `fix/…`, `feat/…`, `docs/…`. Messages in [Conventional
+  Commits](https://www.conventionalcommits.org/): `type(scope): description`, 72 characters at most. One commit is
+  one coherent change that builds and passes `make check`.
+- Releasing: run the checks and the ARM build, update `VERSION` and `CHANGELOG.md`, run
+  `python3 tools/package_release.py`, then tag `vX.Y.Z` and publish the archive and its `.sha256`. A version never
+  tried in a car is marked *pre-release*.

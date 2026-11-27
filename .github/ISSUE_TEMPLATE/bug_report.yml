@@ -40,6 +40,6 @@ body:
     attributes:
       label: Logs
       description: |
-        With logs switched on (Keep logs in the Android Auto menu, docs/MAINTENANCE.md): the files of
-        Copy logs to USB stick, or /var/local/data/AA/app.log and service.log over SSH.
+        With logs switched on (Keep logs in the Android Auto menu, docs/SETTINGS.md): the files of Copy logs to
+        USB stick, or /var/local/data/AA/app.log and service.log over SSH.
         Drag the files here.

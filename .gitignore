@@ -56,6 +56,7 @@ __pycache__/
 !/tools/aa_supervisor.cpp
 !/tools/format_sources.py
 !/tools/package_release.py
+!/tools/install.sh
 !/tools/verify_binary.py
 !/tools/verify_core.py
 !/tools/verify_repo.py

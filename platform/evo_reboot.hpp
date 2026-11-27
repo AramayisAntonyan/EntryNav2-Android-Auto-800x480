@@ -139,7 +139,7 @@ enum class RestartWay {
 // this file) leaves it to the M4 or goes for today's restart.
 RestartWay restartHeadUnit(RestartHost& host, unsigned delayMs);
 
-// aa-supervisor --reboot, by hand over SSH (docs/MAINTENANCE.md), in update_car.cpp (the car only). Refused while an
+// aa-supervisor --reboot, by hand over SSH (docs/SETTINGS.md), in update_car.cpp (the car only). Refused while an
 // update from a USB stick runs (its lock is taken) or was cut short (its journal, update-pending); otherwise
 // restartHeadUnit at once, holding the update's lock, its lines on stdout. 1: refused; 127: no restart could start.
 int rebootByHand();

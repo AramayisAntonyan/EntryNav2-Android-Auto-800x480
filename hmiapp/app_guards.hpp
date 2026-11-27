@@ -9,7 +9,7 @@
 //                 not counted. app-guard-load notes the running load. Both removed once the HMI has been up 2 minutes
 //                 with the app.
 //   autostart     present: Android Auto starts by itself 30 s after iDrive
-//   usb           present: Android Auto over a USB cable instead of wireless (docs/USB.md)
+//   usb           present: Android Auto over a USB cable instead of wireless (docs/SETTINGS.md)
 //   bootguard     the automatic starts of the last 15 minutes; at 3, the automatic start is skipped (Start in the menu
 //                 still works). Removed by a manual start and once the HMI has been up 2 minutes.
 #ifndef ENTRY_AAD_HMIAPP_APP_GUARDS_HPP

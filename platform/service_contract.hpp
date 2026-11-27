@@ -3,7 +3,7 @@
 // What the iDrive app, the supervisor (aa-supervisor) and the service (entry-aad) share: file paths and the control
 // port.
 //
-// The installation procedure (docs/INSTALLATION.md, docs/MAINTENANCE.md) names the same paths: change both together.
+// The installation and settings guides (docs/INSTALL.md, docs/SETTINGS.md) name the same paths: change both together.
 #ifndef ENTRY_AAD_PLATFORM_SERVICE_CONTRACT_HPP
 #define ENTRY_AAD_PLATFORM_SERVICE_CONTRACT_HPP
 

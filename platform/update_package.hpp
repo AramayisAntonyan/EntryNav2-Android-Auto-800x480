@@ -12,7 +12,7 @@
 //
 // One file line per installed file: its mode, size and SHA-256, and its path on the car, in /opt/aa or in the app's
 // folder and nowhere else. The signature covers the list, the list covers every byte installed. An archive built
-// without the project's key has no signature: it installs by SSH only (docs/INSTALLATION.md).
+// without the project's key has no signature: it installs by SSH only (docs/INSTALL.md).
 //
 // Everything here is checked before anything is written, from the archive read once into memory: a stick pulled out
 // or changed meanwhile changes nothing. The tar reader only knows what the packager writes (USTAR, files and folders):

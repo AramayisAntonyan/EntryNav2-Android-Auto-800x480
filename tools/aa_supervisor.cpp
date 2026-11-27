@@ -464,7 +464,7 @@ bool preflight(evo::SppSnapshotReader& reader, Baseline& b) {
     return true;
 }
 // --compat: what a start would find on this car, one line per point, for the compatibility check
-// (docs/INSTALLATION.md). It only reads, like the service's preflight, and never asks for the hotspot.
+// (tools/install.sh, docs/INSTALL.md). It only reads, like the service's preflight, and never asks for the hotspot.
 void compatLine(const char* level, const char* id, const std::string& detail = std::string()) {
     printf("@%s|%s|%s\n", level, id, detail.c_str());
 }

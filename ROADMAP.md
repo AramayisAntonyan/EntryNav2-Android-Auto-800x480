@@ -1,78 +1,36 @@
-# Feuille de route
+# Roadmap
 
-Un point n'est coché qu'avec une preuve en voiture : un test sur PC ne suffit pas.
+A box is ticked only with proof in the car; a PC test is not enough. See the [README](README.md#status) for the
+current state on the test car (an F22, 800x480).
 
-## 0.10 : première version publique
+## Works in the car
 
-- [x] Contrôle de compatibilité sans rien modifier (`aa-supervisor --compat`)
-- [x] Procédure d'installation manuelle, répétée avec la BusyBox de la voiture
-- [ ] Procédure suivie de bout en bout sur la voiture de référence
-- [x] Essai de la 0.10.0 en profil maintenance sur la voiture de référence (10 novembre 2026)
-  - [ ] Le contrôle répond « Compatible », démarrage à blanc compris
-  - [x] Android Auto venu tout seul (démarrage automatique, téléphone reconnecté) reste à l'écran, molette sans effet
-    sur l'iDrive
-  - [ ] Media, Android Auto, Ouvrir : l'iDrive reste sur sa page vide, y compris après un mode de conduite puis RETOUR
-  - [ ] Volume : pastille avec le niveau, Android Auto opaque
-  - [ ] Wi-Fi coupé : Android Auto se ferme en 5 secondes environ
-  - [ ] Arrêter et Démarrer
-  - [ ] Molette (un cran par pas), touches, tactile, modes de conduite, caméra, Assistant
-  - [ ] GPS de la voiture dans Waze, flèches sur la tête haute
-- [ ] Sans journaux (fichier `maintenance` absent) : tout marche pareil
+- [x] Android Auto over USB and wireless: picture, sound, controller, keys, volume
+- [x] Gauges: dashboards, the gauge looks, places and hand-set ranges, car-data values
+- [x] Engine values and fault codes through the diagnostic gateway (with the diagnostic cable in)
+- [x] Camera app: a USB grabber's picture
 
-## 0.12 : câble USB
+## Open
 
-- [x] Android Auto démarre par câble USB sur la voiture de référence, le sans-fil marche toujours (11 novembre 2026)
-- [ ] Trajet de 20 à 30 minutes par câble, musique en Bluetooth
-- [ ] Câble débranché puis rebranché en cours de route
-- [ ] *Arrêter* puis *Démarrer* sans débrancher, puis retour au sans-fil
-- [x] Câble essayé sur une autre voiture : X3 G01 ([#17](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/17)),
-  i3 ([#19](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/19)), G21
-  ([#26](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/26))
+- [ ] **6WA cluster arrows.** Worked out and logged; the cluster has not drawn them yet. The car has no navigation,
+  which the cluster may require. Next: the cluster tests with the longer listen window, and the navigation-link idea.
+- [ ] **Engine values without the diagnostic cable.** The MOST tunnel answers the DME; confirm the gauges stay
+  current through it on a drive.
+- [ ] **The console's 360 camera button.** No module behind it; find whether the press reaches the head unit
+  (the *Watch buttons* car test), then open the Camera app with it.
+- [ ] **Wireless stability.** A dropped session reconnects without taking the screen; watch for the Bluetooth link
+  flapping seen once.
 
-## 1.0 : d'autres voitures, mise à jour par clé USB
+## Ideas, not started
 
-- [x] Rapport de compatibilité d'une deuxième voiture, sans rien installer : X3 G01 de 2020
-  ([#17](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/17))
-- [x] Installation sur d'autres voitures : une vingtaine de modèles, Série F, Série G, i3 et MINI, signalés par leurs
-  propriétaires ([compatibilité](docs/COMPATIBILITE.md#voitures-essayées))
-- [ ] Désinstallation vérifiée sur une autre voiture
-- [x] Tableau des logiciels essayés rempli ([compatibilité](docs/COMPATIBILITE.md))
-- [ ] Dernière pré-version essayée sur la voiture de référence
-- [ ] Mise à jour par clé USB essayée sur la voiture de référence : version plus récente, version antérieure, clé
-  sans archive, archive non signée ([installation](docs/INSTALLATION.md#par-clé-usb-sans-pc))
-- [x] Ancienne molette (contrôleurs C10/C20) essayée sur une vraie voiture : i3
-  ([#19](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/19), 11 novembre 2026)
-- [ ] Flèches au compteur des Série F par MOST (depuis la 0.13.0-rc.10) essayées sur une voiture, sinon annoncées comme
-  expérimentales ([#79](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/79))
+- Sound over Wi-Fi instead of the car's Bluetooth
+- Reading the iDrive's current screen directly (parking sensors, calls)
+- Album art on BMW's own media screen
+- The song title in the 6WA when idle (once the cluster draws)
 
-## Limites connues
+## Out of scope
 
-| Limite | Cause | Piste |
-|---|---|---|
-| Le son passe par le Bluetooth de la voiture : qualité limitée, débuts de messages vocaux coupés | pas de son par le Wi-Fi | son par le Wi-Fi |
-| Caméra ouverte par son bouton sans l'aide au stationnement : pas encore vérifié qu'Android Auto lui laisse l'écran | l'aide au stationnement est suivie (`sensors.PDCStatus`, depuis la 0.13.0-rc.3), pas la caméra seule | numéro de l'écran de la caméra, relevé dans `app.log` |
-| Pendant un appel, la molette agit aussi sur l'écran d'appel de l'iDrive | idem | lire l'écran affiché par l'iDrive |
-| Tête haute des Série G : la flèche ne revient pas après l'affichage d'une limitation de vitesse, et reste masquée au-delà de 1,6 km | comportement du compteur | à étudier |
-| Le texte de sortie de rond-point du compteur des Série G est en français | texte fixe | suivre la langue de l'iDrive |
-| Le bouton vocal du volant reste à l'iDrive | quand il allait à Android Auto, l'iDrive répondait aussi « fonction non disponible » (essai de novembre 2026) | à revoir ([discussion #193](https://github.com/Jiraiya43/EntryNav2-Android-Auto/discussions/193)) |
-| Sans-fil lent sur certaines voitures ; par câble, pas de lenteur | côté téléphone ou radio partagée Wi-Fi et Bluetooth, cause pas trouvée | lignes `[WifiLink]` des journaux des testeurs |
-| Sur certaines voitures, la radio FM reprend l'écran en roulant (X1 F48) | l'iDrive remonte lui-même sa page radio quand le tuner suit la station | [#138](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/138) |
-| Une seule identité de voiture pour tous : un téléphone utilisé dans deux voitures équipées les confond | `vehicleId` fixe | identifiant propre à chaque installation |
-
-## Après 1.0
-
-| Sujet | État |
-|---|---|
-| Son par le Wi-Fi au lieu du Bluetooth | en pause |
-| Écran affiché par l'iDrive lu directement (alertes, caméra, appels) | numéros des écrans relevés dans `app.log` depuis la 0.13.0-rc.3 |
-| Boussole envoyée au téléphone (carte orientée à l'arrêt) | idée |
-| Touche favori du tableau de bord qui ouvre Android Auto | idée |
-| Son Bluetooth du téléphone choisi tout seul à la connexion d'Android Auto | idée (voir [#87](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues/87)) |
-| Pochette de l'album sur l'iDrive | idée |
-| Autre structure de la bibliothèque Bluetooth | refusée pour l'instant, il manque le rapport et la bibliothèque |
-| Message à l'écran si Android Auto ne démarre pas en production | idée |
-
-## Hors périmètre
-
-- NBT Evo, ID7 et MGU : autres systèmes, ce programme ne peut pas y tourner.
-- Marques autres que BMW.
+- NBT, NBT Evo, ID7 and MGU head units, and G-series cars: other systems, or better served by
+  [upstream](https://github.com/Jiraiya43/EntryNav2-Android-Auto).
+- Head-up display: the test car has none.
+- Non-BMW cars.

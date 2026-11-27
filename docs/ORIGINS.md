@@ -178,7 +178,7 @@ Required Notice: Copyright (c) 2026 nanaisu - NBT-AAD (https://github.com/Sq00ky
 
 ## Setting up this car (F22, 800x480, USB)
 
-As in upstream's [installation guide](INSTALLATION.md) and [USB notes](USB.md) (in French), plus the takeover file.
+As in [docs/INSTALL.md](INSTALL.md), plus the takeover file.
 Over SSH, Android Auto stopped from its menu:
 
 ```sh

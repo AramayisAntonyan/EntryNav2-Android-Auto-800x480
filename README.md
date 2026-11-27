@@ -41,8 +41,14 @@ Auto core is still upstream's work, and several other projects gave code or show
   92 / 95 / 98...).
 - *Gauge settings*: choose the gauges (by source), their looks, **where each goes** on the dashboards, and **their
   min and max**, set by hand; the dial or bar is redrawn on the head unit with the new scale. Needles move smoothly.
+- **Alerts**: a value per gauge past which it flashes red; its red zone starts there
+  ([how to set one, and how it looks](docs/SETTINGS.md#gauges)).
 - A shift light, the engine's fault codes with descriptions (and a clear that asks first), Live values, and a
   *Car tests* page whose results show on screen, for checks at the car.
+
+![The Gauges dashboard: temperature dials, an rpm dial and boost and oil-pressure bars](docs/images/gauges-dashboard.png)
+
+![A gauge alert: as usual below it, flashing red past it; a card marks it with ! and a flashing bar](docs/images/gauge-alert.png)
 
 **Camera** (iDrive app *AuxCamera*, under My Vehicle)
 
@@ -52,21 +58,22 @@ Auto core is still upstream's work, and several other projects gave code or show
 **6WA cluster arrows** (work in progress)
 
 - Android Auto's next maneuver worked out for the F-series 6WA cluster's MOST HUDTerminal (arrow, junction view,
-  street, distance), following NBT-AAD's driver and guidance rules. Logged only for now: the cluster does not draw
-  them yet (see Status).
+  street, distance), following NBT-AAD's driver and guidance rules, and optionally the song playing while no turn is
+  shown. Logged only for now: the cluster does not draw them yet (see Status).
 
 ## Status
 
-On [the test car](#the-test-car), 2026-11-22:
+On [the test car](#the-test-car), 2026-11-27:
 
 | Feature | State |
 |---|---|
 | Android Auto over USB: picture, sound, controller, keys, volume | **works** |
-| Android Auto wireless | **works**; the session dropped when the phone's Bluetooth link to the unit kept reconnecting |
+| Android Auto wireless | **works**, but dropped often (now with an added Wi-Fi antenna); upstream's Wi-Fi fixes are installed, not yet checked |
 | Album covers | **works** |
 | Gauges: dashboards, looks, places, car data values | **works** |
-| Gauges: engine values (DME, OBD) | through the gateway **works only at times**; through the MOST tunnel: installed, not yet checked (below) |
-| Gauges: hand-set ranges, smooth needles | installed, not yet checked in the car |
+| Gauges: engine values (DME, OBD) | **works** (boost, oil pressure, fuel quality, module voltage shown, 2026-11-27) |
+| Gauges: hand-set ranges, smooth needles | **works** |
+| Gauges: alerts | **works**; the flash should stand out more (next change) |
 | Engine fault codes, read and clear | built, car check pending |
 | Camera app | **works** (picture shown); the full-screen view not yet checked |
 | Arrows in the 6WA cluster | **does not work yet** |
@@ -81,8 +88,11 @@ unit's own diagnosis tunnel over MOST answered the DME at the same time (coolant
 engine through that tunnel whenever the gateway does not answer (clearing the fault codes still needs the gateway).
 
 **6WA arrows.** The cluster answers the head unit's read requests over MOST but has ignored every drawing call so far
-(any message layout or channel). The car has no navigation, and the cluster may wait for one; that is what is tried
-next.
+(any message layout or channel). On 2026-11-27 upstream's own MOST arrows found the cluster's guidance fields but got
+no answer to any of their size requests, and a stand-in navigation registered by the head unit got iDrive asking it
+questions for the first time while the cluster still stayed silent. The car has no navigation, and the cluster's
+display settings offer only the current speed: the next test tells whether the cluster ignores the calls or its
+answers never come back.
 
 **Not available on this car:** car GPS (no navigation: Android Auto uses the phone's GPS), a head-up display, touch.
 The retrofitted console's 360 camera button has no camera behind it; the plan is to open the Camera app with it.
@@ -109,11 +119,12 @@ served by upstream.
 
 ## Installing
 
-Build the archive ([Building](#building-from-source)), then follow upstream's manual procedure over SSH
-([docs/INSTALLATION.md](docs/INSTALLATION.md), in French; the commands speak for themselves): copy
-`entrynav2-android-auto-<version>-armhf.tar` to the unit's `/tmp`, run the read-only checks, install `/opt/aa` and the
-three plugin folders under `/opt/hmi/data/ro/Plugins` (`EntryAad`, `CarGauges`, `AuxCamera`), copy
-`etc/firewall/entry-aad.rules` to `/etc/firewall/` (BMW's firewall reads it at start-up), and restart the unit.
+Full steps for a car that has never been opened to SSH are in [docs/INSTALL.md](docs/INSTALL.md), and the settings
+and logs in [docs/SETTINGS.md](docs/SETTINGS.md). In short, build the archive ([Building](#building-from-source)),
+then over SSH: copy `entrynav2-android-auto-<version>-armhf.tar` to the unit's `/tmp`, unpack it and run its
+`install.sh` (read-only checks, backup, verified copy of `/opt/aa`, the three plugin folders under
+`/opt/hmi/data/ro/Plugins` and the firewall rules, restore if a copy fails), and restart the unit. Later versions
+can also come from a USB stick through Android Auto's menu, when signed with this project's key.
 
 `reboot` does nothing on this unit; `systemctl --force reboot`, run in the foreground, restarts it. Holding the volume
 knob about 30 s, or disconnecting the battery, works too.
@@ -129,12 +140,14 @@ Each is a file in `/var/local/data/AA`; the apps write most of them from their o
 | `option-key` | what *Show map buttons* does: `nudge` (default), `tap`, or a key code |
 | `kombi-6wa`, `kombi-6wa-live` | work out the 6WA arrows and log them; also send them (experimental, parked only) |
 | `kombi-6wa-approach`, `kombi-6wa-lanes`, `kombi-6wa-junction-off`, `kombi-anydist` | the arrows' rules |
+| `kombi-6wa-media` | the song playing in the 6WA's street line while no turn shows |
+| `kombi-most-on` | upstream's own MOST arrows (they send to the cluster by themselves; off by default) |
 | `gauges-off`, `camera-off` | hide the Gauges or the Camera app |
-| `gauges-choice`, `gauges-style`, `gauges-place`, `gauges-limits` | the gauges shown, their looks, places and ranges |
+| `gauges-choice`, `gauges-style`, `gauges-place`, `gauges-limits`, `gauges-alerts` | the gauges shown, their looks, places, ranges and alerts |
 | `gauges-dme-off`, `gateway-ip` | no engine values; the diagnostic gateway's address |
 | `camera-size`, `camera-view` | the camera's picture size and view |
 
-Logs: `/tmp/entry-aa-service.log` (Android Auto service), `/var/local/data/AA/app.log` (iDrive apps),
+Settings and logs: [docs/SETTINGS.md](docs/SETTINGS.md). Logs: `/tmp/entry-aa-service.log` (Android Auto service), `/var/local/data/AA/app.log` (iDrive apps),
 `/var/local/data/AA/car-tests.log` (Car tests), `/var/local/data/AA/gauge-collector.log` (engine values).
 
 ## Building from source
@@ -159,7 +172,7 @@ hmiapp/      the iDrive apps: EntryAad (Android Auto), CarGauges (Gauges), AuxCa
 tools/       supervisor, car-test, gauge-collector, uvc-probe, release packaging and checks
 tests/       PC tests and ARM tests under QEMU
 toolchain/   Docker image of the cross compiler
-docs/        upstream's documentation (French) and ORIGINS (what comes from where)
+docs/        INSTALL, SETTINGS, ARCHITECTURE, and ORIGINS (what comes from where)
 ```
 
 ## Projects this one builds on
@@ -171,7 +184,7 @@ This project exists because the people below did the hard work and shared it. Th
 | Project | Licence | What this project has from it |
 |---|---|---|
 | [Jiraiya43/EntryNav2-Android-Auto](https://github.com/Jiraiya43/EntryNav2-Android-Auto) (formerly entry-aad), by Jiraiya43 | PolyForm Noncommercial 1.0.0 | The base: the Android Auto protocol and session, the service, the EntryAad iDrive app, USB and wireless modes, the build, packaging and tests. Most of the Android Auto code is theirs. They accept [GitHub Sponsors](https://github.com/sponsors/Jiraiya43); this project asks for nothing. |
-| [Sq00ky/Supra-iDrive6-Android-Auto](https://github.com/Sq00ky/Supra-iDrive6-Android-Auto) (NBT-AAD), by nanaisu | PolyForm Noncommercial 1.0.0 | The project upstream started from. Its F-series 6WA cluster driver (MOST HUDTerminal: protocol, maneuver pictures, layout), with tom-pryor's guidance rules and junction view (#157, #162), *directions at any distance* (#205) and pstryju's fragment fix (#223). |
+| [Sq00ky/Supra-iDrive6-Android-Auto](https://github.com/Sq00ky/Supra-iDrive6-Android-Auto) (NBT-AAD), by nanaisu | PolyForm Noncommercial 1.0.0 | The project upstream started from. Its F-series 6WA cluster driver (MOST HUDTerminal: protocol, maneuver pictures, layout), with tom-pryor's guidance rules and junction view (#157, #162), *directions at any distance* (#205) and pstryju's fragment fix (#223), and bejusxd's song title in the 6WA (#288). |
 | [inotbarnacle/ID6_apps_prerelease](https://github.com/inotbarnacle/ID6_apps_prerelease) (ID6 apps), by inotbarnacle | MIT | The DME fault code descriptions (unchanged) and engine identifiers; the Gauges app's approach (BoostDeck's cards and tall bar, pre-drawn bars, a worker process for diagnostics); the MOST diagnosis tunnel's message format. |
 | [CallMeLewis/EntryNav-Apps](https://github.com/CallMeLewis/EntryNav-Apps), by CallMeLewis | MIT | The three firewall rules that open the diagnostic gateway's ports on EntryNav2, and the fault code clear's sequence. |
 | [BimmerGestalt/AAIdrive](https://github.com/BimmerGestalt/AAIdrive), by the BimmerGestalt team | MIT | The iDrive car data (CDS) paths the Gauges app reads, as its `CDSMetrics.kt` reads them. |
@@ -184,6 +197,7 @@ This project exists because the people below did the hard work and shared it. Th
 |---|---|
 | [JayJay3071/nbt-android-auto](https://github.com/JayJay3071/nbt-android-auto), `docs/CLUSTER-HUDTERMINAL.md` | The cluster's HUDTerminal functions, used by the on-car cluster tests. |
 | [NBT-AAD pull request #264](https://github.com/Sq00ky/Supra-iDrive6-Android-Auto/pull/264) (FreZZZeR) | How a 6WA answers the drawing calls (its image sizes, the copies of its answers), for the cluster work. |
+| [niz93/nbtevo-carplay-advanced-f5x-6wb-only](https://github.com/niz93/nbtevo-carplay-advanced-f5x-6wb-only), MINI F5x research | That a MINI F56 cluster drew CarPlay's guidance once the calls used the factory navigation's transmission type 4, for the cluster work. |
 | [gediz/bmw-unified-db](https://github.com/gediz/bmw-unified-db) | The source of ID6 apps' fault code summaries (DME8xx), used here through ID6 apps. |
 | NBT-AAD's open branches and ID6 apps' other apps | Reviewed for what fits this car; what was left out, and why, is in [docs/ORIGINS.md](docs/ORIGINS.md). |
 

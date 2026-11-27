@@ -138,7 +138,7 @@ private:
 };
 
 // ---- what the car side decides, pure so that the tests read the car's real outputs ------------------------------
-// The car's loader, run on a program with LD_TRACE_LOADED_OBJECTS (docs/INSTALLATION.md, step 2), found everything:
+// The car's loader, run on a program with LD_TRACE_LOADED_OBJECTS (tools/install.sh, step 2/7), found everything:
 // it ended with 0 and named no missing library, symbol or version. why: the first line that says otherwise.
 bool loaderFoundEverything(const std::string& output, int exitCode, std::string& why);
 // The system partition is mounted read-write: the last mount on "/" in mounts (/proc/mounts) is the one in use.
