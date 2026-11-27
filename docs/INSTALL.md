@@ -90,9 +90,9 @@ The screen goes dark and iDrive comes back in about a minute and a half.
 | *My Vehicle* → *Gauges* | the dashboards; OPTION → *Gauge settings* to choose the gauges, their looks, places and ranges |
 | *My Vehicle* → *Camera* | a USB video grabber's picture, if one is plugged in |
 
-The Gauges dashboard (a rendering of the app's own gauges; the real screen looks the same):
+The Gauges app's first dashboard, before you choose anything (a rendering of the app's own pictures; the car shows the same):
 
-![The Gauges dashboard: temperature dials, an rpm dial and boost and oil-pressure bars](images/gauges-dashboard.png)
+![The Gauges app's first dashboard: boost as a wide arc, water, intake air, module voltage, fuel quality, fuel level and oil pressure](images/gauges-dashboard.png)
 
 The gauge looks you can pick in *Gauge styles* — a card, a dial, a fuel-gauge arc, a wide bar and a tall bar:
 

@@ -6,6 +6,8 @@
 
 [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)](LICENSE.md)
 
+![The Gauges app's first dashboard: boost as a wide arc, water, intake air, module voltage, fuel quality, fuel level and oil pressure](docs/images/gauges-dashboard.png)
+
 </div>
 
 > [!WARNING]
@@ -46,9 +48,14 @@ Auto core is still upstream's work, and several other projects gave code or show
 - A shift light, the engine's fault codes with descriptions (and a clear that asks first), Live values, and a
   *Car tests* page whose results show on screen, for checks at the car.
 
-![The Gauges dashboard: temperature dials, an rpm dial and boost and oil-pressure bars](docs/images/gauges-dashboard.png)
+The looks a gauge can take (*Gauge styles*) — a card, a dial, a fuel-gauge arc, a wide bar and a tall bar:
 
-![A gauge alert: as usual below it, flashing red past it; a card marks it with ! and a flashing bar](docs/images/gauge-alert.png)
+![The gauge looks: a card, a dial, a fuel-quality arc, a boost bar and an oil-pressure tall bar](docs/images/gauge-looks.png)
+
+An alert (here Water over 110 °C): as usual below it, flashing red past it; a card marks it with ! and its bar flashes
+red:
+
+![A gauge alert: as usual below it, flashing red past it; a card marks it with ! and its bar flashing red](docs/images/gauge-alert.png)
 
 **Camera** (iDrive app *AuxCamera*, under My Vehicle)
 
