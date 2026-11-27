@@ -517,8 +517,9 @@ class Bar:
                 white.text(unit_text(unit), self.unit_at[0], self.unit_at[1], 18, anchor="right")
         return picture(w, h, [(grey, TRACK), (white, WHITE), (reds, RED)])
 
-    def value(self, level, levels, colour=None, box=None):
-        """The front picture: the segments up to the level, grey brightening to white towards the value (the M5's)."""
+    def value(self, level, levels, colour=None, box=None, tint=None):
+        """The front picture: the segments up to the level, grey brightening to white towards the value (the M5's).
+        tint: the same brightening in that colour instead (a gauge past its alert: red)."""
         w, h = self.size
         upto = self.long * level / (levels - 1)
         layers = []
@@ -533,7 +534,11 @@ class Bar:
             m.polygon(pts)
             mid = min(upto, k * (size + 3.0) + size / 2)
             t = mid / upto if upto else 1.0
-            layers.append((m, tuple(int(a + (b - a) * t) for a, b in zip(VALUE_DIM, VALUE_BRIGHT))))
+            if tint is None:
+                layers.append((m, tuple(int(a + (b - a) * t) for a, b in zip(VALUE_DIM, VALUE_BRIGHT))))
+            else:
+                k0 = VALUE_DIM[0] / VALUE_BRIGHT[0]
+                layers.append((m, tuple(int(c * (k0 + (1 - k0) * t)) for c in tint)))
         full = picture(w, h, layers)
         return crop(full, box) if box else full
 

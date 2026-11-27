@@ -43,10 +43,11 @@ value; *Gauge ranges* lists it next to each gauge. Saved in `gauges-alerts`.
 How it shows (here Water, alert over 110 °C):
 
 - **Below the alert** the gauge is as usual, but its red zone now starts at the alert value, so you see where it is.
-- **Past the alert** the dial, arc or bar flashes: all red, then as usual, twice a second, for as long as the value
-  stays past it. A card puts **!** before its number and its bar flashes; *Live values* adds "! over 110".
+- **Past the alert** the gauge flashes: all red, then as usual, twice a second, for as long as the value stays past
+  it. A dial or arc turns red with its scale; a bar's value turns red too. A card puts **!** before its number and
+  its bar flashes red; *Live values* adds "! over 110".
 
-![A Water gauge with an alert over 110 °C: as usual at 95 °C, flashing red at 115 °C; a card with ! and a flashing bar](images/gauge-alert.png)
+![A Water gauge with an alert over 110 °C: as usual at 95 °C, flashing red at 115 °C; a card with ! and its bar flashing red](images/gauge-alert.png)
 
 | File | Effect |
 |---|---|

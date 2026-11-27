@@ -311,6 +311,8 @@ FINE_LEVELS = 121  # gauge_ids.hpp kFineLevels: the big looks' images + level (f
 IMG_WIDE_BAR, IMG_TALL_BAR, IMG_NEEDLE, IMG_WIDE_NEEDLE = 59000, 59500, 60000, 60500
 IMG_FACE, IMG_WIDE_FACE, IMG_WIDE_TRACK, IMG_TALL_TRACK, IMG_CARD_ICON = 61000, 61100, 61200, 61300, 61400
 IMG_ARC_NEEDLE, IMG_WIDE_ARC_NEEDLE, IMG_ARC_FACE, IMG_WIDE_ARC_FACE = 62000, 62500, 63000, 63100
+# The bars' values in red: a gauge past its alert flashes between these and the white ones (gauge_ids.hpp).
+IMG_BAR_RED, IMG_WIDE_BAR_RED, IMG_TALL_BAR_RED = 56100, 59200, 59700
 
 
 def car_png(size, box, samples):
@@ -394,9 +396,13 @@ def art_pictures():
     for level in range(GAUGE_BAR_LEVELS):
         bar = gauge_art.whole_bar(gauge_art.CARD_BAR, level, GAUGE_BAR_LEVELS)
         yield 56000 + level, gauge_art.pad(bar, cell, (12, 140))
+        red = gauge_art.whole_bar(gauge_art.CARD_BAR, level, GAUGE_BAR_LEVELS, gauge_art.RED)
+        yield IMG_BAR_RED + level, gauge_art.pad(red, cell, (12, 140))
     for level in range(FINE_LEVELS):
         yield IMG_WIDE_BAR + level, gauge_art.WIDE_BAR.value(level, FINE_LEVELS, BAR)
         yield IMG_TALL_BAR + level, gauge_art.TALL_BAR.value(level, FINE_LEVELS, BAR)
+        yield IMG_WIDE_BAR_RED + level, gauge_art.WIDE_BAR.value(level, FINE_LEVELS, tint=gauge_art.RED)
+        yield IMG_TALL_BAR_RED + level, gauge_art.TALL_BAR.value(level, FINE_LEVELS, tint=gauge_art.RED)
     dials = (
         (gauge_art.SMALL_DIAL, IMG_NEEDLE),
         (gauge_art.WIDE_DIAL, IMG_WIDE_NEEDLE),

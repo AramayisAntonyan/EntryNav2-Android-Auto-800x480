@@ -167,10 +167,15 @@ const unsigned kImgShiftWarn0 = 57100;  // + level: the same bar past the shift 
 const unsigned kShiftLevels = 33;       // 250 rpm a step, 0..8000
 // Every other picture is in CarGauges_Art.pack, sent through raImageModels (as Android Auto's album cover), under the
 // same kind of ids. The big looks move in finer steps: + level, levels 0..kFineLevels - 1.
-const unsigned kFineLevels = 121;        // finer than 41: the needles move smoother
-const unsigned kImgBar0 = 56000;         // + level: a card's bar in its cell (189x180), 0..kBarLevels - 1
-const unsigned kImgWideBar0 = 59000;     // 386x180: the value's segments over the track
-const unsigned kImgTallBar0 = 59500;     // 189x368, filled from the bottom
+const unsigned kFineLevels = 121;     // finer than 41: the needles move smoother
+const unsigned kImgBar0 = 56000;      // + level: a card's bar in its cell (189x180), 0..kBarLevels - 1
+const unsigned kImgWideBar0 = 59000;  // 386x180: the value's segments over the track
+const unsigned kImgTallBar0 = 59500;  // 189x368, filled from the bottom
+// The same bars' values in red (make_db.py IMG_*_BAR_RED): a gauge past its alert flashes between them and the white
+// ones, as its face or track flashes red.
+const unsigned kImgBarRed0 = 56100;      // + level, 0..kBarLevels - 1
+const unsigned kImgWideBarRed0 = 59200;  // + level, 0..kFineLevels - 1
+const unsigned kImgTallBarRed0 = 59700;
 const unsigned kImgNeedle0 = 60000;      // 189x180, a dial's needle (transparent but the blade)
 const unsigned kImgWideNeedle0 = 60500;  // 386x180
 // One picture per gauge (+ catalogue entry): its icon, scale and numbers.

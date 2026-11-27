@@ -841,7 +841,7 @@ void showCell(unsigned c) {
     }
     const bool past = pastAlert(e, ok), red = past && flashRed();
     if (look == kLookCard) {
-        if (past) {  // past its alert: "!" before the number, and the bar flashes
+        if (past) {  // past its alert: "!" before the number, and the bar flashes red
             char marked[56];
             snprintf(marked, sizeof(marked), "! %s", text);
             setText(kCardValue0 + c, marked);
@@ -859,7 +859,7 @@ void showCell(unsigned c) {
             break;
         case kLookWide:
             setArt(kLookBack0[look] + c, faceArt(kImgWideTrack0, gauges::draw::kWideTrack, e, red));
-            setArt(kLookFront0[look] + c, kImgWideBar0 + fine);
+            setArt(kLookFront0[look] + c, (red ? kImgWideBarRed0 : kImgWideBar0) + fine);
             break;
         case kLookWideDial:
             setArt(kLookBack0[look] + c, faceArt(kImgWideFace0, gauges::draw::kWideFace, e, red));
@@ -875,11 +875,12 @@ void showCell(unsigned c) {
             break;
         case kLookTall:
             setArt(kLookBack0[look] + c, faceArt(kImgTallTrack0, gauges::draw::kTallTrack, e, red));
-            setArt(kLookFront0[look] + c, kImgTallBar0 + fine);
+            setArt(kLookFront0[look] + c, (red ? kImgTallBarRed0 : kImgTallBar0) + fine);
             break;
         default:
             setArt(kLookBack0[look] + c, kImgCardIcon0 + e);
-            setArt(kLookFront0[look] + c, barImage(ok && !red ? barLevel(scaled, shown) : 0));
+            setArt(kLookFront0[look] + c,
+                   (red ? kImgBarRed0 - kImgBar0 : 0) + barImage(ok ? barLevel(scaled, shown) : 0));
             break;
     }
 }

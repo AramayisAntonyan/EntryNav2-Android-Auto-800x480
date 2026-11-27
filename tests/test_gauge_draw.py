@@ -84,8 +84,22 @@ def main():
             if white or red < 200:
                 print(f"FAIL {title} alert face: {white} white pixels, {red} red ones")
                 failures += 1
+    # Past its alert a bar flashes red: the pack's red value bars (make_db.py IMG_*_BAR_RED) have no white segment.
+    full = make_db.GAUGE_BAR_LEVELS - 1
+    for name, data in (
+        ("card", gauge_art.whole_bar(gauge_art.CARD_BAR, full, make_db.GAUGE_BAR_LEVELS, gauge_art.RED)),
+        ("wide", gauge_art.WIDE_BAR.value(make_db.FINE_LEVELS - 1, make_db.FINE_LEVELS, tint=gauge_art.RED)),
+        ("tall", gauge_art.TALL_BAR.value(make_db.FINE_LEVELS - 1, make_db.FINE_LEVELS, tint=gauge_art.RED)),
+    ):
+        px, _, _ = gauge_art.unpng(data)
+        quads = [px[i : i + 4] for i in range(0, len(px), 4)]
+        white = sum(1 for r, g, b, a in quads if a > 128 and r > 200 and g > 200 and b > 200)
+        red = sum(1 for r, g, b, a in quads if a > 128 and r > 200 and g < 90 and b < 90)
+        if white or red < 100:
+            print(f"FAIL {name} red bar: {white} white pixels, {red} red ones")
+            failures += 1
     print(
-        "PASS gauge draw: the unit draws hand-set scales as the PC does, and an alert's face all red"
+        "PASS gauge draw: the unit draws hand-set scales as the PC does, an alert's face all red, red alert bars"
         if not failures
         else f"{failures} failed"
     )
